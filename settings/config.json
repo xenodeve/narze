@@ -1,0 +1,21 @@
+{
+	"token": "MTExNTg2MDg2NTczNzAzNTg1OA.GqzC--.-VnickHKJo8xKlE161L2Ad7vSvHTsEaGp6mgm8",
+	"clientId": "1115860865737035858",
+	"guildId": "505691523241869313",
+	"embed_color": "#e4854a",
+	"nodes": [
+		{
+		  "host": "lavalink.oryzen.xyz",
+		  "port": 80,
+		  "password": "oryzen.xyz",
+		  "regions": ["thailand"],
+		  "retryAmount": 99999999,
+		  "retryDelay": 500,
+		  "secure": false,
+		  "version": "v3"
+		}
+	],
+	"search_plat": "youtube music",
+	"volume_default": 10,
+	"cooldown_afterQueueEnd": 300
+}
