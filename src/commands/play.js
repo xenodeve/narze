@@ -68,14 +68,17 @@ module.exports = {
             }
         }
 
-        try {
-            await player.connect();
-        } catch (error) {
-            const embed = new EmbedBuilder()
-                .setColor(red)
-                .setDescription(`> ❌บอทไม่มีอำนาจเปิดเพลงในห้อง ${channel.toString()}`);
+        if (!player) {
 
-            return interaction.reply({ embeds: [embed], ephemeral: true });
+            try {
+                await player.connect();
+            } catch (error) {
+                const embed = new EmbedBuilder()
+                    .setColor(red)
+                    .setDescription(`> ❌บอทไม่มีอำนาจเปิดเพลงในห้อง ${channel.toString()}`);
+
+                return interaction.reply({ embeds: [embed], ephemeral: true });
+            }
         }
 
         // if (listPart !== null) {
@@ -101,6 +104,7 @@ module.exports = {
         global.interaction_global = interaction;
         global.play_guild = interaction.guild;
         global.play_channel = channel;
+        global.interaction_player = interaction;
 
         await interaction.deferReply({ ephemeral: false });
 
@@ -131,7 +135,7 @@ module.exports = {
                 .setDescription(`📝┃**${res.tracks[0].title}** \` ${convertTime(res.tracks[0].duration)} \` \n ลำดับ: \` ${player.queue.size} \``)
                 .setThumbnail(`https://img.youtube.com/vi/${video_id}/maxresdefault.jpg`)
             interaction.editReply({ embeds: [embed] });
-        } else if (res.loadType === 'PLAYLIST_LOADED') {
+        } else if (res.playlist) {
             // ถ้าเป็น playlist
             player.queue.add(res.tracks)
             player.setVolume(config.volume_default);
@@ -144,7 +148,7 @@ module.exports = {
                     .setColor(config.embed_color)
                     .setAuthor(
                         { name: 'Go to Playlist', iconURL: userAvatar, url: `https://www.youtube.com/playlist?list=${video_id_playlist}` }
-                        )
+                    )
                     .setDescription(`> 🎵 **Playlist:** ${res.playlist.name}\n> ⏱ **เวลา:** \` ${convertTime(res.playlist.duration)} \` \n> 📊 **มี:** \` ${res.tracks.length} \` เพลง \n> **ห้อง:** ${channel.toString()}`)
                     .setThumbnail(`https://img.youtube.com/vi/${video_id}/maxresdefault.jpg`);
 
