@@ -16,7 +16,7 @@ module.exports = {
         .setTitle(`🏓 |  Ping Status`)
         .setThumbnail('https://i.gifer.com/fyMe.gif')
         .addFields(
-            { name: 'Ping Latency', value: `${ping}ms`, inline: true },
+            { name: 'Reply Latency', value: `${ping}ms`, inline: true },
             { name: 'Bot Latency', value: `${Math.abs(Date.now() - interaction.createdTimestamp)}ms`, inline: true },
             { name: 'API Latency', value: `${Math.abs(Math.round(interaction.client.ws.ping))}ms`, inline: true },
         )
