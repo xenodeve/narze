@@ -38,7 +38,7 @@ module.exports = {
             const identifier = player.queue.current.identifier;
             const search = `https://www.youtube.com/watch?v=${identifier}&list=RD${identifier}`;
             let res = await player.search(search, requester);
-            console.log('autoplay', autoplay, 'requester', requester, 'identifier', identifier, 'search', search, 'res', res)
+            // console.log('autoplay', autoplay, 'requester', requester, 'identifier', identifier, 'search', search, 'res', res)
             try {
                 await player.queue.add(res.tracks[1]);
             } catch (e) {
