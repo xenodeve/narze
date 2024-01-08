@@ -1,6 +1,6 @@
 {
 	"token": "",
-	"clientId": "1115860865737035858",
+	"clientId": "",
 	"guildId": "",
 	"embed_color": "#e4854a",
 	"nodes": [
@@ -17,13 +17,8 @@
 	],
 	"search_plat": "youtube music",
 	"volume_default": 10,
-<<<<<<< HEAD
 	"cooldown_afterQueueEnd": 300,
 	"youtube_api_key": "",
 	"clientId_spotify": "",
 	"clientSecret_spotify": ""
 }
-=======
-	"cooldown_afterQueueEnd": 300
-}
->>>>>>> b6ca9303f8aaa9cda7841c928111a77ecf32115b
