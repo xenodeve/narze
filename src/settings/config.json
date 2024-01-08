@@ -1,7 +1,7 @@
 {
-	"token": "MTExNTg2MDg2NTczNzAzNTg1OA.GqzC--.-VnickHKJo8xKlE161L2Ad7vSvHTsEaGp6mgm8",
+	"token": "",
 	"clientId": "1115860865737035858",
-	"guildId": "505691523241869313",
+	"guildId": "",
 	"embed_color": "#e4854a",
 	"nodes": [
 		{
@@ -17,8 +17,13 @@
 	],
 	"search_plat": "youtube music",
 	"volume_default": 10,
+<<<<<<< HEAD
 	"cooldown_afterQueueEnd": 300,
 	"youtube_api_key": "AIzaSyBpuifRes-AFcQzQsxnt6Uj6yvFE0tRIso",
 	"clientId_spotify": "2e815eaf9f384c918e818ecdc5412004",
 	"clientSecret_spotify": "d1e9cd4dcd994d2da96238b7826a3018"
 }
+=======
+	"cooldown_afterQueueEnd": 300
+}
+>>>>>>> b6ca9303f8aaa9cda7841c928111a77ecf32115b
