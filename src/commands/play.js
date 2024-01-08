@@ -120,14 +120,13 @@ module.exports = {
         const videoData = response.data.items[0];
 
         if (videoData && videoData.snippet.liveBroadcastContent === 'live') {
-            console.log('The video is live.');
+            console.log('[Track] The music is live.');
             Live = true;
         } else {
-            console.log('The video is not live.');
+            console.log('[Track] The music is not live.');
             Live = false;
         }
 
-        console.log('Live or Not : ', Live);
 
         // ตรวจสอบเงื่อนไขเพื่อเลือกทำงานต่าง ๆ
         if (!player.playing && !player.paused && !player.queue.size && !res.playlist && Live == false) {

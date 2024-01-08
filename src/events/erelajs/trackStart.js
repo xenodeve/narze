@@ -31,7 +31,7 @@ module.exports = {
             const embed = new EmbedBuilder()
                 .setColor(config.embed_color)
                 .setAuthor({ name: 'Go to Page', iconURL: userAvatar, url: urls })
-                .setDescription(`**AutoPlay** \n ▶️┃ ${tracks.title} \` ${convertTime(tracks.duration)} \``)
+                .setDescription(`**AutoPlay:** on \n ▶️┃ ${tracks.title} \` ${convertTime(tracks.duration)} \``)
                 .setThumbnail(`https://img.youtube.com/vi/${video_id}/maxresdefault.jpg`);
 
             return channel.send({ embeds: [embed], ephemeral: false });
