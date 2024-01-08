@@ -99,6 +99,8 @@ module.exports = {
         global.player_guild_name = player_guild_name;
         global.player_guild_id = player_guild_id;
         global.interaction_global = interaction;
+        global.play_guild = interaction.guild;
+        global.play_channel = channel;
 
         await interaction.deferReply({ ephemeral: false });
 
@@ -117,7 +119,6 @@ module.exports = {
                 .setDescription(`▶️┃**${res.tracks[0].title}** \` ${convertTime(res.tracks[0].duration)} \``)
                 .setThumbnail(`https://img.youtube.com/vi/${video_id}/maxresdefault.jpg`)
 
-            console.log(`[COMMAND] : Play ${res.tracks[0].title} in Channel: ${channel.name} Server: ${interaction.guild.name}(${player_guild_id})`);
             interaction.editReply({ embeds: [embed] });
 
         } else if (player.playing && !res.playlist) {
