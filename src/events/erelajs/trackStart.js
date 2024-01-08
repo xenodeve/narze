@@ -12,25 +12,29 @@ module.exports = {
         interaction_player = global.interaction_player;
         player_play = global.player;
         guild_id = global.interactionCreate_guild_id;
-        
+
 
         channel_text = global.channel_text;
 
         const channel = interaction_player.guild.channels.cache.get(channel_text);
 
 
-        console.log(`[LAVALINK] : Play ${tracks.title} in Channel: ${play_channel.name} Server: ${play_guild.name}(${guild_id})`);
+        console.log(`[LAVALINK] : Play ${tracks.title} in Channel: ${play_channel.name} Server: ${play_guild.name}(${player_play.guild})`);
+        
 
-        // const userAvatar = global.userAvatar
-        // const urls = tracks.uri;
-        // const video_id = urls.split('v=')[1];
+        const autoplay = player_play.get('autoplay')
+        if (autoplay === true) {
+            const userAvatar = global.userAvatar
+            const urls = tracks.uri;
+            const video_id = urls.split('v=')[1];
 
-        // const embed = new EmbedBuilder()
-        //     .setColor(config.embed_color)
-        //     .setAuthor({ name: 'Go to Page', iconURL: userAvatar, url: urls })
-        //     .setDescription(`▶️┃**${tracks.title}** \` ${convertTime(tracks.duration)} \``)
-        //     .setThumbnail(`https://img.youtube.com/vi/${video_id}/maxresdefault.jpg`);
+            const embed = new EmbedBuilder()
+                .setColor(config.embed_color)
+                .setAuthor({ name: 'Go to Page', iconURL: userAvatar, url: urls })
+                .setDescription(`**AutoPlay** \n ▶️┃ ${tracks.title} \` ${convertTime(tracks.duration)} \``)
+                .setThumbnail(`https://img.youtube.com/vi/${video_id}/maxresdefault.jpg`);
 
-            // return channel.send({ embeds: [embed], ephemeral: false });
+            return channel.send({ embeds: [embed], ephemeral: false });
+        }
     },
 };
