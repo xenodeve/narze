@@ -5,35 +5,32 @@ const { convertTime } = require('../../structures/convertTime.js');
 
 module.exports = {
     name: 'trackStart',
-    async execute(interaction, tracks, client, message, channel) {
+    async execute(interaction, tracks, player, message, client) {
         // const channel = client.channels.cache.get('id');
         play_guild = global.play_guild
         play_channel = global.play_channel;
         interaction_player = global.interaction_player;
+        player_play = global.player;
+        guild_id = global.interactionCreate_guild_id;
+        
 
-        console.log(`[LAVALINK] : Play ${tracks.title} in Channel: ${play_channel.name} Server: ${play_guild.name}(${player.guild})`);
+        channel_text = global.channel_text;
 
-        const userAvatar = global.userAvatar
-        const urls = tracks.uri;
-        const video_id = urls.split('v=')[1];
+        const channel = interaction_player.guild.channels.cache.get(channel_text);
 
-        const embed = new EmbedBuilder()
-            .setColor(config.embed_color)
-            .setAuthor({ name: 'Go to Page', iconURL: userAvatar, url: urls })
-            .setDescription(`▶️┃**${tracks.title}** \` ${convertTime(tracks.duration)} \``)
-            .setThumbnail(`https://img.youtube.com/vi/${video_id}/maxresdefault.jpg`);
 
-            // interaction.channel.send({ embeds: [embed], ephemeral: false });
-            // interaction.channel.send('content');
+        console.log(`[LAVALINK] : Play ${tracks.title} in Channel: ${play_channel.name} Server: ${play_guild.name}(${guild_id})`);
 
-        // client.on('messageCreate', (message) => {
-        //     message.send({ embeds: [embed], ephemeral: false });
-        // })
+        // const userAvatar = global.userAvatar
+        // const urls = tracks.uri;
+        // const video_id = urls.split('v=')[1];
 
-        // if (interaction.reply) {
-        //     return interaction.reply({ embeds: [embed], ephemeral: false });
-        // } else {
-        //     console.error("interaction.reply is not available");
-        // }
+        // const embed = new EmbedBuilder()
+        //     .setColor(config.embed_color)
+        //     .setAuthor({ name: 'Go to Page', iconURL: userAvatar, url: urls })
+        //     .setDescription(`▶️┃**${tracks.title}** \` ${convertTime(tracks.duration)} \``)
+        //     .setThumbnail(`https://img.youtube.com/vi/${video_id}/maxresdefault.jpg`);
+
+            // return channel.send({ embeds: [embed], ephemeral: false });
     },
 };

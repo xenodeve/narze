@@ -33,6 +33,9 @@ module.exports = {
 
         const { channel } = interaction.member.voice;
 
+        global.channel_text = interaction.channelId;
+
+
         const player = interaction.client.manager.get(interaction.guild.id) || interaction.client.manager.create({
             guild: interaction.guild.id,
             voiceChannel: interaction.member.voice.channel.id,
@@ -97,15 +100,14 @@ module.exports = {
         const player_guild_name = interaction.guild.name;
         const player_guild_id = player.guild;
 
-        global.player = player;
         global.urls = urls;
         global.userMention = userMention;
         global.userAvatar = userAvatar;
         global.res = res;
+        global.player = player;
         global.video_id = video_id;
         global.player_guild_name = player_guild_name;
         global.player_guild_id = player_guild_id;
-        global.interaction_global = interaction;
         global.play_guild = interaction.guild;
         global.play_channel = channel;
         global.interaction_player = interaction;
@@ -192,8 +194,7 @@ module.exports = {
                 .setDescription(`🔴┃**${res.tracks[0].title}**`)
                 .setThumbnail(`https://img.youtube.com/vi/${video_id}/maxresdefault.jpg`)
             return interaction.editReply({ embeds: [embed] });
-        }
-        else {
+        } else {
             const embed = new EmbedBuilder()
                 .setColor(red)
                 .setDescription(`> ❌ไม่สามารถดึงข้อมูล Live นี้ได้.`);

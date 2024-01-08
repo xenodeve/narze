@@ -16,5 +16,7 @@ module.exports = {
 
 		// console.log(`[COMMAND] ${interaction.user.tag} Used ${command.name.at(-1)} in ${interaction.guild.name} (${interaction.guild.id})`);
 		console.log(`[COMMAND] : ${interaction.user.tag} Used Command in ${interaction.guild.name}(${interaction.guild.id})`);
+
+		global.interactionCreate_guild_id = interaction.guild.id;
 	},
 };
