@@ -1,6 +1,6 @@
 module.exports = {
     name: 'queueEnd',
-    // async execute(interaction) {
+    async execute(interaction) {
     //     const player = global.player;
     //     const identifier = player.queue.current.identifier;
     //     const video_id = global.video_id;
@@ -15,5 +15,5 @@ module.exports = {
     //             ///
     //         }
     //     }
-    // }
+    }
 }

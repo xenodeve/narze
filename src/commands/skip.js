@@ -12,8 +12,6 @@ module.exports = {
         // const userAvatar = res.tracks[0].requester.displayAvatarURL();
 
         const player = global.player;
-        const res = global.res;
-        const urls = global.urls;
 
         if (!player) {
             const embed = new EmbedBuilder()

@@ -2,6 +2,7 @@ const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const config = require('../settings/config.json')
 const { convertTime } = require('../structures/convertTime');
 const { red } = require('color-name');
+const axios = require('axios');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -27,7 +28,7 @@ module.exports = {
 
         const res = await interaction.client.manager.search(
             query,
-            interaction.author
+            interaction.author,
         );
 
         const { channel } = interaction.member.voice;
@@ -52,7 +53,7 @@ module.exports = {
                 .setColor(red)
                 .setDescription(`> ❌ไม่สามารถเข้าถึงเพลงได้`);
 
-            return interaction.reply({ embeds: [embed], ephemeral: false });
+            return interaction.reply({ embeds: [embed], ephemeral: true });
         }
         const urls = res.tracks[0].uri;
 
@@ -68,25 +69,28 @@ module.exports = {
             }
         }
 
-        if (!player) {
+        function F_Join_Play() {
+            if (!player.playing) {
+                try {
+                    player.connect();
+                    player.play();
+                } catch (error) {
+                    const embed = new EmbedBuilder()
+                        .setColor(red)
+                        .setDescription(`> ❌บอทไม่มีอำนาจเปิดเพลงในห้อง ${channel.toString()}`);
 
-            try {
-                await player.connect();
-            } catch (error) {
-                const embed = new EmbedBuilder()
-                    .setColor(red)
-                    .setDescription(`> ❌บอทไม่มีอำนาจเปิดเพลงในห้อง ${channel.toString()}`);
-
-                return interaction.reply({ embeds: [embed], ephemeral: true });
+                    return interaction.reply({ embeds: [embed], ephemeral: true });
+                }
             }
         }
 
-        // if (listPart !== null) {
-        //     console.log('List Part : ', listPart)
-        //     // ลบ index=
-        //     const  video_id_playlist = listPart.replace(/index=/, '');
-        //     return video_id_playlist;
-        // }
+
+        volume_player = global.volume_player;
+
+        if (!volume_player) {
+            player.setVolume(config.volume_default);
+        }
+
 
         const userAvatar = interaction.user.displayAvatarURL();
         const userMention = interaction.user.toString();
@@ -108,13 +112,29 @@ module.exports = {
 
         await interaction.deferReply({ ephemeral: false });
 
+        const apiKey = config.youtube_api_key;
+        const apiUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${video_id}&key=${apiKey}`;
+        const response = await axios.get(apiUrl);
+        const videoData = response.data.items[0];
+
+        if (videoData && videoData.snippet.liveBroadcastContent === 'live') {
+            console.log('The video is live.');
+            Live = true;
+        } else {
+            console.log('The video is not live.');
+            Live = false;
+        }
+
+        console.log('Live or Not : ', Live);
+
         // ตรวจสอบเงื่อนไขเพื่อเลือกทำงานต่าง ๆ
-        if (!player.playing && !player.paused && !player.queue.size && !res.playlist) {
+        if (!player.playing && !player.paused && !player.queue.size && !res.playlist && Live == false) {
 
             await player.queue.add(res.tracks[0]);
             const TimeMusic = convertTime(res.tracks[0].duration);
             global.TimeMusic = TimeMusic;
-            player.play();
+
+            F_Join_Play();
 
             // สร้าง Embed และแสดงผล
             const embed = new EmbedBuilder()
@@ -123,9 +143,9 @@ module.exports = {
                 .setDescription(`▶️┃**${res.tracks[0].title}** \` ${convertTime(res.tracks[0].duration)} \``)
                 .setThumbnail(`https://img.youtube.com/vi/${video_id}/maxresdefault.jpg`)
 
-            interaction.editReply({ embeds: [embed] });
+            return interaction.editReply({ embeds: [embed] });
 
-        } else if (player.playing && !res.playlist) {
+        } else if (player.playing && !res.playlist && Live == false) {
             await player.queue.add(res.tracks[0]);
 
             // สร้าง Embed และแสดงผล
@@ -134,16 +154,16 @@ module.exports = {
                 .setAuthor({ name: 'Go to Page', iconURL: userAvatar, url: urls })
                 .setDescription(`📝┃**${res.tracks[0].title}** \` ${convertTime(res.tracks[0].duration)} \` \n ลำดับ: \` ${player.queue.size} \``)
                 .setThumbnail(`https://img.youtube.com/vi/${video_id}/maxresdefault.jpg`)
-            interaction.editReply({ embeds: [embed] });
-        } else if (res.playlist) {
+            return interaction.editReply({ embeds: [embed] });
+        } else if (res.playlist && Live == false) {
             // ถ้าเป็น playlist
-            player.queue.add(res.tracks)
-            player.setVolume(config.volume_default);
-            player.play();
+
+            await player.queue.add(res.tracks)
+            F_Join_Play();
 
             video_id_playlist = getVideoIdPlaylist(listPart);
 
-            if (res.playlist) {
+            if (res.playlist && Live == false) {
                 const embed = new EmbedBuilder()
                     .setColor(config.embed_color)
                     .setAuthor(
@@ -152,14 +172,33 @@ module.exports = {
                     .setDescription(`> 🎵 **Playlist:** ${res.playlist.name}\n> ⏱ **เวลา:** \` ${convertTime(res.playlist.duration)} \` \n> 📊 **มี:** \` ${res.tracks.length} \` เพลง \n> **ห้อง:** ${channel.toString()}`)
                     .setThumbnail(`https://img.youtube.com/vi/${video_id}/maxresdefault.jpg`);
 
-                interaction.editReply({ embeds: [embed], ephemeral: false });
+                return interaction.editReply({ embeds: [embed], ephemeral: false });
             } else {
                 const embed = new EmbedBuilder()
                     .setColor(red)
                     .setDescription(`> ❌ไม่สามารถดึงข้อมูลเพลย์ลิสต์ได้.`);
 
-                interaction.reply({ embeds: [embed], ephemeral: true });
+                return interaction.reply({ embeds: [embed], ephemeral: true });
             }
+        } else if (Live == true) {
+
+            await player.queue.add(res.tracks[0]);
+            F_Join_Play();
+
+            // สร้าง Embed และแสดงผล
+            const embed = new EmbedBuilder()
+                .setColor(config.embed_color)
+                .setAuthor({ name: 'Go to Live', iconURL: userAvatar, url: urls })
+                .setDescription(`🔴┃**${res.tracks[0].title}**`)
+                .setThumbnail(`https://img.youtube.com/vi/${video_id}/maxresdefault.jpg`)
+            return interaction.editReply({ embeds: [embed] });
+        }
+        else {
+            const embed = new EmbedBuilder()
+                .setColor(red)
+                .setDescription(`> ❌ไม่สามารถดึงข้อมูล Live นี้ได้.`);
+
+            return interaction.reply({ embeds: [embed], ephemeral: true });
         }
     },
 };

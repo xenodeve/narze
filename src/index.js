@@ -6,14 +6,23 @@ const fs = require('node:fs');
 const push_Guild = require('./push_guild.js'); // เรียกใช้ไฟล์ push_guild.js
 
 //ทำการสร้าง Client (ตัวจัดการบอท) จาก Lib discord.js
-const client = new Client({ intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-	GatewayIntentBits.GuildVoiceStates
-]});
+const client = new Client({
+	intents: [
+		GatewayIntentBits.Guilds,
+		GatewayIntentBits.GuildMessages,
+		GatewayIntentBits.GuildVoiceStates
+	]
+});
+
+const clientID = config.clientId_spotify
+const clientSecret = config.clientSecret_spotify
 
 client.manager = new Manager({
 	nodes: config.nodes,
+	source: [
+		"spotify",
+		"apple music"
+	],
 	forceSearchLinkQueries: true,
 	defaultSearchPlatform: config.search_plat,
 	position_update_interval: 100,
@@ -23,7 +32,6 @@ client.manager = new Manager({
 	}
 });
 
-client.channel = client.channels.cache.get('id');
 
 //ทำการโหลดไฟล์ Event erela เข้าบอท
 const erelaFiles = fs.readdirSync('./events/erelajs').filter(file => file.endsWith('.js'));

@@ -35,10 +35,13 @@ module.exports = {
         await interaction.deferReply({ ephemeral: false });
 
         const value = interaction.options.getInteger('amount');
+
+        global.volume_player = value; 
+
         if (!value) {
             const embed = new EmbedBuilder()
                 .setColor(config.embed_color)
-                .setDescription(`> \`📢\`┃**เสียง:** \`${config.volume_default}%\``);
+                .setDescription(`> \`📢\`┃**เสียง:** \`${player.volume}%\``);
 
             return interaction.editReply({ embeds: [embed], ephemeral: false });
         }

@@ -22,6 +22,8 @@ module.exports = {
         return interaction.reply({ embeds: [embed], ephemeral: true });
     }
         const player = interaction.client.manager.get(interaction?.guild?.id);
+
+        
         if (!player) {
             const embed = new EmbedBuilder()
                 .setColor(red)
@@ -32,6 +34,18 @@ module.exports = {
             const embed = new EmbedBuilder()
                 .setColor(red)
                 .setDescription(`> ❌ไม่มีการเล่นเพลงอยู่`);
+
+            return interaction.reply({ embeds: [embed], ephemeral: true });
+        } else if (!interaction.member.voice.channel) {
+            const embed = new EmbedBuilder()
+                .setColor(red)
+                .setDescription(`> ❌กรุณาเข้าห้องเสียงด้วย`);
+
+            return interaction.reply({ embeds: [embed], ephemeral: true });
+        } else if (interaction.member.voice.channel.id !== player.voiceChannel) {
+            const embed = new EmbedBuilder()
+                .setColor(red)
+                .setDescription(`> ❌คุณต้องอยู่ในห้องเดียวกับบอท`);
 
             return interaction.reply({ embeds: [embed], ephemeral: true });
         }

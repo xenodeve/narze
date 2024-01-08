@@ -20,12 +20,26 @@ module.exports = {
 
         console.log(player.voiceChannel)
 
-        await player.connect();
+        try {
+            await player.connect();
+        } catch (error) {
+            const embed = new EmbedBuilder()
+                .setColor(red)
+                .setDescription(`> ❌บอทไม่มีอำนาจเปิดเพลงในห้อง ${TagChannel(channel)}`);
+
+            return interaction.reply({ embeds: [embed], ephemeral: true });
+        }
+
+        function TagChannel(channel) {
+            channel_tag = channel.toString()
+            return channel_tag
+        }
 
         const embed = new EmbedBuilder()
             .setColor(config.embed_color)
-            .setDescription(`> \`🔊\` | เข้าห้อง \`${channel.name}\``)
+            .setDescription(`> \`🔊\` | เข้าห้อง ${TagChannel(channel)}`)
 
         return interaction.editReply({ embeds: [embed] });
+
     }
 };

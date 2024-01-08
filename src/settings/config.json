@@ -17,5 +17,8 @@
 	],
 	"search_plat": "youtube music",
 	"volume_default": 10,
-	"cooldown_afterQueueEnd": 300
+	"cooldown_afterQueueEnd": 300,
+	"youtube_api_key": "AIzaSyBpuifRes-AFcQzQsxnt6Uj6yvFE0tRIso",
+	"clientId_spotify": "2e815eaf9f384c918e818ecdc5412004",
+	"clientSecret_spotify": "d1e9cd4dcd994d2da96238b7826a3018"
 }
