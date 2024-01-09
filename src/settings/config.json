@@ -5,12 +5,23 @@
 	"embed_color": "#e4854a",
 	"nodes": [
 		{
+			"host": "127.0.0.1",
+			"port": 2333,
+			"password": "xeno",
+			"regions": ["thailand"],
+			"retryAmount": 99999999,
+			"retryDelay": 1000,
+			"secure": false,
+			"version": "v3"
+		},
+
+		{
 		  "host": "lavalink.oryzen.xyz",
 		  "port": 80,
 		  "password": "oryzen.xyz",
 		  "regions": ["thailand"],
 		  "retryAmount": 99999999,
-		  "retryDelay": 500,
+		  "retryDelay": 1000,
 		  "secure": false,
 		  "version": "v3"
 		}
