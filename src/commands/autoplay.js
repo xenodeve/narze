@@ -34,9 +34,9 @@ module.exports = {
             const search = `https://www.youtube.com/watch?v=${identifier}&list=RD${identifier}`;
             const res = await player.search(search, interaction.user);
 
-            await player.set("autoplay", true);
-            await player.set("requester", interaction.user);
-            await player.set("identifier", identifier);
+            await player.set('autoplay', true);
+            await player.set('requester', interaction.user);
+            await player.set('identifier', identifier);
             try {
                 await player.queue.add(res.tracks[1]);
             } catch (e) {

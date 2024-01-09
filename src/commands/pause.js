@@ -16,7 +16,7 @@ module.exports = {
                 .setDescription(`> ❌ไม่มีเครื่องเล่น`);
 
             return interaction.reply({ embeds: [embed], ephemeral: true });
-        } else if (!player.playing) {
+        } else if (!player.queue.current) {
             const embed = new EmbedBuilder()
                 .setColor(red)
                 .setDescription(`> ❌ไม่มีเพลงที่เล่นอยู่`);
@@ -38,12 +38,28 @@ module.exports = {
 
         await interaction.deferReply({ ephemeral: false });
 
-        await player.pause(player.playing);
-
         const video_id = player.queue.current.uri.split('v=')[1];
         const userAvatar = interaction.user.displayAvatarURL();
 
-        const embed = new EmbedBuilder()
+        await player.pause(player.playing);
+
+        const pause = player.get('pause');
+        if (pause === true) {
+            await player.set('pause', false);
+
+            const embed = new EmbedBuilder()
+            .setColor(config.embed_color)
+            .setAuthor({ name: 'Go to Page', iconURL: userAvatar, url: player.queue.current.uri})
+            .setDescription(`▶️┃**${player.queue.current.title}** \` ${convertTime(player.queue.current.duration)} \``)
+            .setThumbnail(`https://img.youtube.com/vi/${video_id}/maxresdefault.jpg`)
+            .setFooter({ text: 'เล่นต่อ' })
+
+            return interaction.editReply({ embeds: [embed] });
+        } else {            
+            
+            await player.set('pause', true);
+
+            const embed = new EmbedBuilder()
             .setColor(config.embed_color)
             .setAuthor({ name: 'Go to Page', iconURL: userAvatar, url: player.queue.current.uri})
             .setDescription(`⏸️┃**${player.queue.current.title}** \` ${convertTime(player.queue.current.duration)} \``)
@@ -51,5 +67,6 @@ module.exports = {
             .setFooter({ text: 'พักการเล่น' })
 
         return interaction.editReply({ embeds: [embed] });
+        }
     }
 }
