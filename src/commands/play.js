@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, PermissionsBitField } = require('discord.js');
 const config = require('../settings/config.json')
 const { convertTime } = require('../structures/convertTime');
 const { red } = require('color-name');
@@ -58,6 +58,18 @@ module.exports = {
 
             return interaction.reply({ embeds: [embed], ephemeral: true });
         }
+
+        // ตรวจสอบ Permissions ในห้องเสียง
+        const memberVoiceChannel = interaction.member.voice.channel;
+        const permissions = memberVoiceChannel.permissionsFor(interaction.client.user);
+        if (!permissions.has(PermissionsBitField.Flags.Connect) || !permissions.has(PermissionsBitField.Flags.Speak)) {
+            const embed = new EmbedBuilder()
+                .setColor(config.embed_color)
+                .setDescription(`> ❌บอทไม่มีอำนาจเปิดเพลงในห้อง ${channel.toString()}`);
+
+            return interaction.reply({ embeds: [embed], ephemeral: true });
+        }
+
         const urls = res.tracks[0].uri;
 
         const video_id = urls.split('v=')[1];
@@ -74,16 +86,8 @@ module.exports = {
 
         function F_Join_Play() {
             if (!player.playing) {
-                try {
-                    player.connect();
-                    player.play();
-                } catch (error) {
-                    const embed = new EmbedBuilder()
-                        .setColor(red)
-                        .setDescription(`> ❌บอทไม่มีอำนาจเปิดเพลงในห้อง ${channel.toString()}`);
-
-                    return interaction.reply({ embeds: [embed], ephemeral: true });
-                }
+                player.connect();
+                player.play();
             }
         }
 
