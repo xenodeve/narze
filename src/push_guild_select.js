@@ -24,14 +24,14 @@ const rest = new REST({ version: '10' }).setToken(token);
 
 (async () => {
     try {
-        console.log(`[${chalk.bold.greenBright('PUSH')}] ${chalk.greenBright('Started refreshing application (/) commands on guild.')}`);
+        console.log(`[${chalk.bold.greenBright('PUSH')}] Started refreshing application (/) commands on guild.`);
 
         await rest.put(
             Routes.applicationGuildCommands(clientId, guildId),
             { body: commands },
         );
 
-        console.log(`[${chalk.bold.greenBright('PUSH')}] ${chalk.greenBright('Successfully reloaded application (/) commands on guild.')}`);
+        console.log(`[${chalk.bold.greenBright('PUSH')}] Successfully reloaded application (/) commands on guild.`);
     } catch (error) {
         console.error(error);
     }

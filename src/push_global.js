@@ -16,14 +16,14 @@ const rest = new REST({ version: '10' }).setToken(token);
 
 (async () => {
 	try {
-		console.log(`[${chalk.bold.greenBright('PUSH')}] ${chalk.greenBright('Started refreshing application (/) commands on global.')}`);
+		console.log(`[${chalk.bold.greenBright('PUSH')}] Started refreshing application (/) commands on global.`);
 
         await rest.put(
             Routes.applicationCommands(clientId),
             { body: commands },
         );
 
-		console.log(`[${chalk.bold.greenBright('PUSH')}] ${chalk.greenBright('Successfully reloaded application (/) commands on global.')}`);
+		console.log(`[${chalk.bold.greenBright('PUSH')}] Successfully reloaded application (/) commands on global.`);
 	} catch (error) {
 		console.error(error);
 	}
