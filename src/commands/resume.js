@@ -16,7 +16,7 @@ module.exports = {
                 .setDescription(`> ❌ไม่มีเครื่องเล่น`);
 
             return interaction.reply({ embeds: [embed], ephemeral: true });
-        } else if (!player.playing) {
+        } else if (!player.queue.current) {
             const embed = new EmbedBuilder()
                 .setColor(red)
                 .setDescription(`> ❌ไม่มีเพลงที่เล่นอยู่`);

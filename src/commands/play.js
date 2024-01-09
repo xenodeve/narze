@@ -50,8 +50,6 @@ module.exports = {
             selfDeafen: true,
         });
 
-        console.log(interaction.client.manager.get(interaction.guild.id))
-
 
         if (interaction.member.voice.channel.id !== player.voiceChannel) {
             const embed = new EmbedBuilder()
