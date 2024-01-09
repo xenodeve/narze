@@ -1,9 +1,11 @@
+const chalk = require('chalk');
+
 module.exports = {
 	name: 'nodeDisconnect',
 	execute(node, player) {
-		console.log('[WARN] Node', node.options.identifier, 'disconnected.');
-		await 
-		player.queue.clear();
-		player.destroy();
+		console.log(`[${chalk.bold.yellowBright('WARN')}]' ${node.options.identifier} ${chalk.greenBright('disconnected.')}`);
+		// await 
+		// player.queue.clear();
+		// player.destroy();
 	},
 };

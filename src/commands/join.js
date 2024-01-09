@@ -18,7 +18,6 @@ module.exports = {
             selfDeafen: true,
         });
 
-        console.log(player.voiceChannel)
 
         try {
             await player.connect();

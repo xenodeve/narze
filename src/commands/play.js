@@ -7,7 +7,7 @@ const axios = require('axios');
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('play')
-        .setDescription('เล่น / เพิ่มคิว')
+        .setDescription('เล่น | เพิ่มคิว')
         .addStringOption(option =>
             option
                 .setName('query')
@@ -120,10 +120,10 @@ module.exports = {
         const videoData = response.data.items[0];
 
         if (videoData && videoData.snippet.liveBroadcastContent === 'live') {
-            console.log('[Track] The music is live.');
+            // console.log('[Track] The music is live.');
             Live = true;
         } else {
-            console.log('[Track] The music is not live.');
+            // console.log('[Track] The music is not live.');
             Live = false;
         }
 

@@ -1,8 +1,11 @@
+const chalk = require('chalk');
+
 module.exports = {
 	name: 'ready',
 	once: true,
 	execute(client, interaction) {
-		console.log('[WARN]', client.user.username, 'Online!');
+		console.log(`[${chalk.bold.greenBright('WARN')}]' ${client.user.username} ${chalk.greenBright('Online!')}`);
+		
 		client.manager.init(client.user.id);
 
 		// client.user.setActivity({

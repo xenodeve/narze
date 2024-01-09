@@ -2,6 +2,7 @@
 const { EmbedBuilder } = require('discord.js');
 const config = require('../../settings/config.json');
 const { convertTime } = require('../../structures/convertTime.js');
+const chalk =require('chalk');
 
 module.exports = {
     name: 'trackStart',
@@ -19,11 +20,17 @@ module.exports = {
         const channel = interaction_player.guild.channels.cache.get(channel_text);
 
 
-        console.log(`[LAVALINK] : Play ${tracks.title} in Channel: ${play_channel.name} Server: ${play_guild.name}(${player_play.guild})`);
-        
+        console.log(`[${chalk.bold.greenBright('LAVALINK')}] ${chalk.greenBright('Play')} ${tracks.title} ${chalk.greenBright('in Channel:')} ${play_channel.name} ${chalk.greenBright('Server:')} ${play_guild.name}${chalk.greenBright('(')}${player_play.guild}${chalk.greenBright(')')}`);
 
         const autoplay = player_play.get('autoplay')
+        let autoplay_status;
+
         if (autoplay === true) {
+            autoplay_status = 'on'
+        } else {
+            autoplay_status = 'off'
+        }
+        if (autoplay === true || player_play.queue.size > 0) {
             const userAvatar = global.userAvatar
             const urls = tracks.uri;
             const video_id = urls.split('v=')[1];
@@ -31,7 +38,7 @@ module.exports = {
             const embed = new EmbedBuilder()
                 .setColor(config.embed_color)
                 .setAuthor({ name: 'Go to Page', iconURL: userAvatar, url: urls })
-                .setDescription(`**AutoPlay:** on \n ▶️┃ ${tracks.title} \` ${convertTime(tracks.duration)} \``)
+                .setDescription(`**AutoPlay:** ${autoplay_status} \n ▶️┃ ${tracks.title} \` ${convertTime(tracks.duration)} \``)
                 .setThumbnail(`https://img.youtube.com/vi/${video_id}/maxresdefault.jpg`);
 
             return channel.send({ embeds: [embed], ephemeral: false });
