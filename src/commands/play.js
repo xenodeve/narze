@@ -37,7 +37,7 @@ module.exports = {
 
         const old_player = interaction.client.manager.get(interaction.guild.id)
 
-        if (old_player) {
+        if (old_player && !old_player.playing && !old_player.queue) {
             if (old_player.state == 'CONNECTED') {
                 old_player.destroy();
             }
