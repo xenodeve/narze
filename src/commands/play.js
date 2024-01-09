@@ -35,13 +35,22 @@ module.exports = {
 
         global.channel_text = interaction.channelId;
 
+        const old_player = interaction.client.manager.get(interaction.guild.id)
 
-        const player = interaction.client.manager.get(interaction.guild.id) || interaction.client.manager.create({
+        if (old_player) {
+            if (old_player.state == 'CONNECTED') {
+                old_player.destroy();
+            }
+        }
+
+        const player = old_player || interaction.client.manager.create({
             guild: interaction.guild.id,
             voiceChannel: interaction.member.voice.channel.id,
             textChannel: interaction.channel.id,
             selfDeafen: true,
         });
+
+        console.log(interaction.client.manager.get(interaction.guild.id))
 
 
         if (interaction.member.voice.channel.id !== player.voiceChannel) {
@@ -63,6 +72,7 @@ module.exports = {
         const memberVoiceChannel = interaction.member.voice.channel;
         const permissions = memberVoiceChannel.permissionsFor(interaction.client.user);
         if (!permissions.has(PermissionsBitField.Flags.Connect) || !permissions.has(PermissionsBitField.Flags.Speak)) {
+            player.destroy();
             const embed = new EmbedBuilder()
                 .setColor(config.embed_color)
                 .setDescription(`> ❌บอทไม่มีอำนาจเปิดเพลงในห้อง ${channel.toString()}`);
