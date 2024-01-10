@@ -36,9 +36,5 @@ module.exports = {
 
             return interaction.editReply({ embeds: [embed] });
         }
-
-        if (player.twentyFourSeven === true) {
-            
-        }
 	}
 };

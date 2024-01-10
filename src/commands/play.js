@@ -157,7 +157,6 @@ module.exports = {
 
         // ตรวจสอบเงื่อนไขเพื่อเลือกทำงานต่าง ๆ
         if (!player.playing && !player.paused && !player.queue.size && !res.playlist && Live == false) {
-
             await player.queue.add(res.tracks[0]);
             const TimeMusic = convertTime(res.tracks[0].duration);
             global.TimeMusic = TimeMusic;

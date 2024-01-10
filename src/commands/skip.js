@@ -45,7 +45,10 @@ module.exports = {
 
 
         if (player.queue.size === 0) {
-            await player.destroy();
+            if (player.twentyFourSeven === false){
+                player.destroy();
+            };
+            // await player.destroy();
 
             const embed = new EmbedBuilder()
                 .setDescription(`⏭️┃ ไม่เหลือเพลงให้ข้าม`)

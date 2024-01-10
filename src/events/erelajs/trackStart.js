@@ -61,10 +61,13 @@ module.exports = {
         }
 
         if (player_play.get('join')) {
-            playlist_first = player_play.get('join')
+            join = player_play.get('join')
         } else {
-            playlist_first = false
+            join = false
         }
+
+
+        console.log('join0:', player_play.get('join'))
 
         // console.log(`0 play:${play} skip:${skip} autoplay:${autoplay}, oldplayer:${old_play}, playlist_first${playlist_first}`)
 
@@ -90,12 +93,12 @@ module.exports = {
 
             channel.send({ embeds: [embed], ephemeral: false });
         } else if (skip === false && autoplay === false && join === false && (old_play === true || playlist_first === true)) {
-            // console.log(`2 play:${play} skip:${skip} autoplay:${autoplay}, oldplayer:${old_play}, playlist_first${playlist_first}`)
+            console.log(`2 play:${play} skip:${skip} autoplay:${autoplay} oldplayer:${old_play} playlist_first:${playlist_first} join:${join}`)
 
             player_play.set('play', false);
-            play = player_play.get('play');
+            player_play.set('join', false);
 
-            // console.log(`3 play:${play} skip:${skip} autoplay:${autoplay}, oldplayer:${old_play}, playlist_first${playlist_first}`)
+            // console.log(`3 play:${play} skip:${skip} autoplay:${autoplay} oldplayer:${old_play} playlist_first:${playlist_first} join:${join}`)
 
             const embed = new EmbedBuilder()
                 .setColor(config.embed_color)
@@ -105,6 +108,6 @@ module.exports = {
 
             channel.send({ embeds: [embed], ephemeral: false });
 
-        } player_play.set('join', false)
+        }
     },
 };
