@@ -11,7 +11,7 @@ module.exports = {
                 .setName('mode')
                 .setDescription('โหมดการวนซ้ำ')
                 .addChoices(
-                    { name: '🔂 ปิด', value: 'off' },
+                    { name: '🚫 ปิด', value: 'off' },
                     { name: '🔂 เพลงปัจจุบัน', value: 'current' },
                     { name: '🔁 ทั้งคิว', value: 'queue' },
                 ),
@@ -42,7 +42,7 @@ module.exports = {
                 await player.setTrackRepeat(true);
 
                 const embed = new EmbedBuilder()
-                    .setDescription(`> \`🔁\` | ลูปเพลง: \`ปัจจุบัน\``)
+                    .setDescription(`> \`🔂\` | ลูปเพลง: \`ปัจจุบัน\``)
                     .setColor(config.embed_color)
 
                 return interaction.editReply({ embeds: [embed] });
@@ -50,7 +50,7 @@ module.exports = {
                 await player.setTrackRepeat(false);
 
                 const embed = new EmbedBuilder()
-                    .setDescription(`> \`🔁\` | ลูปเพลง: \`ปิด\``)
+                    .setDescription(`> \`🚫\` | ลูปเพลง: \`ปิด\``)
                     .setColor(config.embed_color)
 
                 return interaction.editReply({ embeds: [embed] });
@@ -60,7 +60,7 @@ module.exports = {
                 await player.setQueueRepeat(false);
 
                 const embed = new EmbedBuilder()
-                    .setDescription(`> \`🔁\` | ลูปเพลง: \`ปิด\``)
+                    .setDescription(`> \`🚫\` | ลูปเพลง: \`ปิด\``)
                     .setColor(config.embed_color)
 
                 return interaction.editReply({ embeds: [embed] });
@@ -79,7 +79,7 @@ module.exports = {
                 player.setTrackRepeat(false);
 
                 const embed = new EmbedBuilder()
-                    .setDescription(`> \`🔁\` | ลูปเพลง: \`ปิด\``)
+                    .setDescription(`> \`🚫\` | ลูปเพลง: \`ปิด\``)
                     .setColor(config.embed_color)
 
                 return interaction.editReply({ embeds: [embed] });

@@ -18,6 +18,9 @@ module.exports = {
             selfDeafen: true,
         });
 
+        global.join_statue = true;
+        player.set('join', true)
+
 
         try {
             await player.connect();

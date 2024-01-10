@@ -14,7 +14,7 @@ module.exports = {
                 .setDescription('ชื่อเพลง หรือ ลิ้งก์')
                 .setRequired(true)
         ),
-    async execute(interaction) {
+    async execute(interaction, newUser, oldUser) {
         const query = interaction.options.getString('query');
         if (!query) return interaction.reply('กรุณาระบุเพลง');
         if (!interaction.member.voice.channel) {
@@ -35,13 +35,21 @@ module.exports = {
 
         global.channel_text = interaction.channelId;
 
-        const old_player = interaction.client.manager.get(interaction.guild.id)
 
-        if (old_player && !old_player.playing && !old_player.queue) {
-            if (old_player.state == 'CONNECTED') {
-                old_player.destroy();
-            }
+        const old_player = interaction.client.manager.get(interaction.guild.id);
+
+        if (global.join_statue) {
+            join = global.join_statue
+        } else {
+            join = false
         }
+
+        if (old_player && !old_player.playing && join === false) {
+            await old_player.destroy();
+        }
+
+        join = false
+        
 
         const player = old_player || interaction.client.manager.create({
             guild: interaction.guild.id,
@@ -49,7 +57,13 @@ module.exports = {
             textChannel: interaction.channel.id,
             selfDeafen: true,
         });
+    
 
+        if (old_player) {
+            await player.set('old_play', true);
+        } else {
+            await player.set('old_player', false);
+        }
 
         if (interaction.member.voice.channel.id !== player.voiceChannel) {
             const embed = new EmbedBuilder()
@@ -72,7 +86,7 @@ module.exports = {
         if (!permissions.has(PermissionsBitField.Flags.Connect) || !permissions.has(PermissionsBitField.Flags.Speak)) {
             player.destroy();
             const embed = new EmbedBuilder()
-                .setColor(config.embed_color)
+                .setColor(red)
                 .setDescription(`> ❌บอทไม่มีอำนาจเปิดเพลงในห้อง ${channel.toString()}`);
 
             return interaction.reply({ embeds: [embed], ephemeral: true });
@@ -140,6 +154,7 @@ module.exports = {
         }
 
 
+
         // ตรวจสอบเงื่อนไขเพื่อเลือกทำงานต่าง ๆ
         if (!player.playing && !player.paused && !player.queue.size && !res.playlist && Live == false) {
 
@@ -177,11 +192,10 @@ module.exports = {
             video_id_playlist = getVideoIdPlaylist(listPart);
 
             if (res.playlist && Live == false) {
+                player.set('playlist_first', true) 
                 const embed = new EmbedBuilder()
                     .setColor(config.embed_color)
-                    .setAuthor(
-                        { name: 'Go to Playlist', iconURL: userAvatar, url: `https://www.youtube.com/playlist?list=${video_id_playlist}` }
-                    )
+                    .setAuthor({ name: 'Go to Playlist', iconURL: userAvatar, url: `https://www.youtube.com/playlist?list=${video_id_playlist}` })
                     .setDescription(`> 🎵 **Playlist:** ${res.playlist.name}\n> ⏱ **เวลา:** \` ${convertTime(res.playlist.duration)} \` \n> 📊 **มี:** \` ${res.tracks.length} \` เพลง \n> **ห้อง:** ${channel.toString()}`)
                     .setThumbnail(`https://img.youtube.com/vi/${video_id}/maxresdefault.jpg`);
 

@@ -41,6 +41,9 @@ module.exports = {
 
         await interaction.deferReply({ ephemeral: false });
 
+        player.set('skip', true);
+
+
         if (player.queue.size === 0) {
             await player.destroy();
 

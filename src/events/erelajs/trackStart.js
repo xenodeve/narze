@@ -2,17 +2,15 @@
 const { EmbedBuilder } = require('discord.js');
 const config = require('../../settings/config.json');
 const { convertTime } = require('../../structures/convertTime.js');
-const chalk =require('chalk');
+const chalk = require('chalk');
 
 module.exports = {
     name: 'trackStart',
-    async execute(interaction, tracks, player, message, client) {
-        // const channel = client.channels.cache.get('id');
+    async execute(interaction, tracks) { //! ห้ามลบ interaction (ไม่รู้ทำไมแต่ลบแล้ว tracks.uri = null) 
         play_guild = global.play_guild
         play_channel = global.play_channel;
         interaction_player = global.interaction_player;
         player_play = global.player;
-        guild_id = global.interactionCreate_guild_id;
 
 
         channel_text = global.channel_text;
@@ -22,26 +20,91 @@ module.exports = {
 
         console.log(`[${chalk.bold.greenBright('LAVALINK')}] ${chalk.greenBright('Play')} ${tracks.title} ${chalk.greenBright('in Channel:')} ${play_channel.name} ${chalk.greenBright('Server:')} ${play_guild.name}${chalk.greenBright('(')}${player_play.guild}${chalk.greenBright(')')}`);
 
-        const autoplay = player_play.get('autoplay')
-        let autoplay_status;
 
-        if (autoplay === true) {
-            autoplay_status = 'on'
-        } else {
-            autoplay_status = 'off'
+        const userAvatar = global.userAvatar
+        const urls = tracks.uri;
+        if (!urls) {
+            console.error('Error: `tracks.uri` is undefined or null.');
+            return;
         }
-        if (autoplay === true || player_play.queue.size > 0) {
-            const userAvatar = global.userAvatar
-            const urls = tracks.uri;
-            const video_id = urls.split('v=')[1];
+        const video_id = urls.split('v=')[1];
+
+
+        if (player_play.get('play')) {
+            play = player_play.get('play')
+        } else {
+            play = false
+        }
+
+        if (player_play.get('skip')) {
+            skip = player_play.get('skip')
+        } else {
+            skip = false
+        }
+
+        if (player_play.get('autoplay')) {
+            autoplay = player_play.get('autoplay')
+        } else {
+            autoplay = false
+        }
+
+        if (player_play.get('old_play')) {
+            old_play = player_play.get('old_play')
+        } else {
+            old_play = false
+        }
+
+        if (player_play.get('playlist_first')) {
+            playlist_first = player_play.get('playlist_first')
+        } else {
+            playlist_first = false
+        }
+
+        if (player_play.get('join')) {
+            playlist_first = player_play.get('join')
+        } else {
+            playlist_first = false
+        }
+
+        // console.log(`0 play:${play} skip:${skip} autoplay:${autoplay}, oldplayer:${old_play}, playlist_first${playlist_first}`)
+
+        userMention = global.userMention
+
+        if (skip === true && autoplay === true) {
+
+            await player_play.set('skip', false)
+            // console.log(`1 play:${play} skip:${skip} autoplay:${autoplay}, oldplayer:${old_play}, playlist_first${playlist_first}`)
+            const embed = new EmbedBuilder()
+                .setColor(config.embed_color)
+                .setDescription(`> \`📻\` | *เล่นอัตโนมัติ* \` เปิด \``)
+
+            channel.send({ embeds: [embed], ephemeral: false });
+
+        } else if (autoplay === true) {
 
             const embed = new EmbedBuilder()
                 .setColor(config.embed_color)
                 .setAuthor({ name: 'Go to Page', iconURL: userAvatar, url: urls })
-                .setDescription(`**AutoPlay:** ${autoplay_status} \n ▶️┃ ${tracks.title} \` ${convertTime(tracks.duration)} \``)
+                .setDescription(`\`📻\` | *เล่นอัตโนมัติ :* \` เปิด \` \n\n> **${tracks.title}** \` ${convertTime(tracks.duration)} \` \n> ขอโดย: ${userMention}`)
                 .setThumbnail(`https://img.youtube.com/vi/${video_id}/maxresdefault.jpg`);
 
-            return channel.send({ embeds: [embed], ephemeral: false });
-        }
+            channel.send({ embeds: [embed], ephemeral: false });
+        } else if (skip === false && autoplay === false && join === false && (old_play === true || playlist_first === true)) {
+            // console.log(`2 play:${play} skip:${skip} autoplay:${autoplay}, oldplayer:${old_play}, playlist_first${playlist_first}`)
+
+            player_play.set('play', false);
+            play = player_play.get('play');
+
+            // console.log(`3 play:${play} skip:${skip} autoplay:${autoplay}, oldplayer:${old_play}, playlist_first${playlist_first}`)
+
+            const embed = new EmbedBuilder()
+                .setColor(config.embed_color)
+                .setAuthor({ name: 'Go to Page', iconURL: userAvatar, url: urls })
+                .setDescription(`▶️┃**${tracks.title}** \` ${convertTime(tracks.duration)} \` \n ขอโดย: ${userMention}`)
+                .setThumbnail(`https://img.youtube.com/vi/${video_id}/maxresdefault.jpg`)
+
+            channel.send({ embeds: [embed], ephemeral: false });
+
+        } player_play.set('join', false)
     },
 };
