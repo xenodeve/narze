@@ -44,7 +44,7 @@ module.exports = {
             join = false
         }
 
-        if (old_player && !old_player.playing && join === false) {
+        if (old_player && !old_player.playing && join === false && old_player.twentyFourSeven) {
             await old_player.destroy();
         }
 
