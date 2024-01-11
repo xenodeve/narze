@@ -11,7 +11,7 @@ module.exports = {
     async execute(interaction) {
         // const userAvatar = res.tracks[0].requester.displayAvatarURL();
 
-        const player = global.player;
+        const player = interaction.client.manager.get(interaction.guild.id)
 
         if (!player) {
             const embed = new EmbedBuilder()
