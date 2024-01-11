@@ -11,7 +11,7 @@ module.exports = {
         .addStringOption(option =>
             option
                 .setName('query')
-                .setDescription('ชื่อเพลง หรือ ลิ้งก์')
+                .setDescription('ชื่อเพลง | ลิ้งก์')
                 .setRequired(true)
         ),
     async execute(interaction, newUser, oldUser) {
@@ -61,7 +61,6 @@ module.exports = {
             });
         }
 
-        console.log(player)
 
         if (!player.voiceChannel) {
             await player.destroy()
