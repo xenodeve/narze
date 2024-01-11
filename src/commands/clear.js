@@ -7,7 +7,7 @@ module.exports = {
         .setName('clear')
         .setDescription('เคลียร์คิว'),
     async execute(interaction) {
-        const player = global.player;
+        const player = interaction.client.manager.get(interaction.guild.id)
 
         if (!player) {
             const embed = new EmbedBuilder()
