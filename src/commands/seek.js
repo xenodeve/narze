@@ -27,7 +27,7 @@ module.exports = {
         if (!player) {
             const embed = new EmbedBuilder()
                 .setColor(red)
-                .setDescription(`> ❌ไม่มีเครื่องเล่น`);
+                .setDescription(`> ❌ไม่มีบอทในห้อง`);
 
             return interaction.reply({ embeds: [embed], ephemeral: true });
         } else if (!player.playing) {

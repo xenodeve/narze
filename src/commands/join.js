@@ -27,7 +27,7 @@ module.exports = {
         } catch (error) {
             const embed = new EmbedBuilder()
                 .setColor(red)
-                .setDescription(`> ❌บอทไม่มีอำนาจเปิดเพลงในห้อง ${TagChannel(channel)}`);
+                .setDescription(`> ❌บอทไม่มีอำนาจเข้าห้อง ${TagChannel(channel)}`);
 
             return interaction.reply({ embeds: [embed], ephemeral: true });
         }

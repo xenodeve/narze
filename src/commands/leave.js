@@ -4,21 +4,24 @@ const { red } = require('color-name');
 
 module.exports = {
     data: new SlashCommandBuilder()
-        .setName('clear')
-        .setDescription('เคลียร์คิว'),
+        .setName('leave')
+        .setDescription('ออกห้องเสียง'),
     async execute(interaction) {
-        const player = global.player;
+        await interaction.deferReply({ ephemeral: false });
+
+        const { channel } = interaction.member.voice;
+
+        const player = interaction.client.manager.get(interaction.guild.id) || interaction.client.manager.create({
+            guild: interaction.guild.id,
+            voiceChannel: interaction.member.voice.channel.id,
+            textChannel: interaction.channel.id,
+            selfDeafen: true,
+        });
 
         if (!player) {
             const embed = new EmbedBuilder()
                 .setColor(red)
                 .setDescription(`> ❌ไม่มีบอทในห้อง`);
-
-            return interaction.reply({ embeds: [embed], ephemeral: true });
-        } else if (!player.queue) {
-            const embed = new EmbedBuilder()
-                .setColor(red)
-                .setDescription(`> ❌ไม่มีเพลงในคิว`);
 
             return interaction.reply({ embeds: [embed], ephemeral: true });
         } else if (!interaction.member.voice.channel) {
@@ -33,16 +36,18 @@ module.exports = {
                 .setDescription(`> ❌คุณต้องอยู่ในห้องเดียวกับบอท`);
 
             return interaction.reply({ embeds: [embed], ephemeral: true });
-        }
+        } else {
 
-        await interaction.deferReply({ ephemeral: false });
+            await player.destroy();
 
-        if (player || player.queue) {
-            await player.queue.clear();
+            function TagChannel(channel) {
+                channel_tag = channel.toString()
+                return channel_tag
+            }
 
             const embed = new EmbedBuilder()
                 .setColor(config.embed_color)
-                .setDescription(`> \`🧹\` | เคลียร์คิวแล้ว`)
+                .setDescription(`> \`🔊\` | ออกจากห้อง ${TagChannel(channel)}`)
 
             return interaction.editReply({ embeds: [embed] });
         }

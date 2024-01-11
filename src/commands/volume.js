@@ -15,28 +15,40 @@ module.exports = {
                 .setMaxValue(1000)
         ),
     async execute(interaction) {
-
+        
         const player = global.player;
 
         if (!player) {
             const embed = new EmbedBuilder()
-            .setColor(red)
-            .setDescription(`> ❌ไม่มีเครื่องเล่น`);
+                .setColor(red)
+                .setDescription(`> ❌ไม่มีบอทในห้อง`);
 
-        return interaction.reply({ embeds: [embed], ephemeral: true});
+            return interaction.reply({ embeds: [embed], ephemeral: true });
         } else if (!player.playing) {
             const embed = new EmbedBuilder()
-            .setColor(red)
-            .setDescription(`> ❌ไม่มีเพลงที่เล่นอยู่`);
+                .setColor(red)
+                .setDescription(`> ❌ไม่มีเพลงที่เล่นอยู่`);
 
-        return interaction.reply({ embeds: [embed], ephemeral: true});
+            return interaction.reply({ embeds: [embed], ephemeral: true });
+        } else if (!interaction.member.voice.channel) {
+            const embed = new EmbedBuilder()
+                .setColor(red)
+                .setDescription(`> ❌กรุณาเข้าห้องเสียงด้วย`);
+
+            return interaction.reply({ embeds: [embed], ephemeral: true });
+        } else if (interaction.member.voice.channel.id !== player.voiceChannel) {
+            const embed = new EmbedBuilder()
+                .setColor(red)
+                .setDescription(`> ❌คุณต้องอยู่ในห้องเดียวกับบอท`);
+
+            return interaction.reply({ embeds: [embed], ephemeral: true });
         }
 
         await interaction.deferReply({ ephemeral: false });
 
         const value = interaction.options.getInteger('amount');
 
-        global.volume_player = value; 
+        global.volume_player = value;
 
         if (!value) {
             const embed = new EmbedBuilder()

@@ -22,13 +22,25 @@ module.exports = {
         if (!player) {
             const embed = new EmbedBuilder()
                 .setColor(red)
-                .setDescription(`> ❌ไม่มีเครื่องเล่น`);
+                .setDescription(`> ❌ไม่มีบอทในห้อง`);
 
             return interaction.reply({ embeds: [embed], ephemeral: true });
         } else if (!player.queue) {
             const embed = new EmbedBuilder()
                 .setColor(red)
                 .setDescription(`> ❌ไม่มีเพลงที่เล่นอยู่`);
+
+            return interaction.reply({ embeds: [embed], ephemeral: true });
+        } else if (!interaction.member.voice.channel) {
+            const embed = new EmbedBuilder()
+                .setColor(red)
+                .setDescription(`> ❌กรุณาเข้าห้องเสียงด้วย`);
+
+            return interaction.reply({ embeds: [embed], ephemeral: true });
+        } else if (interaction.member.voice.channel.id !== player.voiceChannel) {
+            const embed = new EmbedBuilder()
+                .setColor(red)
+                .setDescription(`> ❌คุณต้องอยู่ในห้องเดียวกับบอท`);
 
             return interaction.reply({ embeds: [embed], ephemeral: true });
         }
