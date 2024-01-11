@@ -39,7 +39,7 @@ module.exports = {
             await player_new()
         }
 
-        await interaction.deferReply({ ephemeral: false });
+        // await interaction.deferReply({ ephemeral: false });
 
         if (player.state == 'DISCONNECTED') {
             try {
@@ -56,14 +56,16 @@ module.exports = {
                 .setColor(config.embed_color)
                 .setDescription(`> \`🔊\` | เข้าห้อง ${TagChannel(channel)}`)
 
-            return interaction.editReply({ embeds: [embed] });
+            // return interaction.editReply({ embeds: [embed] });
+            return interaction.reply({ embeds: [embed] });
         } else if (player.state == 'CONNECTED') {
 
             const embed = new EmbedBuilder()
                 .setColor(red)
                 .setDescription(`> \`🔊\` | เข้าห้อง ${TagChannel(channel)} อยู่แล้ว`)
 
-            return interaction.editReply({ embeds: [embed] });
+            // return interaction.editReply({ embeds: [embed] });
+            return interaction.reply({ embeds: [embed] });
         }
     }
 };

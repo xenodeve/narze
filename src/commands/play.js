@@ -140,7 +140,6 @@ module.exports = {
         global.play_channel = channel;
         global.interaction_player = interaction;
 
-        await interaction.deferReply({ ephemeral: false });
 
         const apiKey = config.youtube_api_key;
         const apiUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${video_id}&key=${apiKey}`;
@@ -155,6 +154,7 @@ module.exports = {
             Live = false;
         }
 
+        // await interaction.deferReply({ ephemeral: false });
 
 
         // ตรวจสอบเงื่อนไขเพื่อเลือกทำงานต่าง ๆ
@@ -172,7 +172,8 @@ module.exports = {
                 .setDescription(`▶️┃**${res.tracks[0].title}** \` ${convertTime(res.tracks[0].duration)} \``)
                 .setThumbnail(`https://img.youtube.com/vi/${video_id}/maxresdefault.jpg`)
 
-            return interaction.editReply({ embeds: [embed] });
+            // return interaction.editReply({ embeds: [embed] });
+            return interaction.reply({ embeds: [embed] });
 
         } else if (player.playing && !res.playlist && Live == false) {
             await player.queue.add(res.tracks[0]);
@@ -183,7 +184,8 @@ module.exports = {
                 .setAuthor({ name: 'Go to Page', iconURL: userAvatar, url: urls })
                 .setDescription(`📝┃**${res.tracks[0].title}** \` ${convertTime(res.tracks[0].duration)} \` \n ลำดับ: \` ${player.queue.size} \``)
                 .setThumbnail(`https://img.youtube.com/vi/${video_id}/maxresdefault.jpg`)
-            return interaction.editReply({ embeds: [embed] });
+            // return interaction.editReply({ embeds: [embed] });
+            return interaction.reply({ embeds: [embed] });
         } else if (res.playlist && Live == false) {
             // ถ้าเป็น playlist
 
@@ -200,7 +202,8 @@ module.exports = {
                     .setDescription(`> 🎵 **Playlist:** ${res.playlist.name}\n> ⏱ **เวลา:** \` ${convertTime(res.playlist.duration)} \` \n> 📊 **มี:** \` ${res.tracks.length} \` เพลง \n> **ห้อง:** ${channel.toString()}`)
                     .setThumbnail(`https://img.youtube.com/vi/${video_id}/maxresdefault.jpg`);
 
-                return interaction.editReply({ embeds: [embed], ephemeral: false });
+                // return interaction.editReply({ embeds: [embed], ephemeral: false });
+                return interaction.reply({ embeds: [embed] });
             } else {
                 const embed = new EmbedBuilder()
                     .setColor(red)
@@ -219,7 +222,8 @@ module.exports = {
                 .setAuthor({ name: 'Go to Live', iconURL: userAvatar, url: urls })
                 .setDescription(`🔴┃**${res.tracks[0].title}**`)
                 .setThumbnail(`https://img.youtube.com/vi/${video_id}/maxresdefault.jpg`)
-            return interaction.editReply({ embeds: [embed] });
+            // return interaction.editReply({ embeds: [embed] });
+            return interaction.reply({ embeds: [embed] });
         } else {
             const embed = new EmbedBuilder()
                 .setColor(red)

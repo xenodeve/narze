@@ -35,7 +35,7 @@ module.exports = {
             return interaction.reply({ embeds: [embed], ephemeral: true });
         }
 
-        await interaction.deferReply({ ephemeral: false });
+        // await interaction.deferReply({ ephemeral: false });
 
         if (player || player.queue) {
             await player.queue.clear();
@@ -44,7 +44,8 @@ module.exports = {
                 .setColor(config.embed_color)
                 .setDescription(`> \`🧹\` | เคลียร์คิวแล้ว`)
 
-            return interaction.editReply({ embeds: [embed] });
+            // return interaction.editReply({ embeds: [embed] });
+            return interaction.reply({ embeds: [embed] });
         }
     }
 };

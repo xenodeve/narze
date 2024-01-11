@@ -45,7 +45,7 @@ module.exports = {
             return interaction.reply({ embeds: [embed], ephemeral: true });
         }
 
-        await interaction.deferReply({ ephemeral: false });
+        // await interaction.deferReply({ ephemeral: false });
 
         const choice = interaction.options.getString('mode');
 
@@ -57,7 +57,8 @@ module.exports = {
                     .setDescription(`> \`🔂\` | ลูปเพลง: \`ปัจจุบัน\``)
                     .setColor(config.embed_color)
 
-                return interaction.editReply({ embeds: [embed] });
+                // return interaction.editReply({ embeds: [embed] });
+                return interaction.reply({ embeds: [embed] });
             } else {
                 await player.setTrackRepeat(false);
 
@@ -65,7 +66,8 @@ module.exports = {
                     .setDescription(`> \`🚫\` | ลูปเพลง: \`ปิด\``)
                     .setColor(config.embed_color)
 
-                return interaction.editReply({ embeds: [embed] });
+                // return interaction.editReply({ embeds: [embed] });
+                return interaction.reply({ embeds: [embed] });
             }
         } else if (choice === "queue") {
             if (player.queueRepeat === true) {
@@ -75,7 +77,8 @@ module.exports = {
                     .setDescription(`> \`🚫\` | ลูปเพลง: \`ปิด\``)
                     .setColor(config.embed_color)
 
-                return interaction.editReply({ embeds: [embed] });
+                // return interaction.editReply({ embeds: [embed] });
+                return interaction.reply({ embeds: [embed] });
             } else {
                 await player.setQueueRepeat(true);
 
@@ -83,7 +86,8 @@ module.exports = {
                     .setDescription(`> \`🔁\` | ลูปเพลง: \`คิวทั้งหมด\``)
                     .setColor(config.embed_color)
 
-                return interaction.editReply({ embeds: [embed] });
+                // return interaction.editReply({ embeds: [embed] });
+                return interaction.reply({ embeds: [embed] });
             }
         } else if (choice === 'off') {
             if (player.queueRepeat === true || player.trackRepeat === true) {
@@ -94,7 +98,8 @@ module.exports = {
                     .setDescription(`> \`🚫\` | ลูปเพลง: \`ปิด\``)
                     .setColor(config.embed_color)
 
-                return interaction.editReply({ embeds: [embed] });
+                // return interaction.editReply({ embeds: [embed] });
+                return interaction.reply({ embeds: [embed] });
             }
         }
     }

@@ -4,7 +4,7 @@ module.exports = {
     name: 'trackEnd',
     async execute(interaction) {
 
-        console.log('track end')
+        // console.log('track end')
 
         player = global.player;
         res = global.res;
@@ -25,7 +25,7 @@ module.exports = {
                 .setDescription(`> ❌Autoplay Support Youtubeเท่านั้น`)
                 .setColor(red);
 
-                return interaction.editReply({ embeds: [embed], ephemeral: true });
+                return interaction.reply({ embeds: [embed], ephemeral: true });
             }
         }
     }

@@ -36,7 +36,7 @@ module.exports = {
             return interaction.reply({ embeds: [embed], ephemeral: true });
         }
 
-        await interaction.deferReply({ ephemeral: false });
+        // await interaction.deferReply({ ephemeral: false });
 
         await player.pause(player.playing);
 
@@ -50,6 +50,7 @@ module.exports = {
             .setThumbnail(`https://img.youtube.com/vi/${video_id}/maxresdefault.jpg`)
             // .setFooter({ text: 'เล่นต่อ' })
 
-        return interaction.editReply({ embeds: [embed] });
+        // return interaction.editReply({ embeds: [embed] });
+        return interaction.reply({ embeds: [embed] });
     }
 }

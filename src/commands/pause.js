@@ -36,7 +36,7 @@ module.exports = {
             return interaction.reply({ embeds: [embed], ephemeral: true });
         }
 
-        await interaction.deferReply({ ephemeral: false });
+        // await interaction.deferReply({ ephemeral: false });
 
         const video_id = player.queue.current.uri.split('v=')[1];
         const userAvatar = interaction.user.displayAvatarURL();
@@ -54,7 +54,8 @@ module.exports = {
             .setThumbnail(`https://img.youtube.com/vi/${video_id}/maxresdefault.jpg`)
             .setFooter({ text: 'เล่นต่อ' })
 
-            return interaction.editReply({ embeds: [embed] });
+            // return interaction.editReply({ embeds: [embed] });
+            return interaction.reply({ embeds: [embed] });
         } else {            
             
             await player.set('pause', true);
@@ -65,8 +66,10 @@ module.exports = {
             .setDescription(`⏸️┃**${player.queue.current.title}** \` ${convertTime(player.queue.current.duration)} \``)
             .setThumbnail(`https://img.youtube.com/vi/${video_id}/maxresdefault.jpg`)
             .setFooter({ text: 'พักการเล่น' })
+            
+            return interaction.reply({ embeds: [embed] });
 
-        return interaction.editReply({ embeds: [embed] });
+        // return interaction.editReply({ embeds: [embed] });
         }
     }
 }

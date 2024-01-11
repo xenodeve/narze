@@ -6,7 +6,7 @@ module.exports = {
 		.setName('ping')
 		.setDescription('Ping Status!'),
 	async execute(interaction) {
-        await interaction.deferReply({ ephemeral: false});
+        // await interaction.deferReply({ ephemeral: false});
 
         const reply = await interaction.fetchReply();
         const ping = reply.createdTimestamp - interaction.createdTimestamp;
@@ -21,6 +21,7 @@ module.exports = {
             { name: 'API Latency', value: `${Math.abs(Math.round(interaction.client.ws.ping))}ms`, inline: true },
         )
         
-        return interaction.editReply({ embeds: [embed] });
+        // return interaction.editReply({ embeds: [embed] });
+        return interaction.reply({ embeds: [embed] });
 	},
 };

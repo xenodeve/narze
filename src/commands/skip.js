@@ -39,7 +39,7 @@ module.exports = {
             return interaction.reply({ embeds: [embed], ephemeral: true });
         }
 
-        await interaction.deferReply({ ephemeral: false });
+        // await interaction.deferReply({ ephemeral: false });
 
         player.set('skip', true);
 
@@ -71,7 +71,8 @@ module.exports = {
                 .setThumbnail(`https://img.youtube.com/vi/${video_id}/maxresdefault.jpg`)
                 .setFooter({ text: 'ข้าม • เพิ่มคิวอัตโนมัติ' });
 
-            return interaction.editReply({ embeds: [embed] });
+            // return interaction.editReply({ embeds: [embed] });
+            return interaction.reply({ embeds: [embed] });
         }
     }
 }

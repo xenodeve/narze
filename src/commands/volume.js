@@ -44,7 +44,7 @@ module.exports = {
             return interaction.reply({ embeds: [embed], ephemeral: true });
         }
 
-        await interaction.deferReply({ ephemeral: false });
+        // await interaction.deferReply({ ephemeral: false });
 
         const value = interaction.options.getInteger('amount');
 
@@ -55,7 +55,8 @@ module.exports = {
                 .setColor(config.embed_color)
                 .setDescription(`> \`📢\`┃**เสียง:** \`${player.volume}%\``);
 
-            return interaction.editReply({ embeds: [embed], ephemeral: false });
+            // return interaction.editReply({ embeds: [embed], ephemeral: false });
+            return interaction.reply({ embeds: [embed] });
         }
 
 
@@ -65,6 +66,7 @@ module.exports = {
             .setColor(config.embed_color)
             .setDescription(`> \`📢\`┃**เสียง:** \`${value}%\``);
 
-        return interaction.editReply({ embeds: [embed], ephemeral: false });
+        // return interaction.editReply({ embeds: [embed], ephemeral: false });
+        return interaction.reply({ embeds: [embed] });
     }
 }
