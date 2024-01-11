@@ -16,7 +16,7 @@ module.exports = {
         ),
     async execute(interaction) {
         
-        const player = global.player;
+        const player = interaction.client.manager.get(interaction.guild.id);
 
         if (!player) {
             const embed = new EmbedBuilder()

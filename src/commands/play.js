@@ -38,20 +38,7 @@ module.exports = {
 
         const old_player = interaction.client.manager.get(interaction.guild.id);
 
-        if (global.join_statue) {
-            join = global.join_statue
-        } else {
-            join = false
-        }
-
-        if (old_player && !old_player.playing && join === false && old_player.twentyFourSeven) {
-            await old_player.destroy();
-        }
-
-        join = false
-        
-
-        const player = old_player || interaction.client.manager.create({
+        let player = old_player || interaction.client.manager.create({
             guild: interaction.guild.id,
             voiceChannel: interaction.member.voice.channel.id,
             textChannel: interaction.channel.id,
@@ -63,6 +50,22 @@ module.exports = {
             await player.set('old_play', true);
         } else {
             await player.set('old_player', false);
+        }
+
+        function player_new() {
+            player = interaction.client.manager.create({
+                guild: interaction.guild.id,
+                voiceChannel: interaction.member.voice.channel.id,
+                textChannel: interaction.channel.id,
+                selfDeafen: true,
+            });
+        }
+
+        console.log(player)
+
+        if (!player.voiceChannel) {
+            await player.destroy()
+            await player_new()
         }
 
         if (interaction.member.voice.channel.id !== player.voiceChannel) {
