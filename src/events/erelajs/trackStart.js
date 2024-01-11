@@ -20,6 +20,11 @@ module.exports = {
 
         console.log(`[${chalk.bold.greenBright('LAVALINK')}] ${chalk.greenBright('Play')} ${tracks.title} ${chalk.greenBright('in Channel:')} ${play_channel.name} ${chalk.greenBright('Server:')} ${play_guild.name}${chalk.greenBright('(')}${player_play.guild}${chalk.greenBright(')')}`);
 
+        if (global.queueEndTimeout) {
+            // ลบ Timeout
+            clearTimeout(global.queueEndTimeout);
+            console.log('clear time out')
+        }
 
         const userAvatar = global.userAvatar
         const urls = tracks.uri;
@@ -93,10 +98,8 @@ module.exports = {
                 .setTimestamp();
 
             channel.send({ embeds: [embed], ephemeral: false });
-        } else if (skip === false && autoplay === false  && join === false && (old_play === true || playlist_first === true)) {
+        } else if (skip === false && autoplay === false  && join === false && play === false && (old_play === true || playlist_first === true)) {
             console.log(`2 play:${play} skip:${skip} autoplay:${autoplay} oldplayer:${old_play} playlist_first:${playlist_first} join:${join}`)
-
-            player_play.set('play', false);
 
             // console.log(`3 play:${play} skip:${skip} autoplay:${autoplay} oldplayer:${old_play} playlist_first:${playlist_first} join:${join}`)
 
@@ -110,8 +113,9 @@ module.exports = {
             channel.send({ embeds: [embed], ephemeral: false });
 
         }
-        player_play.set('join', false);
-        player_play.set('skip', false);
+        // player_play.set('join', false);
+        // player_play.set('skip', false);
+        // player_play.set('play', false);
 
         // console.log(`000 play:${play} skip:${skip} autoplay:${autoplay} oldplayer:${old_play} playlist_first:${playlist_first} join:${join}`)
     },
