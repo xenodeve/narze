@@ -111,5 +111,8 @@ module.exports = {
 
         }
         player_play.set('join', false);
+        player_play.set('skip', false);
+
+        // console.log(`000 play:${play} skip:${skip} autoplay:${autoplay} oldplayer:${old_play} playlist_first:${playlist_first} join:${join}`)
     },
 };
