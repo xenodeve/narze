@@ -8,7 +8,7 @@ module.exports = {
         .setName('resume')
         .setDescription('เล่นต่อ'),
     async execute(interaction) {
-        player = global.player;
+        const player = interaction.client.manager.get(interaction.guild.id)
 
         if (!player) {
             const embed = new EmbedBuilder()
