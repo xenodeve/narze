@@ -23,7 +23,6 @@ module.exports = {
         if (global.queueEndTimeout) {
             // ลบ Timeout
             clearTimeout(global.queueEndTimeout);
-            console.log('clear time out')
         }
 
         const userAvatar = global.userAvatar
@@ -74,7 +73,7 @@ module.exports = {
 
         // console.log('join0:', player_play.get('join'))
 
-        console.log(`0 play:${play} skip:${skip} autoplay:${autoplay} oldplayer:${old_play} playlist_first:${playlist_first} join:${join}`)
+        // console.log(`0 play:${play} skip:${skip} autoplay:${autoplay} oldplayer:${old_play} playlist_first:${playlist_first} join:${join}`)
 
         userMention = global.userMention
 
@@ -99,7 +98,7 @@ module.exports = {
 
             channel.send({ embeds: [embed], ephemeral: false });
         } else if (skip === false && autoplay === false  && join === false && play === false && (old_play === true || playlist_first === true)) {
-            console.log(`2 play:${play} skip:${skip} autoplay:${autoplay} oldplayer:${old_play} playlist_first:${playlist_first} join:${join}`)
+            // console.log(`2 play:${play} skip:${skip} autoplay:${autoplay} oldplayer:${old_play} playlist_first:${playlist_first} join:${join}`)
 
             // console.log(`3 play:${play} skip:${skip} autoplay:${autoplay} oldplayer:${old_play} playlist_first:${playlist_first} join:${join}`)
 
@@ -113,9 +112,9 @@ module.exports = {
             channel.send({ embeds: [embed], ephemeral: false });
 
         }
-        // player_play.set('join', false);
-        // player_play.set('skip', false);
-        // player_play.set('play', false);
+        player_play.set('join', false);
+        player_play.set('skip', false);
+        player_play.set('play', false);
 
         // console.log(`000 play:${play} skip:${skip} autoplay:${autoplay} oldplayer:${old_play} playlist_first:${playlist_first} join:${join}`)
     },
