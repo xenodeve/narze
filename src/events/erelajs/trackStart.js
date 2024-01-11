@@ -89,7 +89,8 @@ module.exports = {
                 .setColor(config.embed_color)
                 .setAuthor({ name: 'Go to Page', iconURL: userAvatar, url: urls })
                 .setDescription(`\`📻\` | *เล่นอัตโนมัติ :* \` เปิด \` \n\n> **${tracks.title}** \` ${convertTime(tracks.duration)} \` \n> ขอโดย: ${userMention}`)
-                .setThumbnail(`https://img.youtube.com/vi/${video_id}/maxresdefault.jpg`);
+                .setThumbnail(`https://img.youtube.com/vi/${video_id}/maxresdefault.jpg`)
+                .setTimestamp();
 
             channel.send({ embeds: [embed], ephemeral: false });
         } else if (skip === false && autoplay === false  && (old_play === true || playlist_first === true)) {
@@ -105,6 +106,7 @@ module.exports = {
                 .setAuthor({ name: 'Go to Page', iconURL: userAvatar, url: urls })
                 .setDescription(`▶️┃**${tracks.title}** \` ${convertTime(tracks.duration)} \` \n ขอโดย: ${userMention}`)
                 .setThumbnail(`https://img.youtube.com/vi/${video_id}/maxresdefault.jpg`)
+                .setTimestamp();
 
             channel.send({ embeds: [embed], ephemeral: false });
 
