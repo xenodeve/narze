@@ -163,6 +163,8 @@ module.exports = {
             const TimeMusic = convertTime(res.tracks[0].duration);
             global.TimeMusic = TimeMusic;
 
+            player.set('play', true)
+
             F_Join_Play();
 
             // สร้าง Embed และแสดงผล

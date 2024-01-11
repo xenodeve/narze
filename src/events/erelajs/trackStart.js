@@ -69,7 +69,7 @@ module.exports = {
 
         // console.log('join0:', player_play.get('join'))
 
-        // console.log(`0 play:${play} skip:${skip} autoplay:${autoplay}, oldplayer:${old_play}, playlist_first${playlist_first}`)
+        console.log(`0 play:${play} skip:${skip} autoplay:${autoplay} oldplayer:${old_play} playlist_first:${playlist_first} join:${join}`)
 
         userMention = global.userMention
 

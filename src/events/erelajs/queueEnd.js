@@ -1,5 +1,4 @@
 const config = require('../../settings/config.json');
-const cooldown = config.cooldown_afterQueueEnd * 1000
 const chalk = require('chalk');
 
 module.exports = {
@@ -16,6 +15,6 @@ module.exports = {
 			player.destroy();
 			global.join_statue = false
         	player.set('join', false);
-		}, cooldown);
+		}, config.cooldown_afterQueueEnd);
 	},
 };
