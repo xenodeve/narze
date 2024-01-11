@@ -8,7 +8,7 @@ module.exports = {
         .setDescription('เพิ่มคิวอัตโนมัติ'),
     async execute(interaction) {
 
-        const player = global.player;
+        const player = interaction.client.manager.get(interaction.guild.id)
 
         if (!player || !player.playing) {
             const embed = new EmbedBuilder()
