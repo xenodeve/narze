@@ -8,7 +8,7 @@ module.exports = {
         .setName('pause')
         .setDescription('พัก'),
     async execute(interaction) {
-        player = global.player;
+        const player = interaction.client.manager.get(interaction.guild.id)
 
         if (!player) {
             const embed = new EmbedBuilder()
