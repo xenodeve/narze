@@ -14,6 +14,8 @@ module.exports = {
 			// console.log(`[CAUTION] : QueueEnd => Disconnect Channel: ${play_channel.name} Server: ${play_guild.name}(${player.guild})`);
 			console.log(`[${chalk.bold.yellowBright('WARN')}] ${chalk.yellowBright('QueueEnd => Disconnect Channel:')} ${play_channel.name} ${chalk.yellowBright(play_guild.name)}${chalk.yellowBright('(')}${player.guild}${chalk.yellowBright(')')}`);
 			player.destroy();
+			global.join_statue = false
+        	player.set('join', false);
 		}, cooldown);
 	},
 };
