@@ -65,7 +65,7 @@ module.exports = {
                 .setDescription(`> \`🔊\` | เข้าห้อง ${TagChannel(channel)} อยู่แล้ว`)
 
             // return interaction.editReply({ embeds: [embed] });
-            return interaction.reply({ embeds: [embed] });
+            return interaction.reply({ embeds: [embed], ephemeral:true });
         }
     }
 };

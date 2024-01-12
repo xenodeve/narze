@@ -107,6 +107,7 @@
     "wrappy": "^1.0.2",
     "ws": "^8.13.0",
     "yocto-queue": "^0.1.0",
+    "youtube-sr": "^4.3.10",
     "ytdl-core": "^4.11.5"
   },
   "scripts": {
