@@ -3,6 +3,7 @@ const config = require('../settings/config.json')
 const { convertTime } = require('../structures/convertTime');
 const { red } = require('color-name');
 const axios = require('axios');
+const { REGEX } = require(".././settings/regex.js");
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -13,8 +14,53 @@ module.exports = {
                 .setName('query')
                 .setDescription('ชื่อเพลง | ลิ้งก์')
                 .setRequired(true)
+                .setAutocomplete(true)
         ),
-    async execute(interaction, newUser, oldUser) {
+
+    async autocomplete(interaction) {
+
+        const url = interaction.options.getString('query');
+
+        // Check The song playlist (Support: apple music/youtube/spotify/soundcloud/deezer)
+        const match = REGEX.some(function (match) {
+            return match.test(url) == true;
+        });
+
+        async function checkRegex() {
+            if (match == true) {
+                let choice = []
+                choice.push({ name: url, value: url })
+                await interaction.respond(choice).catch(() => { });
+            }
+        }
+
+        checkRegex();
+
+        const apiKey = config.youtube_api_key;
+        const apiUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=10&q=${encodeURIComponent(url)}&key=${apiKey}&regionCode=${config.region}`;
+
+        try {
+            const response = await axios.get(apiUrl);
+            const videos = response.data.items;
+
+            let choice = [];
+
+            videos.forEach(video => {
+                const title = video.snippet.title;
+                const videoId = video.id.videoId;
+                const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+                choice.push({ name: title, value: videoUrl });
+            });
+
+            await interaction.respond(choice).catch(() => { });
+        } catch (error) {
+            console.error(error);
+            const errorMessage = "An error occurred while fetching results.";
+            return interaction.reply({ content: errorMessage, ephemeral: true });
+        }
+    },
+
+    async execute(interaction) {
         const query = interaction.options.getString('query');
         if (!query) return interaction.reply('กรุณาระบุเพลง');
         if (!interaction.member.voice.channel) {
@@ -44,7 +90,7 @@ module.exports = {
             textChannel: interaction.channel.id,
             selfDeafen: true,
         });
-    
+
 
         if (old_player) {
             await player.set('old_play', true);
@@ -197,7 +243,7 @@ module.exports = {
             video_id_playlist = getVideoIdPlaylist(listPart);
 
             if (res.playlist && Live == false) {
-                player.set('playlist_first', true) 
+                player.set('playlist_first', true)
                 const embed = new EmbedBuilder()
                     .setColor(config.embed_color)
                     .setAuthor({ name: 'Go to Playlist', iconURL: userAvatar, url: `https://www.youtube.com/playlist?list=${video_id_playlist}` })

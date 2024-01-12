@@ -45,6 +45,10 @@ module.exports = {
 
 
         if (player.queue.size === 0) {
+            if (!player.twentyFourSeven) {
+                player.twentyFourSeven = false
+            }
+            
             if (player.twentyFourSeven === false){
                 player.destroy();
             };
@@ -55,7 +59,7 @@ module.exports = {
                 .setColor(red)
                 .setFooter({ text: 'ข้าม • เพิ่มคิวอัตโนมัติ' });
 
-            return interaction.editReply({ embeds: [embed] });
+            return interaction.reply({ embeds: [embed] });
         } else {
             await player.stop();
 
