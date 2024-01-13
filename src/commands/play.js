@@ -4,6 +4,7 @@ const { convertTime } = require('../structures/convertTime');
 const { red } = require('color-name');
 const axios = require('axios');
 const { REGEX } = require(".././settings/regex.js");
+const yt = require("youtube-sr").default;
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -19,44 +20,45 @@ module.exports = {
 
     async autocomplete(interaction) {
 
-        const url = interaction.options.getString('query');
+        const query = interaction.options.getString('query');
 
         // Check The song playlist (Support: apple music/youtube/spotify/soundcloud/deezer)
         const match = REGEX.some(function (match) {
-            return match.test(url) == true;
+            return match.test(query) == true;
         });
 
         async function checkRegex() {
             if (match == true) {
                 let choice = []
-                choice.push({ name: url, value: url })
+                choice.push({ name: query, value: query })
                 await interaction.respond(choice).catch(() => { });
             }
         }
 
         checkRegex();
 
-        const apiKey = config.youtube_api_key;
-        const apiUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=10&q=${encodeURIComponent(url)}&key=${apiKey}&regionCode=${config.region}`;
+        const result = await yt.search(query, { limit: 25, safeSearch: true });
+
+        if (!result) {
+            choice.push({ name: 'กรุณาใส่ชื่อเพลง' })
+            return;
+        }
 
         try {
-            const response = await axios.get(apiUrl);
-            const videos = response.data.items;
 
             let choice = [];
 
-            videos.forEach(video => {
-                const title = video.snippet.title;
-                const videoId = video.id.videoId;
-                const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
-                choice.push({ name: title, value: videoUrl });
+            result.forEach(video => {
+                const title = video.title;
+                const videoId = video.id;
+                const url = `https://www.youtube.com/watch?v=${videoId}`;
+                // console.log('title :', title, 'url :', url);
+                choice.push({ name: title, value: url });
             });
 
             await interaction.respond(choice).catch(() => { });
         } catch (error) {
-            console.error(error);
-            const errorMessage = "An error occurred while fetching results.";
-            return interaction.reply({ content: errorMessage, ephemeral: true });
+            console.error('search result error :', error);
         }
     },
 
