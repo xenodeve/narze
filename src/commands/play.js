@@ -36,8 +36,9 @@ module.exports = {
         }
 
         checkRegex();
+        const default_search = config.default_search[Math.floor(Math.random() * config.default_search.length)];
 
-        const result = await yt.search(query, { limit: 25, safeSearch: true });
+        const result = await yt.search(query || default_search, { limit: 25, safeSearch: true });
 
         if (!result) {
             choice.push({ name: 'กรุณาใส่ชื่อเพลง' })
@@ -191,16 +192,24 @@ module.exports = {
 
         const apiKey = config.youtube_api_key;
         const apiUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${video_id}&key=${apiKey}`;
-        const response = await axios.get(apiUrl);
-        const videoData = response.data.items[0];
+        
 
-        if (videoData && videoData.snippet.liveBroadcastContent === 'live') {
-            // console.log('[Track] The music is live.');
-            Live = true;
-        } else {
-            // console.log('[Track] The music is not live.');
-            Live = false;
+        try {
+
+            const response = await axios.get(apiUrl);
+            const videoData = response.data.items[0];
+
+            if (videoData && videoData.snippet.liveBroadcastContent === 'live') {
+                // console.log('[Track] The music is live.');
+                Live = true;
+            } else {
+                // console.log('[Track] The music is not live.');
+                Live = false;
+            }
+        } catch (error) {
+            Live = false
         }
+
 
         // await interaction.deferReply({ ephemeral: false });
 

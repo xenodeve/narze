@@ -90,6 +90,7 @@
     "reusify": "^1.0.4",
     "rimraf": "^3.0.2",
     "run-parallel": "^1.2.0",
+    "scrape-youtube": "^2.4.0",
     "shebang-command": "^2.0.0",
     "shebang-regex": "^3.0.0",
     "streamsearch": "^1.1.0",
