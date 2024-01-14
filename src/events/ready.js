@@ -19,6 +19,7 @@ module.exports = {
 
 		const activities = [
 			`🛠️ Early Access (Final Phase) | xeno.2004`,
+			`🛠️ (Final Phase) | xeno.2004`,
 			// `/help | ${guilds} servers`,
 			//`/play <input> | ${members} users`,
 			`🎧 /play <input>`,
