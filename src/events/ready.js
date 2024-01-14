@@ -18,7 +18,7 @@ module.exports = {
 		let channels = client.channels.cache.size;
 
 		const activities = [
-			`🛠️ Early Access | xeno.2004`,
+			`🛠️ Early Access (Final Phase) | xeno.2004`,
 			// `/help | ${guilds} servers`,
 			//`/play <input> | ${members} users`,
 			`🎧 /play <input>`,
