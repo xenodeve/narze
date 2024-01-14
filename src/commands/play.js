@@ -36,7 +36,6 @@ module.exports = {
         }
 
         checkRegex();
-        const default_search = config.default_search[Math.floor(Math.random() * config.default_search.length)];
 
         // let choice = [];
 
@@ -48,6 +47,8 @@ module.exports = {
         // return await interaction.respond(choice).catch(() => { });
 
         if (!query) {
+            const default_search = config.default_search[Math.floor(Math.random() * config.default_search.length)];
+            // console.log('select :', default_search)
             result = await yt.search(default_search, { limit: 7, safeSearch: true });
         } else {
             result = await yt.search(query, { limit: 5, safeSearch: true });
@@ -201,7 +202,7 @@ module.exports = {
 
         const apiKey = config.youtube_api_key;
         const apiUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${video_id}&key=${apiKey}`;
-        
+
 
         try {
 
