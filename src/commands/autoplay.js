@@ -8,6 +8,8 @@ module.exports = {
         .setDescription('เพิ่มคิวอัตโนมัติ'),
     async execute(interaction) {
 
+        await interaction.deferReply({ ephemeral: false });
+
         const player = interaction.client.manager.get(interaction.guild.id)
 
         if (!player || !player.playing) {
@@ -18,8 +20,6 @@ module.exports = {
             return interaction.reply({ embeds: [embed], ephemeral: true });
         }
 
-        // await interaction.deferReply({ ephemeral: false });
-
         const autoplay = player.get('autoplay');
         if (autoplay === true) {
             await player.set('autoplay', false);
@@ -28,8 +28,8 @@ module.exports = {
                 .setDescription(`> \`📻\` | *เล่นอัตโนมัติ ได้ถูก:* \` ปิดการใช้งาน \``)
                 .setColor(config.embed_color);
 
-            // return interaction.editReply({ embeds: [embed] });
-            return interaction.reply({ embeds: [embed] });
+            return interaction.editReply({ embeds: [embed] });
+            // return interaction.reply({ embeds: [embed] });
         } else {
 
             if (player.queue.size === 0) {
@@ -45,8 +45,8 @@ module.exports = {
                         .setDescription(`> ❌Autoplay Support Youtubeเท่านั้น`)
                         .setColor(red);
 
-                    // return interaction.editReply({ embeds: [embed], ephemeral: true });
-                    return interaction.reply({ embeds: [embed], ephemeral: true });
+                    return interaction.editReply({ embeds: [embed], ephemeral: true });
+                    // return interaction.reply({ embeds: [embed], ephemeral: true });
                 }
             }
 
@@ -57,8 +57,8 @@ module.exports = {
                 .setDescription(`> \`📻\` | *เล่นอัตโนมัติ ได้ถูก:* \` เปิดการใช้งาน \``)
                 .setColor(config.embed_color)
 
-            // return interaction.editReply({ embeds: [embed] });
-            return interaction.reply({ embeds: [embed] });
+            return interaction.editReply({ embeds: [embed] });
+            // return interaction.reply({ embeds: [embed] });
 
         }
     }
