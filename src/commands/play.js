@@ -66,7 +66,7 @@ module.exports = {
                 const videoId = video.id;
                 const url = `https://www.youtube.com/watch?v=${videoId}`;
                 choice.push({ name: title, value: url });
-                console.log(choice)
+                // console.log(choice)
             });
 
             interaction.respond(choice).catch(() => { });
