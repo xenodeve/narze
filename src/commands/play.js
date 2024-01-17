@@ -48,11 +48,13 @@ module.exports = {
 
         if (!query) {
             const default_search = config.default_search[Math.floor(Math.random() * config.default_search.length)];
-            // console.log('select :', default_search)
+            console.log('select :', default_search)
             result = await yt.search(default_search, { limit: 7, safeSearch: true });
         } else {
             result = await yt.search(query, { limit: 5, safeSearch: true });
         }
+
+        // console.log('result :', result)
 
         try {
 
@@ -69,7 +71,7 @@ module.exports = {
 
             interaction.respond(choice).catch(() => { });
         } catch (error) {
-            console.error('search result error :', error);
+            // console.error('search result error :', error);
         }
     },
 
@@ -160,6 +162,7 @@ module.exports = {
         // แยก URL เพื่อดึงข้อมูลที่เป็น list
 
         const listPart = interaction.options.get('query').value.split('list=')[1];
+
 
         function getVideoIdPlaylist(listPart) {
             if (listPart) {
