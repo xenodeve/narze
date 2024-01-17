@@ -48,7 +48,7 @@ module.exports = {
 
         if (!query) {
             const default_search = config.default_search[Math.floor(Math.random() * config.default_search.length)];
-            console.log('select :', default_search)
+            // console.log('select :', default_search)
             result = await yt.search(default_search, { limit: 7, safeSearch: true });
         } else {
             result = await yt.search(query, { limit: 5, safeSearch: true });
