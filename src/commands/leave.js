@@ -17,7 +17,7 @@ module.exports = {
             return channel_tag
         }
 
-        console.log(player)
+        // console.log(player)
         if (!player || typeof player === 'undefined') {
             const embed = new EmbedBuilder()
                 .setColor(red)
