@@ -10,7 +10,7 @@ module.exports = {
 
         const { channel } = interaction.member.voice;
 
-        let player = interaction.client.manager.get(interaction.guild.id) || interaction.client.manager.create({
+        let player = global.player || interaction.client.manager.create({
             guild: interaction.guild.id,
             voiceChannel: interaction.member.voice.channel.id,
             textChannel: interaction.channel.id,
