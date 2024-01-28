@@ -8,8 +8,6 @@ module.exports = {
         .setDescription('เพิ่มคิวอัตโนมัติ'),
     async execute(interaction) {
 
-        await interaction.deferReply({ ephemeral: false });
-
         const player = interaction.client.manager.get(interaction.guild.id)
 
         if (!player || !player.playing) {
@@ -19,6 +17,8 @@ module.exports = {
 
             return interaction.reply({ embeds: [embed], ephemeral: true });
         }
+
+        await interaction.deferReply({ ephemeral: false });
 
         const autoplay = player.get('autoplay');
         if (autoplay === true) {
