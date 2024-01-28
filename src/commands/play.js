@@ -135,14 +135,14 @@ module.exports = {
                 .setColor(red)
                 .setDescription(`> ❌คุณต้องอยู่ในห้องเดียวกับบอท`);
 
-            return interaction.reply({ embeds: [embed], ephemeral: true });
+            return interaction.editReply({ embeds: [embed], ephemeral: true });
         }
         if (!res.tracks[0]) {
             const embed = new EmbedBuilder()
                 .setColor(red)
                 .setDescription(`> ❌ไม่สามารถเข้าถึงเพลงได้`);
 
-            return interaction.reply({ embeds: [embed], ephemeral: true });
+            return interaction.editReply({ embeds: [embed], ephemeral: true });
         }
 
         // ตรวจสอบ Permissions ในห้องเสียง
@@ -154,7 +154,7 @@ module.exports = {
                 .setColor(red)
                 .setDescription(`> ❌บอทไม่มีอำนาจเปิดเพลงในห้อง ${channel.toString()}`);
 
-            return interaction.reply({ embeds: [embed], ephemeral: true });
+            return interaction.editReply({ embeds: [embed], ephemeral: true });
         }
 
         const urls = res.tracks[0].uri;
