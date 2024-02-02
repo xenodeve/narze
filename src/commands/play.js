@@ -37,15 +37,6 @@ module.exports = {
 
         checkRegex();
 
-        // let choice = [];
-
-        // await yt.search(query || Random, { safeSearch: true, limit: 10 }).then(result => {
-        //     // console.log(video.title),
-        //     result.forEach(result => { choice.push({ name: result.video.title, value: result.video.id }) })
-        // });
-
-        // return await interaction.respond(choice).catch(() => { });
-
         if (!query) {
             const default_search = config.default_search[Math.floor(Math.random() * config.default_search.length)];
             // console.log('select :', default_search)
