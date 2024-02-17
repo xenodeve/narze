@@ -4,7 +4,7 @@ module.exports = {
 	name: 'ready',
 	once: true,
 	execute(client, interaction) {
-		console.log(`[${chalk.bold.greenBright('WARN')}] ${client.user.tag} ${chalk.greenBright('Online!')}`);
+		console.log(`[${chalk.bold.greenBright('SYSTEM')}] ${chalk.greenBright('All Green!')}\n[${chalk.bold.greenBright('WARN')}] ${client.user.tag} ${chalk.greenBright('Online!')}`);
 		
 		client.manager.init(client.user.id);
 
