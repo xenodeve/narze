@@ -26,12 +26,13 @@ module.exports = {
         }
 
         const userAvatar = global.userAvatar
-        const urls = tracks.uri;
-        if (!urls) {
+        const url = tracks.uri;
+        if (!url) {
             console.error('Error: `tracks.uri` is undefined or null.');
             return;
         }
-        const video_id = urls.split('v=')[1];
+        const video_id = url.split('v=')[1];
+        const urls = `https://youtu.be/${video_id}`
 
 
         if (player_play.get('play')) {
