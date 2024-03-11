@@ -26,14 +26,15 @@ module.exports = {
         }
 
         const userAvatar = global.userAvatar
-        const url = tracks.uri;
-        if (!url) {
+        const urls = tracks.uri;
+        if (!urls) {
             console.error('Error: `tracks.uri` is undefined or null.');
             return;
         }
-        const video_id = url.split('v=')[1];
-        const urls = `https://youtu.be/${video_id}`
+        const video_id = urls.split('v=')[1];
+        // const urls = `https://youtu.be/${video_id}`
 
+        console.log('about : ', urls)
 
         if (player_play.get('play')) {
             play = player_play.get('play')

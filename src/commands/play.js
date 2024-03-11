@@ -79,7 +79,6 @@ module.exports = {
             return interaction.reply({ embeds: [embed], ephemeral: true });
         }
 
-
         const res = await interaction.client.manager.search(
             query,
             interaction.author,
@@ -148,10 +147,12 @@ module.exports = {
             return interaction.editReply({ embeds: [embed], ephemeral: true });
         }
 
-        const url = res.tracks[0].uri;
+        console.log('url : ',res.tracks[0].uri)
 
-        const video_id = url.split('v=')[1];
-        const urls = `https://youtu.be/${video_id}`
+        const urls = res.tracks[0].uri;
+
+        const video_id = urls.split('v=')[1];
+        // const urls = `https://youtu.be/${video_id}`
 
         // แยก URL เพื่อดึงข้อมูลที่เป็น list
 
