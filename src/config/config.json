@@ -1,0 +1,20 @@
+{
+    "lavalink_config": {
+        "volume_default": 15,
+        "default_image": "https://ik.imagekit.io/xenodev/NO%20PICTURE.png?updatedAt=1757172663512"
+    },
+
+    "icon_config": {
+        "normal_track": "artistImage",
+        "playlist_display": "botavatar",
+        "playlist_track": "artistImage"
+    },
+
+    "author_url_config": {
+        "use_playlist_url": false,
+        "description": "true = ใช้ URL ของ playlist เมื่อเป็นเพลงจาก playlist, false = ใช้ URL ของ track เสมอ"
+    },
+
+    "embed_color":"#e4854a",
+    "embed_fail":"#FF0000"
+}
