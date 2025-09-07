@@ -6,7 +6,7 @@
 
 [![GitHub Repository](https://img.shields.io/badge/GitHub-narze-blue?style=for-the-badge&logo=github)](https://github.com/xenodeve/narze)
 [![Version](https://img.shields.io/badge/Version-v4-green?style=for-the-badge)](https://github.com/xenodeve/narze/tree/v4)
-[![License](https://img.shields.io/badge/License-Custom-orange?style=for-the-badge)](./LICENSE)
+[![Discord](https://img.shields.io/badge/Discord-Join%20Server-7289da?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/u2MxsNQAuk)
 
 ---
 
