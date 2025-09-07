@@ -14,7 +14,7 @@ lavalink:
     - dependency: "dev.lavalink.youtube:youtube-plugin:1.13.5"
       snapshot: false
   server:
-    password: "<your_password>"
+    password: "<your_node_password>"
     sources:
       youtube: false
       bandcamp: true
