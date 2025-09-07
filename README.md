@@ -68,9 +68,10 @@ DATABASE_URL="mongodb+srv://<username>:<db_password>@<cluster_name>.<string>.mon
 # หรือใช้ SQLite: DATABASE_URL="file:./dev.db"
 
 # Lavalink Configuration
-LAVALINK_HOST=localhost
-LAVALINK_PORT=2333
-LAVALINK_PASSWORD=123456789
+LAVALINK_PORT = <node_port>
+LAVALINK_HOST = <node_ip>
+LAVALINK_PASS = <node_password>
+LAVALINK_SECURE = <boolean>
 
 # Spotify Integration (Optional)
 SPOTIFY_CLIENT_ID=your_spotify_client_id
