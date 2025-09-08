@@ -175,8 +175,6 @@ export default {
                 return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             }
 
-            await interaction.deferReply();
-
             console.log('Current queue before skipplay:', player.queue.size);
             
             // สำรองคิวปัจจุบัน (Queue extends Array)
@@ -188,6 +186,9 @@ export default {
             (player as any).set('isSkipplay', true);
             
             if (result.loadType === 'playlist') {
+                
+                await interaction.deferReply();
+
                 // ดึง playlist thumbnail
                 const thumbnailUrl = await getPlaylistThumbnailMain(queryFiltered);
 
@@ -212,7 +213,7 @@ export default {
                 );
 
                 // เพิ่มทั้ง playlist
-                tracksWithMetadata.forEach(track => {
+                await tracksWithMetadata.forEach(track => {
                     player.queue.add(track);
                 });
                 

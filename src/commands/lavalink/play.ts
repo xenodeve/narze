@@ -167,7 +167,7 @@ export default {
 
         }
 
-        loadTracks(queryFiltered, member).then(async (result) => {
+        await loadTracks(queryFiltered, member).then(async (result) => {
             const player = playerCreate(interaction.guild, interaction.channel as TextChannel, member.voice.channel as VoiceChannel);
 
             await (player as any).setVolume(configjson.lavalink_config.volume_default);
@@ -233,6 +233,7 @@ export default {
             }
 
             if(result.loadType === 'playlist') {
+                await interaction.deferReply();
                 // คำนวณเวลารวมของ playlist
                 const totalDuration = result.tracks.reduce((total, track) => {
                     return total + (track.info.length || 0);
@@ -267,7 +268,7 @@ export default {
 
                 console.log(`[${chalk.bold.yellowBright('DEBUG')}] Final thumbnailUrl:`, thumbnailUrl);
 
-                result.tracks.forEach(track => {
+                await result.tracks.forEach(track => {
                 // เปลี่ยน uri ด้วยถ้าต้องการ
                 if(track.info.uri.includes('youtube')) {
                     track.info.uri = track.info.uri.replace('www', 'music');
@@ -281,7 +282,7 @@ export default {
                     thumbnailUrl
                 );
 
-                tracksWithMetadata.forEach(track => {
+                await tracksWithMetadata.forEach(track => {
                     player.queue.add(track);
                 });
 
@@ -297,7 +298,7 @@ export default {
                         .setDescription(`> \`📝\` **Playlist:** ${playlistName || result.playlistInfo.name}\n> \`⌛\` **เวลา:** \` ${convertTime(totalDuration)} \` \n> \`📊\` **มี:** \` ${result.tracks.length} \` เพลง \n> **คิวทั้งหมด:** \` ${player.queue.size} \` เพลง \n> **ห้อง:** ${member.voice.channel.toString()}`)
                         .setThumbnail(thumbnailUrl);
 
-                    return interaction.reply({ embeds: [embed] });
+                    return interaction.editReply({ embeds: [embed] });
                 }
 
                 // console.log('result', result)
@@ -308,7 +309,7 @@ export default {
                             .setColor(configjson.embed_color as HexColorString)
                             .setDescription(`> \`❌\` **ไม่สามารถเล่นเพลงได้**`)
 
-                        return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                        return interaction.editReply({ embeds: [embed] });
                 }).then( async() => {
                     // ดึงชื่อศิลปินจากเพลงแรกเพื่อใช้กับ artistImage
                     const firstTrackArtist = result.tracks[0]?.info?.author;
@@ -319,14 +320,14 @@ export default {
                         .setDescription(`> \`📙\` **Playlist:** ${playlistName || result.playlistInfo.name}\n> \`⌛\` **เวลา:** \` ${convertTime(totalDuration)} \` \n> \`📊\` **มี:** \` ${result.tracks.length} \` เพลง \n> **ห้อง:** ${member.voice.channel.toString()}`)
                         .setThumbnail(thumbnailUrl);
 
-                    return interaction.reply({ embeds: [embed] });
+                    return interaction.editReply({ embeds: [embed] });
             });
                 
             } else if(result.loadType === 'no_results') {
                 const embed = new EmbedBuilder()
                 .setColor(configjson.embed_fail as HexColorString)
                 .setDescription(`> \`❌\` **ไม่สามารถหาเพลงได้**`);
-                return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                return interaction.editReply({ embeds: [embed] });
             }
 
             if(result.loadType === 'error') {
