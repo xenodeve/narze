@@ -4,6 +4,8 @@
 บอท Discord สำหรับเล่นเพลงที่ทันสมัย รองรับหลายแพลตฟอร์ม  
 พัฒนาโดย [xenodev](https://github.com/xenodeve)
 
+<img width="378" height="199" alt="Screenshot 2025-11-29 093406" src="https://github.com/user-attachments/assets/a8990526-01d7-40c3-969e-6203837616e3" />
+
 [![GitHub Repository](https://img.shields.io/badge/GitHub-narze-blue?style=for-the-badge&logo=github)](https://github.com/xenodeve/narze)
 [![Version](https://img.shields.io/badge/Version-v4-green?style=for-the-badge)](https://github.com/xenodeve/narze/tree/v4)
 [![Discord](https://img.shields.io/badge/Discord-Join%20Server-7289da?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/u2MxsNQAuk)
