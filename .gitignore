@@ -34,8 +34,7 @@ cache/
 # Finder (MacOS) folder config
 .DS_Store
 
-# Lavalink configuration
-lavalink/application.yml
-
 /src/generated/prisma
 
+Lavalink/application.yml
+lavalink/application.yml
