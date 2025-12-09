@@ -8,6 +8,13 @@ import { client } from "../..";
 import { addPlaylistMetadata } from "../../functions/lavalink/playlistMetadata";
 import { getPlaylistThumbnailMain } from "../../functions/youtube/index";
 import { getPlaylistDisplayIcon } from "../../functions/lavalink/iconConfig";
+import { getCache, setCache } from "../../functions/cache/autocompleteCache";
+
+// ฟังก์ชันสำหรับสร้าง cache key ตาม search platform
+function getCacheKey(query: string): string {
+    const platform = configjson.lavalink_config.default_search_platform;
+    return `autocomplete_${platform}_${query}`;
+}
 
 let mix = false;
 
@@ -41,6 +48,17 @@ export default {
                 if (query.includes('deezer') || query.includes('music.apple')) {
                     choices.push({ name: 'ไม่รองรับ Platform นี้', value: 'error' });
                 } else {
+                    // ตรวจสอบ cache ก่อน (แยกตาม search platform)
+                    const cacheKey = getCacheKey(query);
+                    const cachedResult = getCache(cacheKey);
+                    
+                    if (cachedResult) {
+                        const platform = configjson.lavalink_config.default_search_platform;
+                        console.log(`[${chalk.bold.greenBright('CACHE')}] Using cached result (${platform}) for skipplay: ${query}`);
+                        await interaction.respond(cachedResult).catch(() => {});
+                        return;
+                    }
+
                     // ใช้ loadTracks โดยตรงสำหรับ URL
                     const result = await loadTracks(query, member);
                     
@@ -68,25 +86,48 @@ export default {
                         choices.push({ name: title.slice(0, 100), value: playlistId });
                     } else if (result.tracks && result.tracks.length > 0 && query.includes('music.youtube')) {
                         const title = `(${result.tracks[0].info.author}) ${result.tracks[0].info.title}`;
-                        choices.push({ name: title.slice(0, 100), value: title.slice(0, 100) });
+                        choices.push({ name: title.slice(0, 100), value: title.slice(0, 100) + query });
                     } else if (result.tracks && result.tracks.length > 0 && (query.includes('youtu.be') || query.includes('youtube') || query.includes('spotify'))) {
                         const title = `(${result.tracks[0].info.author}) ${result.tracks[0].info.title}`;
                         choices.push({ name: title.slice(0, 100), value: result.tracks[0].info.uri || query });
                     }
+                    
+                    // บันทึกผลลัพธ์ลง cache สำหรับ URL (เฉพาะถ้าไม่ใช่ error)
+                    if (choices.length > 0 && !choices.some(choice => choice.value === 'error')) {
+                        setCache(cacheKey, choices);
+                        const platform = configjson.lavalink_config.default_search_platform;
+                        console.log(`[${chalk.bold.blueBright('CACHE')}] Cached URL result (${platform}) for skipplay: ${query}`);
+                    }
                 }
             } else {
+                // ตรวจสอบ cache ก่อน (สำหรับ text search) - แยกตาม search platform
+                const cacheKey = getCacheKey(query);
+                const cachedResult = getCache(cacheKey);
+                
+                if (cachedResult) {
+                    const platform = configjson.lavalink_config.default_search_platform;
+                    console.log(`[${chalk.bold.greenBright('CACHE')}] Using cached result (${platform}) for skipplay: ${query}`);
+                    await interaction.respond(cachedResult).catch(() => {});
+                    return;
+                }
+
                 // Search สำหรับ text query
                 const result = await loadTracks(query, member);
                 
                 if (result.tracks && result.tracks.length > 0) {
-                    for (let i = 0; i < Math.min(7, result.tracks.length); i++) {
+                    for (let i = 0; i < Math.min(configjson.lavalink_config.autocomplete_results_limit, result.tracks.length); i++) {
                         const track = result.tracks[i];
                         const title = `(${track.info.author}) ${track.info.title}`;
                         choices.push({
                           name: title.slice(0, 100),
-                          value: title.slice(0, 100),
+                          value: title.slice(0, 100) + track.info.uri,
                         });
                     }
+                    
+                    // บันทึกผลลัพธ์ลง cache สำหรับ text search
+                    setCache(cacheKey, choices);
+                    const platform = configjson.lavalink_config.default_search_platform;
+                    console.log(`[${chalk.bold.blueBright('CACHE')}] Cached text search result (${platform}) for skipplay: ${query}`);
                 } else {
                     choices.push({ name: 'ไม่พบเพลงที่ค้นหา', value: 'error' });
                 }
@@ -276,7 +317,7 @@ export default {
                     .setDescription(`\`⏭️\`┃**Skipped** ไปยังเพลง **[${result.tracks[0].info.title}](${result.tracks[0].info.uri})** โดย: ${userMention}`)
                     .setColor(configjson.embed_color as HexColorString);
 
-                return interaction.editReply({ embeds: [embed] });
+                return interaction.reply({ embeds: [embed] });
             }
 
         } catch (error) {

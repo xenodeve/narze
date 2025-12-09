@@ -4,9 +4,58 @@
 บอท Discord สำหรับเล่นเพลงที่ทันสมัย รองรับหลายแพลตฟอร์ม  
 พัฒนาโดย [xenodev](https://github.com/xenodeve)
 
+<img width="378" height="199" alt="Screenshot 2025-11-29 093406" src="https://github.com/user-attachments/assets/a8990526-01d7-40c3-969e-6203837616e3" />
+
 [![GitHub Repository](https://img.shields.io/badge/GitHub-narze-blue?style=for-the-badge&logo=github)](https://github.com/xenodeve/narze)
 [![Version](https://img.shields.io/badge/Version-v4.0.3-green?style=for-the-badge)](https://github.com/xenodeve/narze/tree/v4)
 [![Discord](https://img.shields.io/badge/Discord-Join%20Server-7289da?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/u2MxsNQAuk)
+
+---
+
+## 📋 Release Notes - Version 4.0.3
+
+### 🎉 คุณสมบัติใหม่
+
+#### 🗄️ ระบบ Cache ขั้นสูง
+- ✨ **Autocomplete Cache System** - เพิ่มระบบแคชผลการค้นหาอัตโนมัติ เพื่อเพิ่มความเร็วในการแสดงผลคำแนะนำ
+- 🚀 **Search Optimization** - ปรับปรุงประสิทธิภาพการค้นหาด้วยระบบแคชที่ชาญฉลาด
+- ⚡ **Cache Management Command** - เพิ่มคำสั่ง `/cache` สำหรับจัดการแคช (ดู/ล้าง)
+- 💾 **Persistent Storage** - บันทึกแคชลงไฟล์เพื่อใช้งานต่อเนื่อง
+
+#### 🎵 คำสั่งเพลงใหม่
+- 🎯 **`/playat`** - เล่นเพลงที่ตำแหน่งเฉพาะในคิว (เลือกได้ว่าจะเล่นที่ตำแหน่งไหน)
+- ⏭️ **`/playnext`** - เพิ่มเพลงเข้าคิวและเล่นถัดไปทันที (ไม่ต้องรอหมดคิว)
+- 📋 **`/playqueue`** - เพิ่มเพลงหลายเพลงเข้าคิวพร้อมกัน (รองรับ playlist)
+- 📜 **`/queue`** - ดูรายการเพลงในคิวแบบละเอียด พร้อมข้อมูลครบถ้วน
+
+#### 🖼️ ระบบ Thumbnail ใหม่
+- 🎨 **Advanced Thumbnail System** - ระบบดึง thumbnail ที่ปรับปรุงใหม่หมด
+- ✅ **Thumbnail Validator** - ตรวจสอบความถูกต้องและคุณภาพของ thumbnail
+- 🔍 **Thumbnail Optimizer** - เพิ่มประสิทธิภาพการโหลดและแสดงผลรูปภาพ
+- 🌐 **Multiple Sources** - รองรับการดึง thumbnail จากหลายแหล่ง (YouTube API, Web Scraping, YTI)
+- 📊 **Playlist Thumbnail** - ดึง thumbnail สำหรับ playlist ได้แม่นยำยิ่งขึ้น
+
+### 🔧 การปรับปรุง
+- ⚡ เพิ่มความเร็วในการตอบสนอง autocomplete
+- 🎯 ปรับปรุงความแม่นยำในการค้นหาเพลง
+- 📈 เพิ่มประสิทธิภาพการจัดการคิวเพลง
+- 🛠️ ปรับปรุงการจัดการหน่วยความจำ
+- 📝 เพิ่มเอกสารประกอบคำสั่งใหม่
+
+### 🐛 Bug Fixes
+- แก้ไขปัญหา autocomplete ช้าในบางกรณี
+- แก้ไขปัญหา thumbnail ไม่แสดงผลในบางเพลง
+- แก้ไขปัญหาการจัดการคิวเพลงในหลาย guild
+- ปรับปรุงความเสถียรของระบบ
+
+### 📚 เอกสารใหม่
+- 📖 คู่มือการใช้งาน Cache System (`docs/autocomplete-cache.md`)
+- 📖 คู่มือคำสั่ง Skipplay (`docs/commands/SKIPPLAY_README.md`)
+- 📖 เอกสาร Thumbnail Validation (`docs/thumbnail-validation.md`)
+
+**วันที่ Release:** 9 ธันวาคม 2025
+
+---
 
 ---
 
@@ -134,6 +183,10 @@ bun run start
 |--------|------------|
 | `/play` | เล่นเพลงจาก URL หรือค้นหา |
 | `/skipplay` | ข้ามเพลงปัจจุบันและเล่นเพลงใหม่ |
+| `/playat` | 🆕 เล่นเพลงที่ตำแหน่งเฉพาะในคิว |
+| `/playnext` | 🆕 เพิ่มเพลงเข้าคิวและเล่นถัดไปทันที |
+| `/playqueue` | 🆕 เพิ่มเพลงหลายเพลงเข้าคิวพร้อมกัน |
+| `/queue` | 🆕 ดูรายการเพลงในคิวแบบละเอียด |
 | `/pause` | หยุดเพลงชั่วคราว |
 | `/skip` | ข้ามไปเพลงถัดไป |
 | `/stop` / `/leave` | หยุดเล่นและออกจากห้อง |
@@ -143,6 +196,7 @@ bun run start
 | `/join` | เข้าร่วมห้องเสียง |
 | `/247` | โหมดเล่นต่อเนื่อง 24/7 |
 | `/clear` | ล้างคิวเพลง |
+| `/cache` | 🆕 จัดการแคชระบบ (ดู/ล้าง) |
 
 ---
 

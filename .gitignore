@@ -26,6 +26,7 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .eslintcache
 .cache
 *.tsbuildinfo
+cache/
 
 # IntelliJ based IDEs
 .idea
@@ -35,5 +36,4 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 /src/generated/prisma
 
-Lavalink/application.yml
-Lavalink/application.yml
+lavalink/application.yml

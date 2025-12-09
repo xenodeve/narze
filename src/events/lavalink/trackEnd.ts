@@ -17,5 +17,6 @@ client.manager.on("trackEnd" as any, (player, track, payload) => {
     (player as any).set('isFirstFromCommand', false);
     (player as any).set('isSkipplay', false);
     (player as any).set('isSkip', false);
+    (player as any).set('dontShow', false);
     // ไม่ reset isTerminalCommand ที่นี่ เพราะยังใช้ต่อใน session เดียวกัน
 })

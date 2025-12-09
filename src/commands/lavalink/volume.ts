@@ -77,6 +77,8 @@ export default {
         // ตั้งค่าความดัง
         await player.setVolume(amount);
 
+        (player as any).set('isVolumeChangeCommand', true); // ตั้ง flag ว่าเป็นการเปลี่ยน volume จากคำสั่ง
+
         // แสดงความดังใหม่
         const embed = new EmbedBuilder()
             .setColor(configjson.embed_color as HexColorString)

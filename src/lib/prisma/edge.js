@@ -118,7 +118,7 @@ const config = {
       "value": "prisma-client-js"
     },
     "output": {
-      "value": "c:\\Users\\gamin\\OneDrive\\เดสก์ท็อป\\narze typescript\\src\\lib\\prisma",
+      "value": "C:\\Users\\gamin\\OneDrive\\เดสก์ท็อป\\narze typescript\\src\\lib\\prisma",
       "fromEnvVar": null
     },
     "config": {
@@ -132,7 +132,7 @@ const config = {
       }
     ],
     "previewFeatures": [],
-    "sourceFilePath": "c:\\Users\\gamin\\OneDrive\\เดสก์ท็อป\\narze typescript\\prisma\\schema.prisma",
+    "sourceFilePath": "C:\\Users\\gamin\\OneDrive\\เดสก์ท็อป\\narze typescript\\prisma\\schema.prisma",
     "isCustomOutput": true
   },
   "relativeEnvPaths": {

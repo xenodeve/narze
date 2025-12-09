@@ -226,7 +226,9 @@ class TerminalCommandHandler {
 
             // สร้าง player
             const player = playerCreate(guild, textChannel, voiceChannel);
-            await (player as any).setVolume(configjson.lavalink_config.volume_default);
+            if (player.volume === 100 && !(player as any).get('isVolumeChangeCommand')) {
+                await (player as any).setVolume(configjson.lavalink_config.volume_default);
+            }
 
             // เซ็ต flag ว่าเป็นคำสั่งจาก terminal
             (player as any).set('isTerminalCommand', true);

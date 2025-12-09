@@ -10,6 +10,7 @@ client.manager.on("queueEnd" as any, (player) => {
     }
     
     if(!(player as any).get('twentyFourSeven')) {
+        (player as any).set('isVolumeChangeCommand', false);
         player.destroy();
     }
 })

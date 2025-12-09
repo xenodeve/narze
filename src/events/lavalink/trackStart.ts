@@ -5,6 +5,7 @@ import configjson from '../../config/config.json';
 import { convertTime } from "../../functions/convertTime/convertTime";
 import { formatPlaylistInfo, isFromPlaylist, createPlaylistEmbedField, getPlaylistThumbnail, getPlaylistUrl } from "../../functions/lavalink/playlistMetadata";
 import { getIconURL } from "../../functions/lavalink/iconConfig";
+import { validateAndConvertThumbnail } from "../../functions/lavalink/thumbnailValidator";
 
 client.manager.on("trackStart" as any, async (player, track) => {
     const channel = client.channels.cache.get(player.textChannel);
@@ -22,6 +23,7 @@ client.manager.on("trackStart" as any, async (player, track) => {
     const isCurrentLoop = (player as any).get('currentLoop') || false;
 
     const isSkip = (player as any).get('isSkip') || false;
+    const dontShow = (player as any).get('dontShow') || false;
 
     // console.log('isFirstFromCommand:', isFirstFromCommand);
     
@@ -30,7 +32,7 @@ client.manager.on("trackStart" as any, async (player, track) => {
     
     // console.log('isActualFirstTrack:', isActualFirstTrack);
 
-    if ((!isActualFirstTrack && !isSkipplay && !isCurrentLoop) || (isSkip && !isActualFirstTrack && !isSkipplay)) {
+    if (((!isActualFirstTrack && !isSkipplay && !isCurrentLoop) || (isSkip && !isActualFirstTrack && !isSkipplay)) && !dontShow) {
         // ถ้าเป็นคำสั่งจาก terminal ให้ไม่ส่ง embed
         if (isTerminalCommand) {
             console.log(`[${chalk.bold.greenBright('TERMINAL TRACK')}] Now playing: ${track.info.title} ${chalk.greenBright('in')} ${guild?.name}${chalk.greenBright('(')}${player.guildId}${chalk.greenBright(')')}`);
@@ -39,11 +41,8 @@ client.manager.on("trackStart" as any, async (player, track) => {
 
         // ใช้ channel จาก player แทน interaction เพื่อป้องกัน bug ใน multi-guild
         if (channel && 'send' in channel) { 
-            // เช็คและแปลง thumbnail URL จาก mqdefault เป็น maxresdefault
-            let thumbnailUrl = track.info.thumbnail;
-            if (thumbnailUrl && thumbnailUrl.includes('mqdefault')) {
-                thumbnailUrl = thumbnailUrl.replace('mqdefault', 'maxresdefault');
-            }
+            // เช็คและแปลง thumbnail URL โดยใช้ utility function
+            const thumbnailUrl = await validateAndConvertThumbnail(track.info.thumbnail);
  
             // ใช้ avatar จาก requester หาก track มี requester หรือใช้ default
             let userAvatar = client.user?.displayAvatarURL();
@@ -88,12 +87,6 @@ client.manager.on("trackStart" as any, async (player, track) => {
                 .setAuthor({ name: 'Go to Page', iconURL: iconURL, url: authorURL })
                 .setDescription(description)
                 .setThumbnail(thumbnailUrl);
-                
-            // เพิ่ม field สำหรับ playlist ถ้าต้องการ (optional)
-            // const playlistField = createPlaylistEmbedField(track);
-            // if (playlistField) {
-            //     embed.addFields(playlistField);
-            // }
             
             return (channel as any).send({ embeds: [embed] });
         }

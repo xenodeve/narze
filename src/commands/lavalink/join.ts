@@ -48,6 +48,11 @@ export default {
                     voiceChannel
                 );
 
+                // ตั้งค่า volume เริ่มต้น
+                if (player.volume === 100 && !(player as any).get('isVolumeChangeCommand')) {
+                    player.setVolume(configjson.lavalink_config.volume_default);
+                }
+
                 await player.connect();
 
                 const embed = new EmbedBuilder()
@@ -69,6 +74,11 @@ export default {
                             textChannel,
                             voiceChannel
                         );
+                        
+                        // ตั้งค่า volume เริ่มต้น
+                        if (player.volume === 100 && !(player as any).get('isVolumeChangeCommand')) {
+                            player.setVolume(configjson.lavalink_config.volume_default);
+                        }
                     }
 
                     await player.connect();
@@ -105,6 +115,12 @@ export default {
                             textChannel,
                             voiceChannel
                         );
+                        
+                        // ตั้งค่า volume เริ่มต้น
+                        if (player.volume === 100 && !(player as any).get('isVolumeChangeCommand')) {
+                            player.setVolume(configjson.lavalink_config.volume_default);
+                        }
+                        
                         await player.connect();
 
                         const embed = new EmbedBuilder()

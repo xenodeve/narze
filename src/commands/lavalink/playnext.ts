@@ -1,10 +1,10 @@
-import { ApplicationCommandOptionType, ApplicationCommandType, ChatInputCommandInteraction, GuildMember, TextChannel, VoiceChannel, EmbedBuilder, HexColorString, MessageFlags, AutocompleteInteraction, PermissionsBitField } from "discord.js";
+import { ApplicationCommandOptionType, ApplicationCommandType, ChatInputCommandInteraction, GuildMember, TextChannel, VoiceChannel, EmbedBuilder, HexColorString, MessageFlags, AutocompleteInteraction } from "discord.js";
 import { clientBot } from "../../interfaces/client";
 import { loadTracks, playerCreate } from "../../functions/lavalink/manager";
 import configjson from "../../config/config.json";
 import { convertTime } from "../../functions/convertTime/convertTime";
 import chalk from "chalk";
-import { getPlaylistThumbnailMain, isPlaylistUrl } from "../../functions/youtube/index";
+import { getPlaylistThumbnailMain } from "../../functions/youtube/index";
 import { addPlaylistMetadata } from "../../functions/lavalink/playlistMetadata";
 import { getIconURL, getPlaylistDisplayIcon } from "../../functions/lavalink/iconConfig";
 import { checkVoiceChannelAccess } from "../../functions/lavalink/voicePermissions";
@@ -20,8 +20,8 @@ function getCacheKey(query: string): string {
 let mix = false;
 
 export default {
-    name: 'play',
-    description: 'เล่น | เพิ่มคิว',
+    name: 'playnext',
+    description: 'เพิ่มเพลงถัดจากเพลงปัจจุบัน',
     type: ApplicationCommandType.ChatInput,
     options: [
         {
@@ -51,8 +51,6 @@ export default {
                     await interaction.respond(cachedResult).catch(() => {});
                     return;
                 }
-
-                let searchResult;
 
                 if (query.startsWith('https://')) {
                     if (query.includes('deezer') || query.includes('music.apple')) {
@@ -117,7 +115,7 @@ export default {
                 }
             }
         } catch (error) {
-            console.error('Autocomplete error:', error);
+            console.error('Playnext autocomplete error:', error);
             choices.push({ name: 'เกิดข้อผิดพลาดในการค้นหา', value: 'error' });
         }
 
@@ -143,7 +141,7 @@ export default {
             queryFiltered = query;
         }
 
-        console.log(`[${chalk.bold.yellowBright('DEBUG')}] Received query:`, queryFiltered);
+        console.log(`[${chalk.bold.yellowBright('DEBUG')}] Received query for playnext:`, queryFiltered);
 
         // เช็ค voice channel อย่างถูกต้อง
         if (!member.voice || !member.voice.channel) {
@@ -156,7 +154,7 @@ export default {
         } else if (interaction.guild.members.me.voice.channel && (member.voice.channelId !== interaction.guild.members.me.voice.channelId)) {
             const embed = new EmbedBuilder()
                 .setColor(configjson.embed_fail as HexColorString)
-                .setDescription(`> \`❌\`กรุณาอยู่ในห้องเสียงเดียวกับบอท`);
+                .setDescription(`> \`❌\` กรุณาอยู่ในห้องเสียงเดียวกับบอท`);
 
             return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
 
@@ -177,21 +175,21 @@ export default {
         if (!queryFiltered || queryFiltered === 'no_song') {
             const embed = new EmbedBuilder()
                 .setColor(configjson.embed_fail as HexColorString)
-                .setDescription(`> \`❌\`กรุณาระบุเพลง`);
+                .setDescription(`> \`❌\` กรุณาระบุเพลง`);
 
             return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
 
         } else if (queryFiltered === 'error') {
             const embed = new EmbedBuilder()
                 .setColor(configjson.embed_fail as HexColorString)
-                .setDescription(`> \`❌\`กรุณาระบุเพลงที่ถูกต้อง`);
+                .setDescription(`> \`❌\` กรุณาระบุเพลงที่ถูกต้อง`);
 
             return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
 
         } else if (queryFiltered.includes('deezer') || queryFiltered.includes('music.apple')) {
             const embed = new EmbedBuilder()
                 .setColor(configjson.embed_fail as HexColorString)
-                .setDescription(`> \`❌\`ไม่รองรับ Platform นี้`);
+                .setDescription(`> \`❌\` ไม่รองรับ Platform นี้`);
 
             return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
 
@@ -205,19 +203,6 @@ export default {
                 player.setVolume(configjson.lavalink_config.volume_default);
             }
 
-            // เซ็ต flag ว่าเป็นเพลงแรกจากคำสั่ง play
-            (player as any).set('isFirstFromCommand', true);
-      
-            // แทรก interaction เข้าไปใน client collection
-            client.interactions.set(`play`, {
-                interaction: interaction,
-                command: 'play',
-                query: queryFiltered,
-                guild: interaction.guild,
-                member: member,
-                timestamp: Date.now()
-            });
-
             console.log(`[${chalk.bold.yellowBright('DEBUG')}] result loadtype:`, chalk.yellowBright(result.loadType));
 
             if(!player.playing){
@@ -225,58 +210,63 @@ export default {
             }
 
             if(result.loadType === 'track' || result.loadType === 'search') {
-                player.queue.add(result.tracks[0]);
-
-                console.log('author', result.tracks[0].info.author);
-
+                
                 if(result.tracks[0].info.uri.includes('youtube')) {
                     result.tracks[0].info.uri = result.tracks[0].info.uri.replace('www', 'music');
                 }
 
-                if(queryFiltered.includes('youtube')) {
-                    queryFiltered = queryFiltered.replace('www', 'music');
-                }
+                // ถ้าไม่มีเพลงกำลังเล่น ให้เพิ่มเพลงปกติ
+                if(!player.playing && !player.paused) {
 
-                if((result.tracks[0].info.uri !== queryFiltered) && queryFiltered.startsWith('https')) {
-                    result.tracks[0].info.uri = queryFiltered;
-                }
+                    (player as any).set('dontShow', true); // ไม่ต้องแสดง trackStart Embed ตอนเริ่มเล่นเพลง
 
-                console.log(result.tracks[0].info.uri);
-
-                if(player.playing || player.paused) {
-                    const iconURL = await getIconURL(result.tracks[0], userAvatar);
-                    const validatedThumbnail = await validateAndConvertThumbnail(result.tracks[0].info.thumbnail);
-                    const embed = new EmbedBuilder()
-                        .setColor(configjson.embed_color as HexColorString)
-                        .setAuthor({ name: 'Go to Page', iconURL: iconURL, url: result.tracks[0].info.uri })
-                        .setDescription(`\`📝\`┃**${result.tracks[0].info.title}** \` ${convertTime(result.tracks[0].info.length)} \` \n > ลำดับ: \` ${player.queue.size} \``)
-                        .setThumbnail(validatedThumbnail)
-                    return interaction.reply({ embeds: [embed] });
-                }
-
-                if(!player.playing && !player.paused) 
+                    player.queue.add(result.tracks[0]);
                     player.play().catch(() => {
-                    return interaction.reply('ไม่สามารถเล่นเพลงได้');
-                }).then(async () => {
+                        return interaction.reply('ไม่สามารถเล่นเพลงได้');
+                    }).then(async () => {
+                        const iconURL = await getIconURL(result.tracks[0], userAvatar);
+                        const validatedThumbnail = await validateAndConvertThumbnail(result.tracks[0].info.thumbnail);
+                        const embed = new EmbedBuilder()
+                            .setColor(configjson.embed_color as HexColorString)
+                            .setAuthor({ name: 'Go to Page', iconURL: iconURL, url: result.tracks[0].info.uri })
+                            .setDescription(`\`▶️\`┃**${result.tracks[0].info.title}** \` ${convertTime(result.tracks[0].info.length)} \``)
+                            .setThumbnail(validatedThumbnail)
+                        return interaction.reply({ embeds: [embed] });
+                    });
+                } else {
+                    // ถ้ามีเพลงกำลังเล่น ให้แทรกเป็นเพลงถัดไป
+                    const queueArray = [...player.queue];
+                    player.queue.clear();
+                    
+                    // เพิ่มเพลงใหม่เป็นตัวแรกในคิว
+                    player.queue.add(result.tracks[0]);
+                    
+                    // เพิ่มเพลงเก่าทั้งหมดกลับเข้าคิว
+                    queueArray.forEach(track => {
+                        player.queue.add(track);
+                    });
+
+                    const actualPosition = 1; // เพลงถัดไปจะเป็นลำดับที่ 1
                     const iconURL = await getIconURL(result.tracks[0], userAvatar);
                     const validatedThumbnail = await validateAndConvertThumbnail(result.tracks[0].info.thumbnail);
                     const embed = new EmbedBuilder()
                         .setColor(configjson.embed_color as HexColorString)
                         .setAuthor({ name: 'Go to Page', iconURL: iconURL, url: result.tracks[0].info.uri })
-                        .setDescription(`\`▶️\`┃**${result.tracks[0].info.title}** \` ${convertTime(result.tracks[0].info.length)} \``)
+                        .setDescription(`\`⏭️\`┃**${result.tracks[0].info.title}** \` ${convertTime(result.tracks[0].info.length)} \` \n > ลำดับ: \` ${actualPosition} \``)
                         .setThumbnail(validatedThumbnail)
                     return interaction.reply({ embeds: [embed] });
-                }) 
+                }
 
             } else if(result.loadType === 'no_results') {
                 const embed = new EmbedBuilder()
                 .setColor(configjson.embed_fail as HexColorString)
-                .setDescription(`> \`❌\`ไม่สามารถหาเพลงได้`);
+                .setDescription(`> \`❌\` ไม่สามารถหาเพลงได้`);
                 return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             }
 
             if(result.loadType === 'playlist') {
                 await interaction.deferReply();
+                
                 // คำนวณเวลารวมของ playlist
                 const totalDuration = result.tracks.reduce((total, track) => {
                     return total + (track.info.length || 0);
@@ -284,7 +274,6 @@ export default {
 
                 // ดึง playlist thumbnail
                 let thumbnailUrl: string | null = null;
-
                 let playlistName: string | null = null;
 
                 if (result.playlistInfo.name.includes('Mix - ')) {
@@ -310,10 +299,11 @@ export default {
                 console.log(`[${chalk.bold.yellowBright('DEBUG')}] Final thumbnailUrl:`, thumbnailUrl);
 
                 await result.tracks.forEach(track => {
-                // เปลี่ยน uri ด้วยถ้าต้องการ
-                if(track.info.uri.includes('youtube')) {
-                    track.info.uri = track.info.uri.replace('www', 'music');
-                }});
+                    // เปลี่ยน uri ด้วยถ้าต้องการ
+                    if(track.info.uri.includes('youtube')) {
+                        track.info.uri = track.info.uri.replace('www', 'music');
+                    }
+                });
 
                 // เพิ่ม playlist metadata ลงใน tracks (รวม playlist thumbnail)
                 const tracksWithMetadata = addPlaylistMetadata(
@@ -323,46 +313,57 @@ export default {
                     thumbnailUrl
                 );
 
-                await tracksWithMetadata.forEach(track => {
-                    player.queue.add(track);
-                });
+                // ถ้าไม่มีเพลงกำลังเล่น ให้เพิ่ม playlist ปกติ
+                if(!player.playing && !player.paused) {
+                    await tracksWithMetadata.forEach(track => {
+                        player.queue.add(track);
+                    });
 
-                // console.log(result)
-
-                if(player.playing || player.paused) {
-                    // ดึงชื่อศิลปินจากเพลงแรกเพื่อใช้กับ artistImage
-                    const firstTrackArtist = result.tracks[0]?.info?.author;
-                    const iconURL = await getPlaylistDisplayIcon(thumbnailUrl, userAvatar, firstTrackArtist);
-                    const embed = new EmbedBuilder()
-                        .setColor(configjson.embed_color as HexColorString)
-                        .setAuthor({ name: 'Go to Playlist', iconURL: iconURL, url: queryFiltered })
-                        .setDescription(`> \`📝\` **Playlist:** ${playlistName || result.playlistInfo.name}\n> \`⌛\` **เวลา:** \` ${convertTime(totalDuration)} \` \n> \`📊\` **มี:** \` ${result.tracks.length} \` เพลง \n> **คิวทั้งหมด:** \` ${player.queue.size} \` เพลง \n> **ห้อง:** ${member.voice.channel.toString()}`)
-                        .setThumbnail(thumbnailUrl);
-
-                    return interaction.editReply({ embeds: [embed] });
-                }
-
-                // console.log('result', result)
-
-                if(!player.playing && !player.paused) 
                     player.play().catch(() => {
                         const embed = new EmbedBuilder()
                             .setColor(configjson.embed_color as HexColorString)
                             .setDescription(`> \`❌\` **ไม่สามารถเล่นเพลงได้**`)
 
                         return interaction.editReply({ embeds: [embed] });
-                }).then( async() => {
+                    }).then(async () => {
+                        // ดึงชื่อศิลปินจากเพลงแรกเพื่อใช้กับ artistImage
+                        const firstTrackArtist = result.tracks[0]?.info?.author;
+                        const iconURL = await getPlaylistDisplayIcon(thumbnailUrl, userAvatar, firstTrackArtist);
+                        const embed = new EmbedBuilder()
+                            .setColor(configjson.embed_color as HexColorString)
+                            .setAuthor({ name: 'Go to Playlist', iconURL: iconURL, url: queryFiltered })
+                            .setDescription(`> \`📙\` **Playlist:** ${playlistName || result.playlistInfo.name}\n> \`⌛\` **เวลา:** \` ${convertTime(totalDuration)} \` \n> \`📊\` **มี:** \` ${result.tracks.length} \` เพลง \n> **ห้อง:** ${member.voice.channel.toString()}`)
+                            .setThumbnail(thumbnailUrl);
+
+                        return interaction.editReply({ embeds: [embed] });
+                    });
+                } else {
+                    // ถ้ามีเพลงกำลังเล่น ให้แทรก playlist เป็นเพลงถัดไป
+                    const queueArray = [...player.queue];
+                    player.queue.clear();
+                    
+                    // เพิ่ม playlist ใหม่เป็นตัวแรกในคิว
+                    await tracksWithMetadata.forEach(track => {
+                        player.queue.add(track);
+                    });
+                    
+                    // เพิ่มเพลงเก่าทั้งหมดกลับเข้าคิว
+                    queueArray.forEach(track => {
+                        player.queue.add(track);
+                    });
+
+                    const actualPosition = 1; // playlist จะเริ่มที่ลำดับ 1
                     // ดึงชื่อศิลปินจากเพลงแรกเพื่อใช้กับ artistImage
                     const firstTrackArtist = result.tracks[0]?.info?.author;
                     const iconURL = await getPlaylistDisplayIcon(thumbnailUrl, userAvatar, firstTrackArtist);
                     const embed = new EmbedBuilder()
                         .setColor(configjson.embed_color as HexColorString)
                         .setAuthor({ name: 'Go to Playlist', iconURL: iconURL, url: queryFiltered })
-                        .setDescription(`> \`📙\` **Playlist:** ${playlistName || result.playlistInfo.name}\n> \`⌛\` **เวลา:** \` ${convertTime(totalDuration)} \` \n> \`📊\` **มี:** \` ${result.tracks.length} \` เพลง \n> **ห้อง:** ${member.voice.channel.toString()}`)
+                        .setDescription(`> \`📝\` **Playlist:** ${playlistName || result.playlistInfo.name}\n> \`⌛\` **เวลา:** \` ${convertTime(totalDuration)} \` \n> \`📊\` **มี:** \` ${result.tracks.length} \` เพลง \n> **ลำดับ:** \` ${actualPosition} ถึง ${actualPosition + result.tracks.length - 1} \` \n> **คิวทั้งหมด:** \` ${player.queue.size} \` เพลง \n> **ห้อง:** ${member.voice.channel.toString()}`)
                         .setThumbnail(thumbnailUrl);
 
                     return interaction.editReply({ embeds: [embed] });
-            });
+                }
                 
             } else if(result.loadType === 'no_results') {
                 const embed = new EmbedBuilder()
