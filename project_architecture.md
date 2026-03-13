@@ -244,11 +244,48 @@ sequenceDiagram
 
 ### 📌 Flow 11: ระบบ 🎶 นำเข้าและโหลด Playlist (Spotify, YouTube)
 
-Narze V5 สามารถค้นหา URL Playlist ของ Spotify หรือ YouTube และดึงมาเก็บไว้เปิดฟังส่วนตัวได้แบบฉับไว
-1. **Fetch:** Dashboard ยิง URL Playlist มาที่ `/api/playlist/fetch`
-2. **Resolve:** Lavalink Manager ใช้ "LavaSrc" (ปลั๊กอินพิเศษ) เพื่อแยกเพลงใน Playlist ออกมา หากเป็น Spotify จะไปดึงประวัติและหน้าปกจาก Spotify Web API เพิ่มเติม
-3. **Save:** เมื่อกดบันทึก ข้อมูล Playlist จะถูกเก็บลงในเซิร์ฟเวอร์ฐานข้อมูล **Firebase Firestore** เพื่อให้เป็นบัญชีส่วนตัว
-4. **Load:** เมื่อกดเล่น Playlist ระบบจะแปลงข้อมูล Track เป็น Array ยิงเข้า `/api/queue/:id/add-playlist` เพื่อเติมเพลงเข้าคิว Bot โดยเร็วที่สุดและเล่นทันที
+Narze V5 สามารถวาง URL Playlist ของ Spotify หรือ YouTube แล้วดึงข้อมูลเพลงทั้งหมดมา **บันทึกเป็น Playlist ส่วนตัว** บนหน้า Dashboard ได้ โดยใช้ Firebase Firestore เป็นฐานข้อมูลหลัก และมี Playlist Cache เป็น In-Memory Layer เพื่อความเร็ว
+
+```mermaid
+sequenceDiagram
+    participant User as User (Dashboard)
+    participant API as Bot API
+    participant Lava as Lavalink + LavaSrc
+    participant Cache as Playlist Cache (Memory)
+    participant Firebase as Firebase Firestore
+
+    Note over User,API: ขั้นตอนที่ 1: ดึงข้อมูล Playlist จาก URL
+    User->>API: วาง URL Playlist (Spotify/YouTube)
+    API->>Lava: สั่ง Resolve Playlist URL
+    Lava-->>API: ส่งรายชื่อเพลงทั้งหมดกลับมา
+    API-->>User: แสดง Preview เพลงใน Playlist
+
+    Note over User,Firebase: ขั้นตอนที่ 2: บันทึก Playlist
+    User->>API: กดปุ่ม Save Playlist
+    API->>Cache: เก็บลง Memory Cache ก่อน (เร็ว)
+    API->>Firebase: Sync บันทึกลง Firestore (ถาวร)
+    API-->>User: บันทึกสำเร็จ
+
+    Note over User,Firebase: ขั้นตอนที่ 3: โหลดและเล่น
+    User->>API: เปิดหน้า Playlist กดเล่น
+    API->>Cache: เช็ค Cache ก่อน
+    alt มีใน Cache
+        Cache-->>API: คืนข้อมูล Playlist
+    else Cache Miss
+        API->>Firebase: ดึงจาก Firestore
+        Firebase-->>API: ข้อมูล Playlist
+        API->>Cache: อัปเดต Cache
+    end
+    API-->>User: ส่งรายการเพลงกลับไปเข้าคิว
+```
+
+**API Endpoints สำคัญ:**
+| Method | Endpoint | หน้าที่ |
+|---|---|---|
+| GET | `/api/playlists?userId=xxx` | ดึง Playlist ทั้งหมดของ User |
+| POST | `/api/playlists` | สร้าง Playlist ใหม่ (พร้อมรายชื่อเพลง) |
+| PUT | `/api/playlists/:id` | แก้ไข Playlist (ชื่อ, เพลง) |
+| DELETE | `/api/playlists/:id` | ลบ Playlist |
 
 ### 📌 Flow 12: ระบบ ⚙️ ตั้งค่าห้องแชทสำหรับส่งการแจ้งเตือน (Notifications)
 
