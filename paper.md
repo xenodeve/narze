@@ -351,7 +351,52 @@ flowchart LR
     I --> J["Admin สั่ง Restart / Shutdown ถ้าระบบค้าง"]
 ```
 
-### 10.7 Discord OAuth2 + Firebase Auth Login
+### 10.7 ระบบนำเข้าและบันทึก Playlist (Spotify, YouTube)
+
+ผู้ใช้สามารถวาง URL ของ Playlist จาก Spotify หรือ YouTube ลงในหน้า Dashboard แล้วระบบจะดึงรายชื่อเพลงทั้งหมดมาแสดง Preview และกดบันทึกเป็น Playlist ส่วนตัวได้ โดยข้อมูลจะถูกเก็บลง Firebase Firestore พร้อม In-Memory Cache เพื่อความเร็ว
+
+```mermaid
+sequenceDiagram
+    participant User as User (Dashboard)
+    participant API as Bot API
+    participant Lava as Lavalink + LavaSrc
+    participant Cache as Playlist Cache (Memory)
+    participant Firebase as Firebase Firestore
+
+    Note over User,API: ขั้นตอนที่ 1: ดึงข้อมูล Playlist จาก URL
+    User->>API: วาง URL Playlist (Spotify/YouTube)
+    API->>Lava: สั่ง Resolve Playlist URL
+    Lava-->>API: ส่งรายชื่อเพลงทั้งหมดกลับมา
+    API-->>User: แสดง Preview เพลงใน Playlist
+
+    Note over User,Firebase: ขั้นตอนที่ 2: บันทึก Playlist
+    User->>API: กดปุ่ม Save Playlist
+    API->>Cache: เก็บลง Memory Cache ก่อน (เร็ว)
+    API->>Firebase: Sync บันทึกลง Firestore (ถาวร)
+    API-->>User: บันทึกสำเร็จ
+
+    Note over User,Firebase: ขั้นตอนที่ 3: โหลดและเล่น
+    User->>API: เปิดหน้า Playlist กดเล่น
+    API->>Cache: เช็ค Cache ก่อน
+    alt มีใน Cache
+        Cache-->>API: คืนข้อมูล Playlist
+    else Cache Miss
+        API->>Firebase: ดึงจาก Firestore
+        Firebase-->>API: ข้อมูล Playlist
+        API->>Cache: อัปเดต Cache
+    end
+    API-->>User: ส่งรายการเพลงกลับไปเข้าคิว
+```
+
+**API Endpoints ของ Playlist:**
+| Method | Endpoint | หน้าที่ |
+|---|---|---|
+| GET | `/api/playlists?userId=xxx` | ดึง Playlist ทั้งหมดของ User |
+| POST | `/api/playlists` | สร้าง Playlist ใหม่ พร้อมรายชื่อเพลง |
+| PUT | `/api/playlists/:id` | แก้ไข Playlist |
+| DELETE | `/api/playlists/:id` | ลบ Playlist |
+
+### 10.8 Discord OAuth2 + Firebase Auth Login
 
 ```mermaid
 sequenceDiagram
@@ -378,7 +423,7 @@ sequenceDiagram
     User->>NextJS: เข้าสู่ระบบสำเร็จ
 ```
 
-### 10.8 Voice State Permission System (Real-Time)
+### 10.9 Voice State Permission System (Real-Time)
 
 ระบบจัดการสิทธิ์ผู้ใช้แบบอัตโนมัติ เมื่อ User เข้า/ออกห้อง Voice Channel ระบบจะเช็คสิทธิ์และส่ง SSE แจ้ง Dashboard ทันที
 
@@ -402,7 +447,7 @@ sequenceDiagram
     SSE-->>User: Dashboard ซ่อนปุ่มควบคุม
 ```
 
-### 10.9 Admin Panel: Real-Time Terminal Logs
+### 10.10 Admin Panel: Real-Time Terminal Logs
 
 ```mermaid
 sequenceDiagram
@@ -422,7 +467,7 @@ sequenceDiagram
     SSE-->>Admin: ยิง Log ใหม่ผ่าน SSE แบบ Realtime
 ```
 
-### 10.10 ระบบจำกัดสิทธิ์ Role Admin & Developer
+### 10.11 ระบบจำกัดสิทธิ์ Role Admin & Developer
 
 ```mermaid
 flowchart TD
