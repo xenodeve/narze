@@ -121,6 +121,8 @@ export function createPlayerRoutes(client: clientBot, checkControlPermission: an
                     player.connect();
                     await new Promise(r => setTimeout(r, 1000));
                     player.play();
+                    await new Promise(r => setTimeout(r, 500));
+                    if (player.paused) player.pause(false);
                 }
                 console.log(`[API] ✅ Added playlist (${result.tracks.length} tracks) for guild: ${guildName}`);
                 return res.json({
@@ -136,6 +138,8 @@ export function createPlayerRoutes(client: clientBot, checkControlPermission: an
                     player.connect();
                     await new Promise(r => setTimeout(r, 1000));
                     player.play();
+                    await new Promise(r => setTimeout(r, 500));
+                    if (player.paused) player.pause(false);
                 }
                 console.log(`[API] ✅ Added track: ${track.info?.title} for guild: ${guildName}`);
                 return res.json({

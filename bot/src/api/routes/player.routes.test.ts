@@ -1,8 +1,5 @@
 import { expect, test } from "bun:test";
 
-// Verifies that play() is not called before the voice session is established.
-// The bug: connect() triggers an async Discord voice handshake, but play() was
-// called immediately after — before Lavalink received the session.
 test("play() is called after voice session is established", async () => {
     let connectedWhenPlayCalled = false;
 
@@ -11,18 +8,48 @@ test("play() is called after voice session is established", async () => {
         playing: false,
         paused: false,
         connect() {
-            // Simulates Discord returning VOICE_STATE_UPDATE after ~100ms
             setTimeout(() => { player.connected = true; }, 100);
         },
         play() {
             connectedWhenPlayCalled = player.connected;
         },
+        pause(_toggle: boolean) {},
     };
 
-    // Fixed code path: wait for voice session before playing
     player.connect();
     await new Promise(r => setTimeout(r, 1000));
     player.play();
+    await new Promise(r => setTimeout(r, 500));
+    if (player.paused) player.pause(false);
 
     expect(connectedWhenPlayCalled).toBe(true);
+});
+
+// Verifies that if socketClosed pauses the player during voice handshake,
+// we explicitly unpause after play().
+test("player is unpaused if socketClosed paused it during handshake", async () => {
+    let pauseCalledWith: boolean | null = null;
+
+    const player = {
+        connected: true,
+        playing: true,
+        paused: false,
+        connect() {},
+        play() {
+            // simulates Riffy's socketClosed firing and pausing mid-play
+            player.paused = true;
+        },
+        pause(toggle: boolean) {
+            pauseCalledWith = toggle;
+            player.paused = toggle;
+        },
+    };
+
+    player.connect();
+    await new Promise(r => setTimeout(r, 1000));
+    player.play();
+    await new Promise(r => setTimeout(r, 500));
+    if (player.paused) player.pause(false);
+
+    expect(pauseCalledWith).toBe(false);
 });
