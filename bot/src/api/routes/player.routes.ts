@@ -119,9 +119,8 @@ export function createPlayerRoutes(client: clientBot, checkControlPermission: an
                 result.tracks.forEach((track: any) => player.queue.add(track));
                 if (!player.playing && !player.paused) {
                     player.connect();
-                    await new Promise(r => setTimeout(r, 1000));
-                    player.play();
-                    await new Promise(r => setTimeout(r, 500));
+                    await player.play();
+                    await new Promise(r => setTimeout(r, 300));
                     if (player.paused) player.pause(false);
                 }
                 console.log(`[API] ✅ Added playlist (${result.tracks.length} tracks) for guild: ${guildName}`);
@@ -136,9 +135,8 @@ export function createPlayerRoutes(client: clientBot, checkControlPermission: an
                 player.queue.add(track);
                 if (!player.playing && !player.paused) {
                     player.connect();
-                    await new Promise(r => setTimeout(r, 1000));
-                    player.play();
-                    await new Promise(r => setTimeout(r, 500));
+                    await player.play();
+                    await new Promise(r => setTimeout(r, 300));
                     if (player.paused) player.pause(false);
                 }
                 console.log(`[API] ✅ Added track: ${track.info?.title} for guild: ${guildName}`);

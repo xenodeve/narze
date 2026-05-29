@@ -1,54 +1,44 @@
 import { expect, test } from "bun:test";
 
-test("play() is called after voice session is established", async () => {
-    let connectedWhenPlayCalled = false;
-
+// Riffy's play() calls connection.resolve() internally — no explicit delay needed.
+// We only add a short post-play window to catch socketClosed pause.
+test("play() is called without extra delay (Riffy handles voice wait)", async () => {
+    const calls: string[] = [];
     const player = {
         connected: false,
         playing: false,
         paused: false,
-        connect() {
-            setTimeout(() => { player.connected = true; }, 100);
-        },
-        play() {
-            connectedWhenPlayCalled = player.connected;
-        },
-        pause(_toggle: boolean) {},
+        connect() { calls.push("connect"); },
+        async play() { calls.push("play"); },
+        pause(_toggle: boolean) { calls.push("pause"); },
     };
 
     player.connect();
-    await new Promise(r => setTimeout(r, 1000));
-    player.play();
-    await new Promise(r => setTimeout(r, 500));
+    await player.play();
+    await new Promise(r => setTimeout(r, 300));
     if (player.paused) player.pause(false);
 
-    expect(connectedWhenPlayCalled).toBe(true);
+    expect(calls[0]).toBe("connect");
+    expect(calls[1]).toBe("play");
+    expect(calls).not.toContain("pause"); // not paused, no unpause needed
 });
 
-// Verifies that if socketClosed pauses the player during voice handshake,
-// we explicitly unpause after play().
+// If socketClosed fires during handshake and pauses the player,
+// the 300ms window catches it and unpauses.
 test("player is unpaused if socketClosed paused it during handshake", async () => {
     let pauseCalledWith: boolean | null = null;
-
     const player = {
         connected: true,
         playing: true,
         paused: false,
         connect() {},
-        play() {
-            // simulates Riffy's socketClosed firing and pausing mid-play
-            player.paused = true;
-        },
-        pause(toggle: boolean) {
-            pauseCalledWith = toggle;
-            player.paused = toggle;
-        },
+        async play() { player.paused = true; }, // simulates socketClosed mid-play
+        pause(toggle: boolean) { pauseCalledWith = toggle; player.paused = toggle; },
     };
 
     player.connect();
-    await new Promise(r => setTimeout(r, 1000));
-    player.play();
-    await new Promise(r => setTimeout(r, 500));
+    await player.play();
+    await new Promise(r => setTimeout(r, 300));
     if (player.paused) player.pause(false);
 
     expect(pauseCalledWith).toBe(false);
