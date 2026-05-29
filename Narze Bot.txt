@@ -1,3 +1,0 @@
-Narze Bot 
-- Autoplay 
-- Add Terminal Command

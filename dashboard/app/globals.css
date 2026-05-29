@@ -1,0 +1,493 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  /* Glassmorphism Card Styles */
+  .card-surface {
+    @apply rounded-2xl border border-white/10 bg-white/5 shadow-2xl shadow-black/40 backdrop-blur-xl;
+    background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%);
+  }
+
+  .card-section {
+    @apply rounded-xl border border-white/10 bg-white/5 shadow-lg backdrop-blur-lg;
+    background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%);
+  }
+
+  /* Glass effect with glow */
+  .glass-card {
+    @apply rounded-2xl border border-white/10 shadow-2xl backdrop-blur-xl;
+    background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.03) 100%);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255,255,255,0.1);
+  }
+
+  .glass-card-hover {
+    @apply glass-card transition-all duration-300;
+  }
+
+  .glass-card-hover:hover {
+    @apply border-purple-400/30;
+    box-shadow: 0 8px 32px rgba(147, 51, 234, 0.2), inset 0 1px 0 rgba(255,255,255,0.15);
+    transform: translateY(-2px);
+  }
+
+  /* Glass button */
+  .glass-button {
+    @apply rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 py-2 text-white transition-all duration-200;
+  }
+
+  .glass-button:hover {
+    @apply border-white/20 bg-white/10;
+    box-shadow: 0 4px 16px rgba(147, 51, 234, 0.15);
+  }
+
+  .pill-button {
+    @apply inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 backdrop-blur-md px-4 py-2 text-slate-200 transition-all hover:border-purple-400/50 hover:text-white hover:shadow-lg hover:shadow-purple-900/30 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+}
+
+@layer utilities {
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fadeOut {
+    from {
+      opacity: 1;
+      transform: translateY(0);
+      max-height: 500px;
+    }
+    to {
+      opacity: 0;
+      transform: translateY(-10px);
+      max-height: 0;
+    }
+  }
+
+  @keyframes slideInFromRight {
+    from {
+      opacity: 0;
+      transform: translateX(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes slideInFromLeft {
+    from {
+      opacity: 0;
+      transform: translateX(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes slideOutToRight {
+    from {
+      opacity: 1;
+      transform: translateX(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateX(20px);
+    }
+  }
+
+  @keyframes slideOutAndFade {
+    0% {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      max-height: 100px;
+    }
+    50% {
+      opacity: 0.3;
+      transform: translateY(-10px) scale(0.95);
+    }
+    100% {
+      opacity: 0;
+      transform: translateY(-20px) scale(0.9);
+      max-height: 0;
+      padding: 0;
+      margin: 0;
+    }
+  }
+
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes slideUpFadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(20px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes modalSlideUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes backdropFadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes listItemSlideIn {
+    from {
+      opacity: 0;
+      transform: translateX(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  .animate-fadeIn {
+    animation: fadeIn 0.3s ease-out forwards;
+  }
+
+  .animate-fadeOut {
+    animation: fadeOut 0.3s ease-out forwards;
+  }
+
+  .animate-slideInFromRight {
+    animation: slideInFromRight 0.4s ease-out forwards;
+    opacity: 0;
+  }
+
+  .animate-slideInFromLeft {
+    animation: slideInFromLeft 0.4s ease-out forwards;
+    opacity: 0;
+  }
+
+  .animate-slideOutToRight {
+    animation: slideOutToRight 0.3s ease-out forwards;
+  }
+
+  .animate-slideOutAndFade {
+    animation: slideOutAndFade 0.5s ease-out forwards;
+  }
+
+  .animate-slideUp {
+    animation: slideUp 0.5s ease-out forwards;
+    opacity: 0;
+  }
+
+  .animate-slideUpFadeIn {
+    animation: slideUpFadeIn 0.6s ease-out forwards;
+    opacity: 0;
+  }
+
+  .animate-modalSlideUp {
+    animation: modalSlideUp 0.3s ease-out forwards;
+  }
+
+  .animate-backdropFadeIn {
+    animation: backdropFadeIn 0.2s ease-out forwards;
+  }
+
+  .animate-listItemSlideIn {
+    animation: listItemSlideIn 0.3s ease-out forwards;
+    opacity: 0;
+  }
+
+  @keyframes cardFlip {
+    0% {
+      transform: rotateY(0deg) scale(1);
+    }
+    50% {
+      transform: rotateY(90deg) scale(0.9);
+    }
+    100% {
+      transform: rotateY(0deg) scale(1);
+    }
+  }
+
+  .animate-cardFlip {
+    animation: cardFlip 0.6s ease-in-out forwards;
+  }
+
+  @keyframes expandHeight {
+    from {
+      opacity: 0;
+      max-height: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      max-height: 80px;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-expandHeight {
+    animation: expandHeight 0.3s ease-out forwards;
+    overflow: hidden;
+  }
+
+  @keyframes collapseHeight {
+    from {
+      opacity: 1;
+      max-height: 80px;
+      transform: translateY(0);
+      margin-bottom: 0;
+    }
+    to {
+      opacity: 0;
+      max-height: 0;
+      transform: translateY(-10px);
+      margin-bottom: -10px; /* Pull up slightly to counteract gap if needed, though flex gap handles mostly */
+      padding-top: 0;
+      padding-bottom: 0;
+      border-width: 0;
+    }
+  }
+
+  .animate-collapseHeight {
+    animation: collapseHeight 0.3s ease-out forwards;
+    overflow: hidden;
+  }
+
+  /* Smooth expand/collapse animations for dynamic sections */
+  @keyframes smoothExpand {
+    from {
+      opacity: 0;
+      max-height: 0;
+      margin-bottom: 0;
+      transform: translateY(-20px);
+    }
+    to {
+      opacity: 1;
+      max-height: 600px;
+      margin-bottom: 1.5rem;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes smoothCollapse {
+    from {
+      opacity: 1;
+      max-height: 600px;
+      margin-bottom: 1.5rem;
+      transform: translateY(0);
+    }
+    to {
+      opacity: 0;
+      max-height: 0;
+      margin-bottom: 0;
+      transform: translateY(-20px);
+    }
+  }
+
+  .animate-smoothExpand {
+    animation: smoothExpand 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    overflow: hidden;
+  }
+
+  .animate-smoothCollapse {
+    animation: smoothCollapse 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  /* Container with smooth layout transition */
+  .smooth-layout-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .smooth-layout-container > * {
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Jump to play animation - when clicking a track in queue to play it now */
+  @keyframes jumpOutToPlay {
+    0% {
+      opacity: 1;
+      max-height: 60px;
+      transform: translateX(0) scale(1);
+    }
+    50% {
+      opacity: 0.5;
+      transform: translateX(-20px) scale(0.95);
+    }
+    100% {
+      opacity: 0;
+      max-height: 0;
+      padding-top: 0;
+      padding-bottom: 0;
+      margin: 0;
+      transform: translateX(-100px) scale(0.9);
+    }
+  }
+
+  .animate-jumpOutToPlay {
+    animation: jumpOutToPlay 0.4s ease-out forwards;
+    overflow: hidden;
+  }
+
+  /* Number update animation - flip when queue position changes */
+  @keyframes numberFlip {
+    0% {
+      transform: translateY(0) scale(1);
+      opacity: 1;
+    }
+    40% {
+      transform: translateY(-8px) scale(0.9);
+      opacity: 0;
+    }
+    60% {
+      transform: translateY(8px) scale(0.9);
+      opacity: 0;
+    }
+    100% {
+      transform: translateY(0) scale(1);
+      opacity: 1;
+    }
+  }
+
+  .animate-numberFlip {
+    animation: numberFlip 0.3s ease-in-out;
+  }
+
+
+  .perspective-1000 {
+    perspective: 1000px;
+  }
+
+  .transform-style-3d {
+    transform-style: preserve-3d;
+  }
+
+  .backface-hidden {
+    backface-visibility: hidden;
+  }
+}
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+    --radius: 0.5rem;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+    /* Global scrollbar styling */
+    scrollbar-width: thin; /* Firefox */
+    scrollbar-color: rgba(255,255,255,0.2) #0d0d0d; /* thumb track */
+  }
+  body {
+    @apply bg-background text-foreground;
+    background: #0d0d0d;
+    color: #e2e8f0;
+  }
+
+  /* WebKit-based browsers */
+  *::-webkit-scrollbar {
+    width: 10px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: #0d0d0d;
+    border-radius: 999px;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.15) 100%);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.2) 100%);
+  }
+}

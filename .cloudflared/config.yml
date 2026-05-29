@@ -1,0 +1,9 @@
+tunnel: 1cc9b897-dd4d-436b-aaab-fa73ea3cd34b
+credentials-file: C:\Github\narze\.cloudflared\1cc9b897-dd4d-436b-aaab-fa73ea3cd34b.json
+
+ingress:
+  - hostname: dashboard.narze.space
+    service: http://localhost:3000
+  - hostname: api.narze.space
+    service: http://localhost:3001
+  - service: http_status:404

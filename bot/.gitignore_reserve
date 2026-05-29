@@ -1,4 +1,4 @@
-# dependencies
+# dependencies (bun install)
 node_modules
 
 # output
@@ -12,8 +12,8 @@ coverage
 
 # logs
 logs
-*.log
-report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+_.log
+report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # dotenv environment variable files
 .env
@@ -34,18 +34,6 @@ cache/
 # Finder (MacOS) folder config
 .DS_Store
 
-# Prisma generated
 /src/generated/prisma
-bot/src/generated/prisma
 
-# Lavalink config (sensitive)
 Lavalink/application.yml
-lavalink/application.yml
-bot/lavalink/application.yml
-
-# Prisma binary engine
-*.dll.node
-*.dll.node.tmp*
-
-# Next.js
-.next/
