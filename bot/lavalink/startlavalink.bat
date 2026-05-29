@@ -1,2 +1,2 @@
 title Lavalink Server
-java -jar Lavalink.jar -Xmx2G
+java -jar Lavalink-4.1.1.jar -Xmx2G
