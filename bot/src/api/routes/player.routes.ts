@@ -118,7 +118,7 @@ export function createPlayerRoutes(client: clientBot, checkControlPermission: an
             if (result.loadType === 'playlist') {
                 result.tracks.forEach((track: any) => player.queue.add(track));
                 if (!player.playing && !player.paused) {
-                    player.connect();
+                    if (!player.connected) player.connect();
                     await player.play();
                     await new Promise(r => setTimeout(r, 300));
                     if (player.paused) player.pause(false);
@@ -134,7 +134,7 @@ export function createPlayerRoutes(client: clientBot, checkControlPermission: an
                 const track = result.tracks[0];
                 player.queue.add(track);
                 if (!player.playing && !player.paused) {
-                    player.connect();
+                    if (!player.connected) player.connect();
                     await player.play();
                     await new Promise(r => setTimeout(r, 300));
                     if (player.paused) player.pause(false);
