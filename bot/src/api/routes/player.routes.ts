@@ -1,7 +1,9 @@
 import { Router, Request, Response } from 'express';
+import { VoiceChannel, TextChannel } from 'discord.js';
 import { clientBot } from '../../interfaces/client';
 import { formatUserInfo } from '../utils/helpers';
 import { broadcastToGuild, incrementQueueRevision } from '../utils/sse';
+import { getGuildSettings } from '../../functions/guildSettings';
 
 /**
  * Player Control Routes
@@ -9,6 +11,151 @@ import { broadcastToGuild, incrementQueueRevision } from '../utils/sse';
  */
 export function createPlayerRoutes(client: clientBot, checkControlPermission: any) {
     const router = Router();
+
+    // Play a track or playlist
+    router.post('/:guildId/play', checkControlPermission, async (req: Request, res: Response) => {
+        try {
+            const { guildId } = req.params;
+            const { query, defaultVolume, user, targetVoiceChannelId } = req.body;
+            const guildName = client.guilds.cache.get(guildId)?.name || 'Unknown';
+
+            if (!query) {
+                return res.status(400).json({ error: 'Query is required' });
+            }
+
+            const guild = client.guilds.cache.get(guildId);
+            if (!guild) {
+                return res.status(404).json({ error: 'Bot is not in this server' });
+            }
+
+            // Find voice channel (cache first, then fetch from Discord if not cached)
+            let voiceChannel: VoiceChannel | null = null;
+            if (targetVoiceChannelId) {
+                voiceChannel = (guild.channels.cache.get(targetVoiceChannelId)
+                    || await guild.channels.fetch(targetVoiceChannelId).catch(() => null)) as VoiceChannel | null;
+                console.log(`[API] 🔍 Target voice channel ${targetVoiceChannelId}: ${voiceChannel?.name || 'NOT FOUND'}`);
+            } else if (user?.discordId) {
+                const member = guild.members.cache.get(user.discordId)
+                    || await guild.members.fetch(user.discordId).catch(() => null);
+                voiceChannel = member?.voice?.channel as VoiceChannel;
+                console.log(`[API] 🔍 User voice channel: ${voiceChannel?.name || 'NOT FOUND'}`);
+            }
+
+            if (!voiceChannel) {
+                return res.status(400).json({
+                    error: 'Voice channel not found. Please select a channel.',
+                    requiresVoiceChannel: true,
+                    canSelectChannel: true,
+                });
+            }
+
+            // Get configured music text channel from guild settings (for trackStart notifications)
+            const settings = await getGuildSettings(guildId);
+            let textChannelId = settings?.musicChannelId || voiceChannel.id;
+            // Validate the text channel exists and can send messages
+            const textCh = guild.channels.cache.get(textChannelId) as TextChannel | null;
+            if (!textCh || !('send' in textCh)) {
+                // Fallback to first available text channel
+                const fallback = guild.channels.cache.find(c => 'send' in c && c.isTextBased());
+                textChannelId = fallback?.id || voiceChannel.id;
+            }
+            console.log(`[API] ▶️ Play requested for guild: ${guildName} (${guildId}), voice: ${voiceChannel.name}, text: ${textChannelId}, query: ${query} by ${formatUserInfo(user)}`);
+
+            // Resolve tracks via Lavalink (with Spotify → YouTube fallback)
+            let resolveQuery = query;
+            let result = await client.manager.resolve({ query: resolveQuery, requester: user });
+
+            console.log(`[API] 🎵 Resolve result: loadType=${result?.loadType}, tracks=${result?.tracks?.length}, exception=${result?.exception?.message}`);
+
+            // Spotify URL fallback: get title via oEmbed then search via Riffy (proper track format)
+            if ((result?.loadType === 'error') && query.includes('spotify.com')) {
+                console.log(`[API] 🔄 Spotify resolve failed, falling back to YouTube search...`);
+                try {
+                    const oembed = await fetch(`https://open.spotify.com/oembed?url=${encodeURIComponent(query)}`);
+                    if (oembed.ok) {
+                        const data = await oembed.json() as any;
+                        const title = data.title?.replace(' - ', ' ') || '';
+                        if (title) {
+                            console.log(`[API] 🎵 Fallback title: "${title}", searching via Riffy...`);
+                            result = await client.manager.resolve({ query: title, requester: user });
+                            console.log(`[API] 🎵 Fallback result: loadType=${result?.loadType}, tracks=${result?.tracks?.length}`);
+                        }
+                    }
+                } catch (e) {
+                    console.warn(`[API] ⚠️ YouTube fallback failed:`, e);
+                }
+            }
+
+            if (!result || result.loadType === 'error') {
+                return res.status(400).json({ error: 'Could not resolve the track', details: result?.exception?.message });
+            }
+
+            if (result.loadType === 'empty' || !result.tracks?.length) {
+                return res.status(404).json({ error: 'No results found for the query' });
+            }
+
+            // Get or create player
+            let player = client.manager.players.get(guildId);
+            if (!player) {
+                player = client.manager.createConnection({
+                    guildId: guild.id,
+                    textChannel: textChannelId,
+                    voiceChannel: voiceChannel.id,
+                    deaf: true,
+                    mute: false,
+                });
+            }
+
+            if (!player) {
+                return res.status(500).json({ error: 'Failed to create player' });
+            }
+
+            // Set default volume
+            if (defaultVolume && player.volume === 100) {
+                player.setVolume(defaultVolume);
+            }
+
+            if (result.loadType === 'playlist') {
+                result.tracks.forEach((track: any) => player.queue.add(track));
+                if (!player.playing && !player.paused) {
+                    player.connect();
+                    await new Promise(r => setTimeout(r, 1000));
+                    player.play();
+                }
+                console.log(`[API] ✅ Added playlist (${result.tracks.length} tracks) for guild: ${guildName}`);
+                return res.json({
+                    success: true,
+                    type: 'playlist',
+                    trackCount: result.tracks.length,
+                    playlistName: result.playlistInfo?.name,
+                });
+            } else {
+                const track = result.tracks[0];
+                player.queue.add(track);
+                if (!player.playing && !player.paused) {
+                    player.connect();
+                    await new Promise(r => setTimeout(r, 1000));
+                    player.play();
+                }
+                console.log(`[API] ✅ Added track: ${track.info?.title} for guild: ${guildName}`);
+                return res.json({
+                    success: true,
+                    type: result.loadType,
+                    track: {
+                        title: track.info?.title,
+                        author: track.info?.author,
+                        duration: track.info?.length,
+                        uri: track.info?.uri,
+                        thumbnail: track.info?.artworkUrl || track.info?.thumbnail,
+                    },
+                    isQueued: player.playing || player.paused,
+                });
+            }
+        } catch (error) {
+            console.error('Error in play:', error);
+            res.status(500).json({ error: 'Failed to play track', details: String(error) });
+        }
+    });
 
     // Pause player
     router.post('/:guildId/pause', checkControlPermission, (req: Request, res: Response) => {
