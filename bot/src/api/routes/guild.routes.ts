@@ -187,6 +187,56 @@ export function createGuildRoutes(client: clientBot) {
         }
     });
 
+    // Join a voice channel
+    router.post('/:guildId/join', async (req: Request, res: Response) => {
+        try {
+            const { guildId } = req.params;
+            const { channelId, user } = req.body;
+
+            const guild = client.guilds.cache.get(guildId);
+            if (!guild) {
+                return res.status(404).json({ error: 'Bot is not in this server' });
+            }
+
+            let voiceChannel;
+            if (channelId) {
+                voiceChannel = guild.channels.cache.get(channelId);
+            } else if (user?.discordId) {
+                const member = guild.members.cache.get(user.discordId)
+                    || await guild.members.fetch(user.discordId).catch(() => null);
+                voiceChannel = member?.voice?.channel;
+            }
+
+            if (!voiceChannel || !voiceChannel.isVoiceBased()) {
+                return res.status(400).json({ error: 'Voice channel not found', requiresVoiceChannel: true });
+            }
+
+            let player = client.manager.players.get(guildId);
+            if (!player) {
+                player = client.manager.createConnection({
+                    guildId: guild.id,
+                    textChannel: voiceChannel.id,
+                    voiceChannel: voiceChannel.id,
+                    deaf: true,
+                    mute: false,
+                });
+            } else if (player.voiceChannel !== voiceChannel.id) {
+                player.setVoiceChannel(voiceChannel.id);
+                player.connect();
+            }
+
+            if (player && !player.connected) {
+                player.connect();
+            }
+
+            console.log(`[API] 🎤 Joined voice channel: ${voiceChannel.name} in ${guild.name} (${guildId})`);
+            res.json({ success: true, channelId: voiceChannel.id, channelName: voiceChannel.name });
+        } catch (error) {
+            console.error('Error joining voice channel:', error);
+            res.status(500).json({ error: 'Failed to join voice channel', details: String(error) });
+        }
+    });
+
     // Check if user can control the bot
     router.post('/:guildId/can-control', async (req: Request, res: Response) => {
         try {

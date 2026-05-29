@@ -16,7 +16,7 @@
         "firebase-admin": "^13.6.0",
         "fs": "^0.0.1-security",
         "prisma": "^6.7.0",
-        "riffy": "^1.0.7",
+        "riffy": "^1.0.12",
         "string-similarity": "^4.0.4",
         "ts-node": "^10.9.2",
         "ws": "^8.18.3",
@@ -609,7 +609,7 @@
 
     "retry-request": ["retry-request@7.0.2", "", { "dependencies": { "@types/request": "^2.48.8", "extend": "^3.0.2", "teeny-request": "^9.0.0" } }, "sha512-dUOvLMJ0/JJYEn8NrpOaGNE7X3vpI5XlZS/u0ANjqtcZVKnIxP7IgCFwrKTxENw29emmwug53awKtaMm4i9g5w=="],
 
-    "riffy": ["riffy@1.0.9", "", { "dependencies": { "jsdom": "^26.0.0", "undici": ">=6.11.1", "ws": "^8.16.0" } }, "sha512-qICnfP8vBh4l+AF+PEFEmzA8zCq2Hy4cszCMgZEX895KroQTAziP9AurIDI3UPFi2dd5z327IVmrXPxXp+0QHw=="],
+    "riffy": ["riffy@1.0.12", "", { "dependencies": { "jsdom": "^26.0.0", "undici": ">=6.11.1", "ws": "^8.16.0" } }, "sha512-rFVIERWq0FeKINDOTKobUamrvX9m4xdP8NTJfA8thYbLrkOfK6vgZ6UlTjHeBippjFq6xlPv7OGVT2INl6Y0hQ=="],
 
     "router": ["router@2.2.0", "", { "dependencies": { "debug": "^4.4.0", "depd": "^2.0.0", "is-promise": "^4.0.0", "parseurl": "^1.3.3", "path-to-regexp": "^8.0.0" } }, "sha512-nLTrUKm2UyiL7rlhapu/Zl45FwNgkZGaCpZbIHajDYgwlJCOzLSk+cIPAnsEqV955GjILJnKbdQC1nVPz+gAYQ=="],
 

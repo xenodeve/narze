@@ -10,6 +10,37 @@ import { getUserHistory } from '../../functions/history/playHistory';
 export function createAdminRoutes(client: clientBot, gracefulShutdownFn: () => void) {
     const router = Router();
 
+    // Bot status
+    router.get('/status', (_req: Request, res: Response) => {
+        const uptime = process.uptime() * 1000;
+        res.json({
+            botOnline: client.isReady(),
+            botUser: client.user?.tag || null,
+            guildCount: client.guilds.cache.size,
+            uptime: Math.floor(uptime),
+            timestamp: new Date().toISOString(),
+        });
+    });
+
+    // List guilds for a user
+    router.get('/guilds', async (req: Request, res: Response) => {
+        const userId = req.query.userId as string;
+        const guilds = client.guilds.cache.map(guild => {
+            const player = client.manager?.players?.get(guild.id);
+            return {
+                guildId: guild.id,
+                guildName: guild.name,
+                guildIcon: guild.iconURL({ size: 64 }) || null,
+                memberCount: guild.memberCount,
+                isMember: userId ? guild.members.cache.has(userId) : false,
+                hasPlayer: !!player,
+                isPlaying: player ? (player.playing && !player.paused) : false,
+                queueLength: player ? player.queue.length : 0,
+            };
+        });
+        res.json({ guilds });
+    });
+
     // Admin restart
     router.post('/admin/restart', (_req: Request, res: Response) => {
         console.log('[Admin] Restart requested');

@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "build": "bun prisma generate && bun build src/index.ts --outdir dist --minify --target=bun",
-    "dev": "bun run --smol src/index.ts",
+    "dev": "bun --watch --smol src/index.ts",
     "start": "bun bun run --smol src/index.ts"
   },
   "private": true,
@@ -30,7 +30,7 @@
     "firebase-admin": "^13.6.0",
     "fs": "^0.0.1-security",
     "prisma": "^6.7.0",
-    "riffy": "^1.0.7",
+    "riffy": "^1.0.12",
     "string-similarity": "^4.0.4",
     "ts-node": "^10.9.2",
     "ws": "^8.18.3",

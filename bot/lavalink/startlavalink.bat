@@ -1,2 +1,2 @@
 title Lavalink Server
-java -jar Lavalink-4.1.1.jar -Xmx2G
+java -Xmx2G --enable-native-access=ALL-UNNAMED -jar Lavalink-4.1.1.jar

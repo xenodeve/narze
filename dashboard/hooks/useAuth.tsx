@@ -9,8 +9,7 @@ import {
     OAuthProvider,
     GoogleAuthProvider
 } from 'firebase/auth';
-import { auth, db } from '@/lib/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { auth } from '@/lib/firebase';
 import { User } from '@/types/bot';
 import { checkAdminRole } from '@/services/adminWhitelist';
 
@@ -53,14 +52,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             if (firebaseUser) {
                 try {
-                    // ดึงข้อมูลจาก Firestore (เพราะใช้ Discord OAuth + Custom Token)
-                    const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+                    const idToken = await firebaseUser.getIdToken();
+                    const res = await fetch('/api/user/me', {
+                        headers: { Authorization: `Bearer ${idToken}` },
+                    });
 
-                    if (userDoc.exists()) {
-                        const userData = userDoc.data();
-                        console.log('✅ User data from Firestore:', userData);
+                    if (res.ok) {
+                        const { data: userData } = await res.json();
+                        console.log('✅ User data fetched:', userData);
 
-                        // สร้าง avatar URL จาก Discord CDN
                         const avatarUrl = userData.avatar
                             ? `https://cdn.discordapp.com/avatars/${userData.discordId}/${userData.avatar}.png`
                             : '';
@@ -71,11 +71,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                             username: userData.username || 'Unknown',
                             avatar: avatarUrl,
                             permissions: userData.permissions || [],
-                            createdAt: userData.createdAt?.toDate() || new Date(),
+                            createdAt: userData.createdAt?._seconds
+                                ? new Date(userData.createdAt._seconds * 1000)
+                                : new Date(),
                         };
                         setUser(authUser);
 
-                        // Check admin/developer role
                         if (userData.discordId) {
                             const roleInfo = await checkAdminRole(userData.discordId);
                             setIsAdmin(roleInfo.isAdmin);
@@ -83,8 +84,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                             setAdminRole(roleInfo.role);
                         }
                     } else {
-                        // Fallback ถ้าไม่มีข้อมูลใน Firestore
-                        console.warn('⚠️ User document not found in Firestore');
+                        console.warn('⚠️ User document not found');
                         const authUser: User = {
                             id: firebaseUser.uid,
                             discordId: '',
@@ -96,8 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                         setUser(authUser);
                     }
                 } catch (err) {
-                    console.error('❌ Error fetching user data from Firestore:', err);
-                    // Fallback to Firebase Auth data
+                    console.error('❌ Error fetching user data:', err);
                     const authUser: User = {
                         id: firebaseUser.uid,
                         discordId: '',
