@@ -1,6 +1,7 @@
 import { ApplicationCommandType, CommandInteraction, GuildMember, EmbedBuilder, HexColorString, MessageFlags } from "discord.js";
 import { clientBot } from "../../interfaces/client";
 import configjson from "../../config/config.json";
+import { broadcastToGuild, incrementQueueRevision } from "../../api/utils/sse";
 
 export default {
     name: 'clear',
@@ -67,6 +68,9 @@ export default {
         // เคลียร์คิว
         try {
             await player.queue.clear();
+
+            incrementQueueRevision(interaction.guildId);
+            broadcastToGuild(interaction.guildId, 'queueUpdate', { queue: [] });
 
             const embed = new EmbedBuilder()
                 .setColor(configjson.embed_color as HexColorString)

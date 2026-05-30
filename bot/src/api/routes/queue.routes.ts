@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { clientBot } from '../../interfaces/client';
 import { formatUserInfo } from '../utils/helpers';
 import { broadcastToGuild, incrementQueueRevision } from '../utils/sse';
+import { formatQueueForSSE } from '../utils/queueCoordinator';
 
 /**
  * Queue Control Routes
@@ -10,15 +11,6 @@ import { broadcastToGuild, incrementQueueRevision } from '../utils/sse';
 export function createQueueRoutes(client: clientBot, checkControlPermission: any) {
     const router = Router();
 
-    // Helper to format queue tracks
-    const formatQueueTracks = (queue: any[]) => queue.map((track: any) => ({
-        title: track.info?.title || 'Unknown',
-        author: track.info?.author || 'Unknown Artist',
-        duration: track.info?.length || 0,
-        thumbnail: track.info?.artworkUrl || track.info?.thumbnail || undefined,
-        requesterAvatar: track.info?.requester?.user?.displayAvatarURL?.() || track.info?.requester?.displayAvatarURL?.() || undefined,
-        requesterName: track.info?.requester?.user?.username || track.info?.requester?.username || undefined,
-    }));
 
     // Clear queue
     router.post('/:guildId/queue/clear', checkControlPermission, (req: Request, res: Response) => {
@@ -74,7 +66,7 @@ export function createQueueRoutes(client: clientBot, checkControlPermission: any
             console.log(`[API] ✅ Successfully removed track: ${removedTrack?.info?.title || 'Unknown'}`);
             
             incrementQueueRevision(guildId);
-            broadcastToGuild(guildId, 'queueUpdate', { queue: formatQueueTracks(player.queue) });
+            broadcastToGuild(guildId, 'queueUpdate', { queue: formatQueueForSSE(player.queue) });
 
             res.json({ 
                 success: true, 
@@ -110,7 +102,7 @@ export function createQueueRoutes(client: clientBot, checkControlPermission: any
             console.log(`[API] ✅ Successfully shuffled ${queueLength} tracks for guild: ${guildName}`);
             
             incrementQueueRevision(guildId);
-            broadcastToGuild(guildId, 'queueUpdate', { queue: formatQueueTracks(player.queue) });
+            broadcastToGuild(guildId, 'queueUpdate', { queue: formatQueueForSSE(player.queue) });
 
             res.json({ success: true, message: 'Queue shuffled' });
         } catch (error) {
@@ -151,7 +143,7 @@ export function createQueueRoutes(client: clientBot, checkControlPermission: any
             console.log(`[API] ✅ Successfully moved track "${movedTrack?.info?.title || 'Unknown'}" from #${from + 1} to #${adjustedTo + 1}`);
             
             incrementQueueRevision(guildId);
-            broadcastToGuild(guildId, 'queueUpdate', { queue: formatQueueTracks(player.queue) });
+            broadcastToGuild(guildId, 'queueUpdate', { queue: formatQueueForSSE(player.queue) });
 
             res.json({ 
                 success: true, 
@@ -430,7 +422,7 @@ export function createQueueRoutes(client: clientBot, checkControlPermission: any
             incrementQueueRevision(guildId);
             
             // Broadcast queue update to all SSE clients
-            broadcastToGuild(guildId, 'queueUpdate', { queue: formatQueueTracks(player.queue) });
+            broadcastToGuild(guildId, 'queueUpdate', { queue: formatQueueForSSE(player.queue) });
             console.log(`[SSE] Broadcasted queueUpdate for guild ${guildId} (Added ${addedCount} tracks)`);
 
             res.json({

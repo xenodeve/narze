@@ -94,7 +94,7 @@ export async function POST(
     }
 
     // Extract user info for logging
-    const userInfo = user ? { username: user.username, discordId: user.discordId } : undefined;
+    const userInfo = user ? { username: user.username, discordId: user.discordId, avatar: user.avatar || undefined } : undefined;
 
     let endpoint = '';
     let postBody: any = userInfo ? { user: userInfo } : undefined;

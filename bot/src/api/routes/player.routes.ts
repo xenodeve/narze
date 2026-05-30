@@ -3,6 +3,7 @@ import { VoiceChannel, TextChannel } from 'discord.js';
 import { clientBot } from '../../interfaces/client';
 import { formatUserInfo } from '../utils/helpers';
 import { broadcastToGuild, incrementQueueRevision } from '../utils/sse';
+import { formatQueueForSSE } from '../utils/queueCoordinator';
 import { getGuildSettings } from '../../functions/guildSettings';
 
 /**
@@ -123,6 +124,8 @@ export function createPlayerRoutes(client: clientBot, checkControlPermission: an
                     await new Promise(r => setTimeout(r, 300));
                     if (player.paused) player.pause(false);
                 }
+                incrementQueueRevision(guildId);
+                broadcastToGuild(guildId, 'queueUpdate', { queue: formatQueueForSSE(player.queue) });
                 console.log(`[API] ✅ Added playlist (${result.tracks.length} tracks) for guild: ${guildName}`);
                 return res.json({
                     success: true,
@@ -139,6 +142,8 @@ export function createPlayerRoutes(client: clientBot, checkControlPermission: an
                     await new Promise(r => setTimeout(r, 300));
                     if (player.paused) player.pause(false);
                 }
+                incrementQueueRevision(guildId);
+                broadcastToGuild(guildId, 'queueUpdate', { queue: formatQueueForSSE(player.queue) });
                 console.log(`[API] ✅ Added track: ${track.info?.title} for guild: ${guildName}`);
                 return res.json({
                     success: true,
@@ -242,16 +247,7 @@ export function createPlayerRoutes(client: clientBot, checkControlPermission: an
             
             incrementQueueRevision(guildId);
 
-            broadcastToGuild(guildId, 'queueUpdate', {
-                queue: player.queue.map((track: any) => ({
-                    title: track.info?.title || 'Unknown',
-                    author: track.info?.author || 'Unknown Artist',
-                    duration: track.info?.length || 0,
-                    thumbnail: track.info?.artworkUrl || track.info?.thumbnail || undefined,
-                    requesterAvatar: track.info?.requester?.user?.displayAvatarURL?.() || track.info?.requester?.displayAvatarURL?.() || undefined,
-                    requesterName: track.info?.requester?.user?.username || track.info?.requester?.username || undefined,
-                }))
-            });
+            broadcastToGuild(guildId, 'queueUpdate', { queue: formatQueueForSSE(player.queue) });
 
             res.json({ success: true, message: 'Track skipped' });
         } catch (error) {
@@ -299,16 +295,7 @@ export function createPlayerRoutes(client: clientBot, checkControlPermission: an
             
             incrementQueueRevision(guildId);
 
-            broadcastToGuild(guildId, 'queueUpdate', {
-                queue: player.queue.map((track: any) => ({
-                    title: track.info?.title || 'Unknown',
-                    author: track.info?.author || 'Unknown Artist',
-                    duration: track.info?.length || 0,
-                    thumbnail: track.info?.artworkUrl || track.info?.thumbnail || undefined,
-                    requesterAvatar: track.info?.requester?.user?.displayAvatarURL?.() || track.info?.requester?.displayAvatarURL?.() || undefined,
-                    requesterName: track.info?.requester?.user?.username || track.info?.requester?.username || undefined,
-                }))
-            });
+            broadcastToGuild(guildId, 'queueUpdate', { queue: formatQueueForSSE(player.queue) });
 
             res.json({ success: true, message: `Skipped to track at position ${index + 1}` });
         } catch (error) {
@@ -361,16 +348,7 @@ export function createPlayerRoutes(client: clientBot, checkControlPermission: an
             setTimeout(() => {
                 incrementQueueRevision(guildId);
 
-                broadcastToGuild(guildId, 'queueUpdate', {
-                    queue: queue.map((track: any) => ({
-                        title: track.info?.title || 'Unknown',
-                        author: track.info?.author || 'Unknown Artist',
-                        duration: track.info?.length || 0,
-                        thumbnail: track.info?.artworkUrl || track.info?.thumbnail || undefined,
-                        requesterAvatar: track.info?.requester?.user?.displayAvatarURL?.() || track.info?.requester?.displayAvatarURL?.() || undefined,
-                        requesterName: track.info?.requester?.user?.username || track.info?.requester?.username || undefined,
-                    }))
-                });
+                broadcastToGuild(guildId, 'queueUpdate', { queue: formatQueueForSSE(player.queue) });
             }, 600);
 
             console.log(`[API] ✅ Successfully playing now: ${trackTitle}`);

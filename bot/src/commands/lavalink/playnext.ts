@@ -10,6 +10,16 @@ import { getIconURL, getPlaylistDisplayIcon } from "../../functions/lavalink/ico
 import { checkVoiceChannelAccess } from "../../functions/lavalink/voicePermissions";
 import { validateAndConvertThumbnail } from "../../functions/lavalink/thumbnailValidator";
 import { getCache, setCache } from "../../functions/cache/autocompleteCache";
+import { broadcastToGuild, incrementQueueRevision } from "../../api/utils/sse";
+
+const formatQueueTracks = (queue: any[]) => queue.map((t: any) => ({
+    title: t.info?.title || 'Unknown',
+    author: t.info?.author || 'Unknown Artist',
+    duration: t.info?.length || 0,
+    thumbnail: t.info?.artworkUrl || t.info?.thumbnail || undefined,
+    requesterAvatar: t.info?.requester?.user?.displayAvatarURL?.() || t.info?.requester?.displayAvatarURL?.() || undefined,
+    requesterName: t.info?.requester?.user?.username || t.info?.requester?.username || undefined,
+}));
 
 // ฟังก์ชันสำหรับสร้าง cache key ตาม search platform
 function getCacheKey(query: string): string {
@@ -254,6 +264,8 @@ export default {
                         .setAuthor({ name: 'Go to Page', iconURL: iconURL, url: result.tracks[0].info.uri })
                         .setDescription(`\`⏭️\`┃**${result.tracks[0].info.title}** \` ${convertTime(result.tracks[0].info.length)} \` \n > ลำดับ: \` ${actualPosition} \``)
                         .setThumbnail(validatedThumbnail)
+                    incrementQueueRevision(interaction.guildId);
+                    broadcastToGuild(interaction.guildId, 'queueUpdate', { queue: formatQueueTracks(player.queue) });
                     return interaction.reply({ embeds: [embed] });
                 }
 
@@ -362,6 +374,8 @@ export default {
                         .setDescription(`> \`📝\` **Playlist:** ${playlistName || result.playlistInfo.name}\n> \`⌛\` **เวลา:** \` ${convertTime(totalDuration)} \` \n> \`📊\` **มี:** \` ${result.tracks.length} \` เพลง \n> **ลำดับ:** \` ${actualPosition} ถึง ${actualPosition + result.tracks.length - 1} \` \n> **คิวทั้งหมด:** \` ${player.queue.size} \` เพลง \n> **ห้อง:** ${member.voice.channel.toString()}`)
                         .setThumbnail(thumbnailUrl);
 
+                    incrementQueueRevision(interaction.guildId);
+                    broadcastToGuild(interaction.guildId, 'queueUpdate', { queue: formatQueueTracks(player.queue) });
                     return interaction.editReply({ embeds: [embed] });
                 }
                 

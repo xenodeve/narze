@@ -38,9 +38,9 @@ import { initSpotifyAlbumCache, shutdownSpotifyAlbumCache, getCacheStats as getA
 import { initYouTubeSearchCache, shutdownYouTubeSearchCache, getYouTubeCacheStats } from '../functions/youtube/youtubeSearchCache';
 import { initYouTubeChannelCache, shutdownYouTubeChannelCache, getYouTubeChannelCacheStats } from '../functions/youtube/youtubeChannelCache';
 import { registerRoutes } from './routes';
-import { 
-    broadcastToGuild, 
-    broadcastToUser, 
+import {
+    broadcastToGuild,
+    broadcastToUser,
     broadcastGuildUpdateToUsers,
     incrementQueueRevision,
     getQueueState,
@@ -51,6 +51,7 @@ import {
     type SSEClientInfo,
     type GuildQueueState
 } from './utils/sse';
+import { formatCurrentForSSE, formatQueueForSSE } from './utils/queueCoordinator';
 
 // CPU Usage Tracking - need to compare two snapshots to get real-time usage
 let previousCpuTimes: { idle: number; total: number }[] = [];
@@ -991,24 +992,8 @@ export function createAPIServer(client: clientBot) {
             const queue = {
                 guildId: player.guildId,
                 guildName: client.guilds.cache.get(player.guildId)?.name || 'Unknown',
-                current: player.current ? {
-                    title: player.current.info.title,
-                    author: player.current.info.author,
-                    duration: player.current.info.length,
-                    thumbnail: player.current.info.thumbnail,
-                    uri: player.current.info.uri,
-                    requester: player.current.info.requester
-                } : null,
-                queue: player.queue.map((track: any) => ({
-                    title: track.info.title,
-                    author: track.info.author,
-                    duration: track.info.length,
-                    thumbnail: track.info.artworkUrl || track.info.thumbnail,
-                    uri: track.info.uri,
-                    requester: track.info.requester,
-                    requesterAvatar: track.info?.requester?.user?.displayAvatarURL?.() || track.info?.requester?.displayAvatarURL?.() || undefined,
-                    requesterName: track.info?.requester?.user?.username || track.info?.requester?.username || undefined,
-                })),
+                current: formatCurrentForSSE(player.current),
+                queue: formatQueueForSSE(player.queue),
                 queueLength: player.queue.length,
                 position: player.position,
                 paused: player.paused,

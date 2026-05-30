@@ -7,6 +7,9 @@ import { formatPlaylistInfo, isFromPlaylist, createPlaylistEmbedField, getPlayli
 import { getIconURL } from "../../functions/lavalink/iconConfig";
 import { validateAndConvertThumbnail } from "../../functions/lavalink/thumbnailValidator";
 import { getBroadcast } from "../..";
+import { incrementQueueRevision } from "../../api/utils/sse";
+import { toRequesterInfo } from "../../api/utils/metadataAdapter";
+import { formatQueueForSSE } from "../../api/utils/queueCoordinator";
 import { recordTrackPlay } from "../../functions/history/playHistory";
 
 // Max track age before re-resolve (4 hours = 14400000ms)
@@ -50,6 +53,7 @@ client.manager.on("trackStart" as any, async (player, track) => {
     const broadcast = getBroadcast();
     console.log(chalk.cyan(`[trackStart] Broadcast function available: ${!!broadcast}`));
     if (broadcast) {
+        const requesterInfo = toRequesterInfo(track.info.requester);
         broadcast(player.guildId, 'trackStart', {
             track: {
                 title: track.info.title,
@@ -58,8 +62,8 @@ client.manager.on("trackStart" as any, async (player, track) => {
                 thumbnail: track.info.thumbnail,
                 uri: track.info.uri,
                 requester: track.info.requester,
-                requesterAvatar: track.info.requester?.user?.displayAvatarURL?.() || track.info.requester?.displayAvatarURL?.() || undefined,
-                requesterName: track.info.requester?.user?.username || track.info.requester?.username || undefined,
+                requesterAvatar: requesterInfo?.avatar ?? undefined,
+                requesterName: requesterInfo?.username ?? undefined,
             },
             position: 0,
             paused: false,
@@ -67,14 +71,19 @@ client.manager.on("trackStart" as any, async (player, track) => {
             playing: true,
             queueLength: player.queue?.length || 0
         });
+
+        // Broadcast queueUpdate so QueueSection shifts the display when any track starts
+        incrementQueueRevision(player.guildId);
+        broadcast(player.guildId, 'queueUpdate', { queue: formatQueueForSSE(player.queue) });
         console.log(chalk.green(`[trackStart] SSE broadcast sent for guild ${player.guildId}`));
     }
     
     // Record play history if track has a requester
     if (track.info.requester) {
-        const requesterId = typeof track.info.requester === 'string' 
-            ? track.info.requester 
-            : (track.info.requester as any).id;
+        const requesterInfoForHistory = toRequesterInfo(track.info.requester);
+        const requesterId = requesterInfoForHistory?.id ?? (
+            typeof track.info.requester === 'string' ? track.info.requester : undefined
+        );
         
         if (requesterId) {
             recordTrackPlay(player.guildId, requesterId, {
@@ -96,6 +105,7 @@ client.manager.on("trackStart" as any, async (player, track) => {
             const voiceChannel = client.channels.cache.get(voiceChannelId);
             if (voiceChannel && voiceChannel.isVoiceBased()) {
                 const members = voiceChannel.members;
+                const sessionRequester = toRequesterInfo(track.info.requester);
                 import("../../functions/history/ListeningSessionManager").then(({ updateSession }) => {
                     updateSession(
                         player.guildId,
@@ -106,9 +116,9 @@ client.manager.on("trackStart" as any, async (player, track) => {
                             uri: track.info.uri,
                             thumbnail: track.info.thumbnail,
                             duration: track.info.length,
-                            requesterAvatar: track.info.requester?.user?.displayAvatarURL?.() || track.info.requester?.displayAvatarURL?.() || undefined,
-                            requesterName: track.info.requester?.user?.username || track.info.requester?.username || undefined,
-                            requesterId: track.info.requester?.user?.id || track.info.requester?.id || undefined,
+                            requesterAvatar: sessionRequester?.avatar ?? undefined,
+                            requesterName: sessionRequester?.username ?? undefined,
+                            requesterId: sessionRequester?.id ?? undefined,
                         },
                         members,
                         sessionGuild?.name
@@ -123,6 +133,7 @@ client.manager.on("trackStart" as any, async (player, track) => {
     // Update Queue Cache (Backup)
     try {
         const { updateQueueCache } = await import("../../functions/cache/queueCache");
+        const cacheRequester = toRequesterInfo(track.info.requester);
         updateQueueCache(player.guildId, {
             guildName: client.guilds.cache.get(player.guildId)?.name,
             voiceChannelId: player.voiceChannel,
@@ -133,20 +144,11 @@ client.manager.on("trackStart" as any, async (player, track) => {
                 uri: track.info.uri,
                 thumbnail: track.info.thumbnail,
                 duration: track.info.length,
-                requester: track.info.requester?.user?.id || track.info.requester?.id,
-                requesterName: track.info.requester?.user?.username || track.info.requester?.username,
-                requesterAvatar: track.info.requester?.user?.displayAvatarURL?.() || track.info.requester?.displayAvatarURL?.(),
+                requester: cacheRequester?.id,
+                requesterName: cacheRequester?.username,
+                requesterAvatar: cacheRequester?.avatar ?? undefined,
             },
-            queue: (player.queue || []).map((t: any) => ({
-                title: t.info?.title || t.title,
-                author: t.info?.author || t.author,
-                uri: t.info?.uri || t.uri,
-                thumbnail: t.info?.thumbnail || t.thumbnail,
-                duration: t.info?.length || t.duration,
-                requester: t.info?.requester?.user?.id || t.info?.requester?.id,
-                requesterName: t.info?.requester?.user?.username || t.info?.requester?.username,
-                requesterAvatar: t.info?.requester?.user?.displayAvatarURL?.() || t.info?.requester?.displayAvatarURL?.(),
-            })),
+            queue: formatQueueForSSE(player.queue || []),
             volume: player.volume,
             paused: player.paused,
             twentyFourSeven: (player as any).get('twentyFourSeven') || false,

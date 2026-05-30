@@ -526,7 +526,7 @@ export default function DashboardPage() {
       const requestBody: any = {
         action: 'play',
         value: playValue,
-        user: { username: user.username, discordId: user.discordId },
+        user: { username: user.username, discordId: user.discordId, avatar: user.avatar || undefined },
       };
 
       // Add targetVoiceChannelId if provided (owner selected a channel)
@@ -585,7 +585,7 @@ export default function DashboardPage() {
       setSearchError('Network error');
       setAddingTrackId(null);
     }
-  }, [selectedGuildId, user?.discordId, user?.username]);
+  }, [selectedGuildId, user?.discordId, user?.username, user?.avatar]);
 
   // Add track to queue via player API
   const handleAddTrack = useCallback(async (track: any) => {

@@ -216,13 +216,22 @@ const DraggableTrackItem = memo(function DraggableTrackItem({
             )}
           </div>
           {/* Requester avatar badge */}
-          {track.requesterAvatar && (
-            <img
-              src={track.requesterAvatar}
-              alt={track.requesterName || 'Requester'}
-              title={track.requesterName || 'Requester'}
-              className="absolute -bottom-1 -left-1 w-5 h-5 rounded-full border-2 border-slate-900 object-cover"
-            />
+          {(track.requesterAvatar || track.requesterName) && (
+            track.requesterAvatar ? (
+              <img
+                src={track.requesterAvatar}
+                alt={track.requesterName || 'Requester'}
+                title={track.requesterName || 'Requester'}
+                className="absolute -bottom-1 -left-1 w-5 h-5 rounded-full border-2 border-slate-900 object-cover"
+              />
+            ) : (
+              <div
+                title={track.requesterName || 'Requester'}
+                className="absolute -bottom-1 -left-1 w-5 h-5 rounded-full border-2 border-slate-900 bg-white/20 flex items-center justify-center text-[8px] text-white font-medium overflow-hidden"
+              >
+                {(track.requesterName || '?')[0].toUpperCase()}
+              </div>
+            )
           )}
         </div>
 

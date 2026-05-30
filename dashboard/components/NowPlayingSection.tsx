@@ -202,20 +202,23 @@ const AlbumArt = memo(function AlbumArt({
           <Play className="h-12 w-12 text-white fill-white" />
         </div>
         {/* Requester badge - always visible, expands on hover */}
-        {requesterAvatar && (
+        {(requesterAvatar || requesterName) && (
           <div
-            className="absolute bottom-2 left-2 flex items-center bg-black/70 backdrop-blur-sm rounded-full p-1 
+            className="absolute bottom-2 left-2 flex items-center bg-black/70 backdrop-blur-sm rounded-full p-1
               transition-all duration-300 ease-out cursor-pointer group/requester
               hover:pr-3 hover:gap-2"
             title={requesterName || 'Requester'}
           >
-            <img
-              src={requesterAvatar}
-              alt={requesterName || 'Requester'}
-              className="w-6 h-6 rounded-full object-cover flex-shrink-0"
-            />
+            {requesterAvatar
+              ? <img
+                  src={requesterAvatar}
+                  alt={requesterName || 'Requester'}
+                  className="w-6 h-6 rounded-full object-cover flex-shrink-0"
+                />
+              : <div className="w-6 h-6 rounded-full bg-white/20 flex-shrink-0" />
+            }
             <span
-              className="text-white text-xs font-medium truncate max-w-0 overflow-hidden 
+              className="text-white text-xs font-medium truncate max-w-0 overflow-hidden
                 transition-all duration-300 ease-out opacity-0
                 group-hover/requester:max-w-[100px] group-hover/requester:opacity-100"
             >
@@ -1431,7 +1434,7 @@ export const NowPlayingSection = memo(function NowPlayingSection({ guildId, onPl
     }
 
     setLoadingRecommendation(true);
-    const userInfo = user ? { username: user.username, discordId: user.discordId } : undefined;
+    const userInfo = user ? { username: user.username, discordId: user.discordId, avatar: user.avatar || undefined } : undefined;
 
     // Determine query based on source platform
     let query: string;

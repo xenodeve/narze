@@ -28,16 +28,16 @@ const maxReconnectAttempts = 5;
 async function fetchPlayerState(guildId: string): Promise<SSEMessage | null> {
   try {
     const baseUrl = process.env.NEXT_PUBLIC_BOT_API_URL || 'http://localhost:3001';
-    const res = await fetch(`${baseUrl}/api/guild/${guildId}/player`);
+    const res = await fetch(`${baseUrl}/api/queue/${guildId}`);
     if (!res.ok) return null;
-    
+
     const playerData = await res.json();
     return {
       type: 'init',
       guildId,
       data: {
-        track: playerData?.track || null,
-        current: playerData?.track || null,
+        track: playerData?.current || null,
+        current: playerData?.current || null,
         playing: playerData?.playing ?? false,
         position: playerData?.position || 0,
         volume: playerData?.volume || 15,

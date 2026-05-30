@@ -158,7 +158,7 @@ const config = {
     "db"
   ],
   "activeProvider": "mongodb",
-  "postinstall": true,
+  "postinstall": false,
   "inlineDatasources": {
     "db": {
       "url": {

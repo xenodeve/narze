@@ -61,9 +61,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                         const { data: userData } = await res.json();
                         console.log('✅ User data fetched:', userData);
 
+                        const defaultAvatarIndex = userData.discriminator && userData.discriminator !== '0'
+                            ? parseInt(userData.discriminator) % 5
+                            : Number(BigInt(userData.discordId || '0') >> BigInt(22)) % 6;
                         const avatarUrl = userData.avatar
                             ? `https://cdn.discordapp.com/avatars/${userData.discordId}/${userData.avatar}.png`
-                            : '';
+                            : `https://cdn.discordapp.com/embed/avatars/${defaultAvatarIndex}.png`;
 
                         const authUser: User = {
                             id: firebaseUser.uid,
