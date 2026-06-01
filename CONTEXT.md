@@ -32,3 +32,6 @@ Local JSON file written by Bot before shutdown. Deleted after successful recover
 
 ## Player State
 Current playback snapshot: now playing track, position, volume, loop mode, queue list. Owned by Bot, replicated to Dashboard via Redis → NestJS → Socket.io.
+
+## Invalid Player State
+Player State that the Bot cannot safely publish because playback identity data is malformed. Examples include an invalid current track, a malformed queue, or queue items missing required identity such as track URI, source, or requester.
