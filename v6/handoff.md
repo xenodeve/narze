@@ -1,7 +1,7 @@
 # Narze V6 — Handoff Document
 **Date**: 2026-06-02  
-**Branch**: `v6` (working directory: `C:\Github\narze v5 beta\v6`)  
-**Next focus**: First commit → continue feature development
+**Branch**: `v6-webapp`  
+**Next focus**: #70 accent contrast decision → remaining HITL issues (#71-#74)
 
 ---
 
@@ -27,84 +27,75 @@ Narze V6 — Web dashboard สำหรับควบคุม Discord Music Bo
 
 ## What Was Completed This Session
 
-### Bug Fixes
-- ✅ **NestJS startup crash** — `RedisService.psubscribe` undefined: ย้าย Redis connection init จาก `onModuleInit` → `constructor` (`nestjs/src/redis/redis.service.ts`)
-- ✅ **Discord OAuth redirect_uri** — เพิ่ม `https://qkzcrrwgsefhqptcvdts.supabase.co/auth/v1/callback` ใน Discord Developer Portal + `http://localhost:3000/**` ใน Supabase redirect URLs
-- ✅ **Login flow** — ผ่านแล้ว end-to-end
+### Session 1 (previous)
+- ✅ NestJS startup crash fix, Discord OAuth redirect, login flow
+- ✅ UI polish: Lucide icons, custom slider, album art crossfade, empty states
+- ✅ A11y/Perf: muted color WCAG AA, ProgressBar memoized, aria-labels, image domains
+- ✅ `scripts/ask-gemini.ps1` + `AGENTS.md` delegation rules
+- ✅ `.impeccable/design.json` sidecar generated
 
-### UI/UX Improvements (จาก `/impeccable critique` score 23/40)
-- ✅ Lucide icons (`Play`, `Pause`, `SkipForward`, `SkipBack`, `X`) แทน emoji controls
-- ✅ Custom range slider CSS — 3px track, 12px accent thumb, fill gradient via `--fill-pct` CSS var
-- ✅ Album art crossfade — `AnimatePresence` + `motion.div` keyed by `currentTrack.uri`
-- ✅ Brand mark upgrade — "Narze V6" ที่ 16px font-semibold ink (ไม่ uppercase)
-- ✅ Empty states — guild list ว่าง, search no results, queue empty (instructive text)
-- ✅ Clear queue inline confirmation — "Clear 23 tracks? Confirm / Cancel"
-- ✅ Connection dot — `animate-pulse` เมื่อ `connected` (live indicator)
+### Session 2 (this session)
+- ✅ **#67** `search:query` NestJS gateway bridge — stateless relay via Redis IPC (2 tests)
+- ✅ **#68** Auth data persistence — `upsertUser` + `syncGuildMemberships` in GuildService + `guilds:sync` socket event (6 tests)
+- ✅ **#69** Queue drag-to-reorder — `motion/react` Reorder + keyboard fallback (▲▼) + optimistic update
+- ✅ Fix pre-existing `$1` prop bug in `search-panel.tsx`
+- ✅ Fix `ask-gemini.ps1` `-Prompt` parameter (no more interactive prompt)
+- ✅ GitHub Issues #67-#74 created + #67/#68/#69 closed
+- ✅ NestJS: 9/9 tests pass
 
-### Performance & A11y Fixes (จาก Gemini audit)
-- ✅ `muted` color token: `oklch(0.58→0.72)` — WCAG AA compliance บน card surface; **DESIGN.md อัปเดตแล้ว**
-- ✅ `ProgressBar` memoized component — แยก 250ms interval re-render ออกจาก `NowPlayingPanel`; `emit` ใช้ `useCallback`
-- ✅ Dynamic `aria-label` บน Add button — `"Added {title}"` เมื่อ state เป็น ✓
-- ✅ Remove button `opacity-0` แทน `hidden` — keyboard discoverability
-- ✅ Image domain whitelist ใน `next.config.ts` — `i.ytimg.com`, `i.scdn.co`, `i1/i2.sndcdn.com`
-- ✅ ลบ `unoptimized` prop ออกจาก Image ทุกตัว
-- ✅ Installed: `lucide-react`, `motion` (v11 motion/react)
-
-### Claude+Gemini Sub-Agent Workflow
-- ✅ `scripts/ask-gemini.ps1` — wrapper พร้อม `-Skill` parameter + noise filter
-- ✅ `AGENTS.md` — delegation rules + skill mapping table ครบ
-- ✅ Memory บันทึกแล้ว (`memory/feedback_gemini_delegation.md`)
-
-**Skill mapping สำคัญ:**
-| งาน | Skill |
-|-----|-------|
-| Code review | `-Skill scrutinize` |
-| UI/UX | `-Skill impeccable` |
-| Debug | `-Skill debug-mantra` |
-| Architecture | `-Skill improve-codebase-architecture` |
-| QA | `-Skill qa` |
+### Gemini Workflow Fix
+- `ask-gemini.ps1` now uses positional `-Prompt` parameter — no more interactive `PromptParts[0]:` prompt
+- For prompts with backticks/special chars: write to temp file, pass via `Get-Content ... -Raw`
 
 ---
 
 ## Current State
 
-- **TypeScript**: ผ่าน (Next.js compile clean, NestJS watch mode ไม่มี error)
-- **Dev servers**: ทั้งคู่รันอยู่ (NestJS :3001, Next.js :3000)
-- **Redis**: container `redis-narze` running
-- **Login flow**: ✅ ทำงานได้
-- **Git**: **ยังไม่มี commit เลย** — ทุกอย่างยัง untracked/unstaged บน branch `v6`
+- **TypeScript**: ผ่าน (Next.js + NestJS compile clean)
+- **Tests**: 9/9 pass (`nestjs/`)
+- **Git**: commit `307098b` pushed to `v6-webapp`
+- **Login flow**: ✅
+- **Search**: ✅ backend bridge พร้อม (ต้องรอ bot implement search handler)
+- **Queue**: ✅ drag-to-reorder พร้อม
+
+---
+
+## Open GitHub Issues
+
+| # | Title | Status | Blocked by |
+|---|-------|--------|-----------|
+| #70 | Fix accent contrast (~3.4:1) | ⏸ HITL decision | - |
+| #71 | Guild settings panel | open | #68 ✅ |
+| #72 | Playback history tracking | open | #68 ✅ |
+| #73 | Discord chat history | open | #71 |
+| #74 | Admin & Developer panels | open | #68, #72, #73 |
 
 ---
 
 ## Immediate Next Steps
 
-### 1. First commit (ทำก่อน)
-```powershell
-cd "C:\Github\narze v5 beta\v6"
-git add nestjs/ nextjs/ scripts/ AGENTS.md DESIGN.md
-git commit -m "feat(v6): initial dashboard with auth, UI polish, and Gemini workflow"
-```
+### 1. #70 Accent contrast — ต้องตัดสินใจก่อน
+ปัจจุบัน `oklch(0.66 0.180 195)` (accent bg) + `text-ink` (oklch(0.95)) = ~3.4:1
+WCAG AA text ต้องการ 4.5:1
 
-### 2. Pending features (ยังไม่ implement)
-- `search:query` Socket.io handler ใน NestJS gateway — search results ไม่มาจนกว่าจะ implement
-- User profile sync เมื่อ login ครั้งแรก (populate `users` table จาก Discord profile)
-- Guild auto-join flow (populate `guild_members` เมื่อ login)
-- Admin/Developer panels (PRD §4.3.8–4.3.9)
-- Drag-to-reorder queue (keyboard-only ยังไม่ได้ implement จริง)
+**ตัวเลือก:**
+- **Darken accent** → `oklch(0.50 0.180 195)` (darker teal — brand color เข้มขึ้น)
+- **ยอมรับ 3.4:1** — WCAG AA pass สำหรับ non-text UI components (3:1) แต่ 11px text (filter tabs) ยังต่ำกว่า spec
 
-### 3. Remaining audit issues ที่ยังไม่แก้
-- **Accent contrast** (~3.4:1 บน accent bg) — ต้องตัดสินใจ design ก่อน: darken accent หรือใช้ black text
-- **Mobile layout** — `w-[55%]/w-[45%]` fixed ไม่มี breakpoint (product context = desktop-first, P2 ไม่ urgent)
-- **Global state re-subscription** — Sidebar re-renders เมื่อ position เปลี่ยน (optimization ระยะยาว)
+### 2. #71 Guild Settings Panel (AFK หลัง decide #70)
+Backend (`settings:get`/`settings:update`) มีแล้วใน gateway — เหลือแค่ frontend UI
+
+### 3. #72 Playback History (AFK)
+เพิ่ม `playback_history` table + backend logging + frontend list
 
 ---
 
 ## Known Issues / Decisions
 
-- `page.tsx` ใช้ `as unknown as GuildInfo[]` cast — Supabase return type mismatch, acceptable for now
-- `search:query` Socket.io event ถูก emit จาก frontend แต่ backend ยังไม่มี handler
+- `search:query` backend bridge พร้อม แต่ bot ยังไม่มี search handler (akkanop-x's scope)
+- `guild_members` sync ทำผ่าน `guilds:sync` socket event — frontend ต้อง emit guild list หลัง login
 - Bot (`discordjs/`) handle โดย **akkanop-x** — อย่าแตะ
-- Accent color `oklch(0.66 0.180 195)` ใช้เป็น text บน card อาจไม่ผ่าน WCAG AA — ยังไม่ได้แก้
+- Accent color `oklch(0.66 0.180 195)` contrast ~3.4:1 — ยังไม่แก้ (#70)
 
 ---
 
@@ -116,30 +107,22 @@ git commit -m "feat(v6): initial dashboard with auth, UI polish, and Gemini work
 - No `backdrop-filter: blur`
 - No gradient text fills
 - 4 tonal steps only: `bg(0.08) → panel(0.13) → card(0.18) → elevated(0.24)`
-- Muted: `oklch(0.72)` (updated for WCAG AA)
+- Muted: `oklch(0.72)` (WCAG AA)
 - Play/Pause: 48px circle, `bg-accent text-ink`
 - All animations need `prefers-reduced-motion` fallback
 
 ---
 
-## Claude+Gemini Workflow Rules
-
-Per `AGENTS.md` "Model Delegation":
-- **Claude's opinion is final** — Gemini มักมั่ว verify ทุกครั้ง
-- **Coding**: Claude ทำ → Gemini review (`-Skill scrutinize`) → Claude ตัดสินใจ
-- **ก่อนเรียก Gemini**: สั่งให้อ่าน AGENTS.md, DESIGN.md, CONTEXT.md และ codebase ก่อนเสมอ
+## Claude+Gemini Workflow
 
 ```powershell
-pwsh scripts/ask-gemini.ps1 -Skill scrutinize "อ่าน AGENTS.md, DESIGN.md, CONTEXT.md และ nextjs/src/ ก่อน จากนั้น..."
+# สำหรับ prompt ปกติ (ไม่มี backtick/special chars)
+pwsh scripts/ask-gemini.ps1 "prompt here"
+
+# สำหรับ prompt ที่มี special chars
+$prompt = Get-Content scripts/gemini-prompt-issues.txt -Raw
+pwsh scripts/ask-gemini.ps1 $prompt
 ```
 
----
-
-## Suggested Skills
-
-- `/verify` — เปิด browser ทดสอบ login flow + dashboard ก่อน commit
-- `/impeccable audit` — technical a11y/perf check หลัง commit
-- `/simplify` — ก่อน commit ตรวจ over-engineering
-- `/code-review` — ก่อน merge ไป `v4`
-- `/security-review` — ถ้าแตะ auth code (Supabase JWT, OAuth callback)
-- `/to-issues` — แตก pending features เป็น GitHub Issues
+- **Claude's opinion is final** — Gemini มักมั่ว verify ทุกครั้ง
+- Delegation rules อยู่ใน `AGENTS.md`
