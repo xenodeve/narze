@@ -1,0 +1,88 @@
+@import "tailwindcss";
+
+@theme {
+  /* Design tokens — "The Live Desk" palette (DESIGN.md) */
+  --color-bg:       oklch(0.08 0.000 0);
+  --color-panel:    oklch(0.13 0.000 0);
+  --color-card:     oklch(0.18 0.000 0);
+  --color-elevated: oklch(0.24 0.000 0);
+  --color-ink:      oklch(0.95 0.000 0);
+  --color-muted:    oklch(0.58 0.000 0);
+  --color-border:   oklch(0.22 0.000 0);
+  --color-accent:   oklch(0.66 0.180 195);
+
+  /* Inter only — no display fonts (DESIGN.md §3) */
+  --font-sans: 'Inter', system-ui, sans-serif;
+
+  /* Radius scale (DESIGN.md §2 components) */
+  --radius-sm:   6px;
+  --radius-md:   10px;
+  --radius-lg:   16px;
+  --radius-full: 9999px;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  background-color: oklch(0.08 0.000 0);
+  color: oklch(0.95 0.000 0);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Focus ring — all interactive elements (DESIGN.md §4) */
+*:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px oklch(0.66 0.180 195 / 0.5);
+}
+
+/* Reduced motion fallback required for all animations (DESIGN.md §9.2) */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Custom range slider — 3px track, 12px accent thumb (DESIGN.md §5) */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 3px;
+  border-radius: 9999px;
+  background: oklch(0.22 0.000 0);
+  outline: none;
+  cursor: pointer;
+}
+input[type="range"].slider-filled {
+  background: linear-gradient(
+    to right,
+    oklch(0.66 0.180 195) var(--fill-pct, 0%),
+    oklch(0.22 0.000 0) var(--fill-pct, 0%)
+  );
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 9999px;
+  background: oklch(0.66 0.180 195);
+  cursor: pointer;
+  border: none;
+}
+input[type="range"]::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: none;
+  border-radius: 9999px;
+  background: oklch(0.66 0.180 195);
+  cursor: pointer;
+}
