@@ -39,7 +39,6 @@ function QueueItem({
           width={36}
           height={36}
           className="h-9 w-9 shrink-0 rounded object-cover"
-          unoptimized
         />
       )}
       <div className="min-w-0 flex-1">
@@ -52,7 +51,7 @@ function QueueItem({
       <button
         onClick={onRemove}
         aria-label={`Remove ${track.title}`}
-        className="hidden shrink-0 rounded p-1 text-muted transition-colors duration-100 hover:text-ink group-hover:flex group-focus-within:flex"
+        className="shrink-0 rounded p-1 text-muted opacity-0 transition-[colors,opacity] duration-100 hover:text-ink group-hover:opacity-100 group-focus-within:opacity-100"
       >
         <X size={14} />
       </button>

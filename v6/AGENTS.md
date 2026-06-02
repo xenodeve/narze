@@ -20,21 +20,39 @@ Gemini CLI (`scripts/ask-gemini.ps1`) เป็น sub-agent — รับงา
 | Bug fixes (exact edits) | Claude ทำเอง (ไม่ต้อง delegate) |
 | Build errors / config | Claude ทำเอง (ไม่ต้อง delegate) |
 
+### Skill mapping — Claude สั่ง skill ให้ Gemini ทุกครั้ง
+
+| งานประเภทนี้ | Skill ที่ต้องสั่ง | ตัวอย่าง |
+|---|---|---|
+| Code review | `scrutinize` | `-Skill scrutinize` |
+| UI/UX review/audit | `impeccable` | `-Skill impeccable` |
+| Debug / diagnose | `debug-mantra` หรือ `diagnose` | `-Skill debug-mantra` |
+| Architecture review | `improve-codebase-architecture` | `-Skill improve-codebase-architecture` |
+| Post-incident analysis | `post-mortem` | `-Skill post-mortem` |
+| QA / test planning | `qa` | `-Skill qa` |
+| Explore unfamiliar code | `zoom-out` | `-Skill zoom-out` |
+| Stress-test a plan | `grill-with-docs` | `-Skill grill-with-docs` |
+| Break into GitHub Issues | `to-issues` | `-Skill to-issues` |
+| Write PRD | `to-prd` | `-Skill to-prd` |
+| Refactor planning | `request-refactor-plan` | `-Skill request-refactor-plan` |
+
 ### วิธีเรียก Gemini จาก Claude
 
 ```powershell
-# delegate งานไป Gemini
-pwsh scripts/ask-gemini.ps1 "Prompt ที่ต้องการ"
+# พร้อม skill (วิธีปกติ — ใช้ทุกครั้ง)
+pwsh scripts/ask-gemini.ps1 -Skill scrutinize "อ่าน AGENTS.md, DESIGN.md, CONTEXT.md และ codebase ก่อน จากนั้น review..."
 
-# หรือผ่าน Bash tool
-powershell -File scripts/ask-gemini.ps1 "Prompt"
+# ไม่มี skill (เฉพาะงานที่ไม่มี skill ตรง)
+pwsh scripts/ask-gemini.ps1 "Prompt ที่ต้องการ"
 ```
 
 ### หลักการ
 
-- **Claude ไม่ต้อง re-read งานที่ Gemini ทำแล้ว** — summarize output แล้วตัดสินใจ
-- **Critical tasks**: Claude ทำก่อน → ส่ง diff ให้ Gemini review → Claude ตัดสินใจรับหรือไม่
-- **Non-critical**: ส่งให้ Gemini ทำทั้งหมด → Claude ตรวจ output → apply
+- **Claude's opinion is final** — Gemini ไม่เก่งเท่า Claude และมักมั่วบ่อย ความเห็นของ Claude เป็นที่สุดเสมอ
+- **Claude ใช้ Gemini เพื่อแบ่งเบา token เท่านั้น** — ไม่ใช่เพราะ Gemini ดีกว่า
+- **Claude ตรวจสอบ output จาก Gemini ทุกครั้ง** — อย่า apply งาน Gemini โดยไม่ verify
+- **Coding: Claude ทำเองเสมอ** → Gemini review → Claude พิจารณา review แล้วตัดสินใจเองว่ารับหรือไม่
+- **ก่อนส่งงานให้ Gemini ทุกครั้ง** — สั่งให้ Gemini อ่าน MD files ทั้งหมดและทำความเข้าใจ codebase ก่อนเริ่มงานเสมอ ด้วย prompt เช่น: `"อ่าน AGENTS.md, DESIGN.md, CONTEXT.md, PRD.md และ codebase ใน nextjs/src/ และ nestjs/src/ ให้ครบก่อน จากนั้นค่อย [งานจริง]"`
 - **ถ้า Gemini ช้าหรือ error**: Claude ทำเองได้เสมอ ไม่ต้องรอ
 
 ---

@@ -9,7 +9,7 @@ colors:
   card: "oklch(0.18 0.000 0)"
   elevated: "oklch(0.24 0.000 0)"
   ink: "oklch(0.95 0.000 0)"
-  muted: "oklch(0.58 0.000 0)"
+  muted: "oklch(0.72 0.000 0)"
   border: "oklch(0.22 0.000 0)"
   accent: "oklch(0.66 0.180 195)"
 typography:
@@ -122,7 +122,7 @@ A Restrained palette anchored in near-black, with one cyan-teal signal color and
 - **Card Surface** (`oklch(0.18 0.000 0)`): Now Playing container, queue item backgrounds, input fields, active sidebar guild.
 - **Elevated Surface** (`oklch(0.24 0.000 0)`): Hover states, dropdown backgrounds, modal surfaces.
 - **Primary Ink** (`oklch(0.95 0.000 0)`): Track titles, primary labels, active text. ≥7:1 contrast vs bg.
-- **Muted Ink** (`oklch(0.58 0.000 0)`): Queue position numbers, timestamps, metadata, placeholder text. ≥4.5:1 contrast vs bg.
+- **Muted Ink** (`oklch(0.72 0.000 0)`): Queue position numbers, timestamps, metadata, placeholder text. ≥4.5:1 contrast vs bg. (Updated from 0.58 — WCAG AA compliance on card surface)
 - **Subtle Border** (`oklch(0.22 0.000 0)`): Zone separators. Used only to separate content areas, never to decorate.
 
 **The One Accent Rule.** Cyan-teal appears on ≤10% of any screen. It signals: interactive and live. On a resting, non-interactive element, it is forbidden. Its absence communicates "not primary action, not live state."

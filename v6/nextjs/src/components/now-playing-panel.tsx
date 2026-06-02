@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { Pause, Play, SkipBack, SkipForward } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { usePlayer } from '@/providers/player-provider';
@@ -20,11 +20,19 @@ const sourceBadge: Record<TrackSource, { bg: string; text: string; label: string
   soundcloud: { bg: 'rgba(255,85,0,0.15)',   text: '#ff5500', label: 'SoundCloud' },
 };
 
-export function NowPlayingPanel() {
-  const { state } = usePlayer();
-  const { socket } = useSocket();
-  const { currentTrack, isPlaying, isPaused, volume, loopMode, position, guildId } = state;
-
+const ProgressBar = memo(function ProgressBar({
+  position,
+  durationMs,
+  isPlaying,
+  isPaused,
+  onSeek,
+}: {
+  position: number;
+  durationMs: number;
+  isPlaying: boolean;
+  isPaused: boolean;
+  onSeek: (pos: number) => void;
+}) {
   const [localPos, setLocalPos] = useState(position);
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -38,12 +46,42 @@ export function NowPlayingPanel() {
     return () => { if (tickRef.current) clearInterval(tickRef.current); };
   }, [isPlaying, isPaused]);
 
-  const emit = (event: string, extra?: object) =>
-    socket?.emit(event, { guildId, ...extra });
+  const fillPct = Math.min((localPos / durationMs) * 100, 100);
+
+  return (
+    <div>
+      <input
+        type="range"
+        min={0}
+        max={durationMs}
+        value={Math.min(localPos, durationMs)}
+        onChange={(e) => onSeek(Number(e.target.value))}
+        aria-label="Seek"
+        aria-valuenow={localPos}
+        aria-valuemin={0}
+        aria-valuemax={durationMs}
+        aria-valuetext={fmt(localPos)}
+        className="slider-filled w-full"
+        style={{ '--fill-pct': `${fillPct}%` } as React.CSSProperties}
+      />
+      <div className="mt-1 flex justify-between text-[11px] text-muted">
+        <span>{fmt(localPos)}</span>
+        <span>{fmt(durationMs)}</span>
+      </div>
+    </div>
+  );
+});
+
+export function NowPlayingPanel() {
+  const { state } = usePlayer();
+  const { socket } = useSocket();
+  const { currentTrack, isPlaying, isPaused, volume, loopMode, guildId } = state;
+
+  const emit = useCallback((event: string, extra?: object) =>
+    socket?.emit(event, { guildId, ...extra }), [socket, guildId]);
 
   const loopNext = { off: 'track', track: 'queue', queue: 'off' } as const;
   const badge = currentTrack ? sourceBadge[currentTrack.source] : null;
-  const seekPct = currentTrack ? Math.min((localPos / currentTrack.durationMs) * 100, 100) : 0;
 
   return (
     <section className="flex h-full flex-col gap-5 overflow-y-auto rounded-lg bg-card p-6" aria-label="Now Playing">
@@ -66,7 +104,6 @@ export function NowPlayingPanel() {
                   width={400}
                   height={400}
                   className="h-full w-full object-cover"
-                  unoptimized
                 />
               </motion.div>
             </AnimatePresence>
@@ -90,27 +127,14 @@ export function NowPlayingPanel() {
             )}
           </div>
 
-          {/* Progress bar — custom styled, 3px track, accent fill (DESIGN.md §5) */}
-          <div>
-            <input
-              type="range"
-              min={0}
-              max={currentTrack.durationMs}
-              value={Math.min(localPos, currentTrack.durationMs)}
-              onChange={(e) => emit('player:seek', { position: Number(e.target.value) })}
-              aria-label="Seek"
-              aria-valuenow={localPos}
-              aria-valuemin={0}
-              aria-valuemax={currentTrack.durationMs}
-              aria-valuetext={fmt(localPos)}
-              className="slider-filled w-full"
-              style={{ '--fill-pct': `${seekPct}%` } as React.CSSProperties}
-            />
-            <div className="mt-1 flex justify-between text-[11px] text-muted">
-              <span>{fmt(localPos)}</span>
-              <span>{fmt(currentTrack.durationMs)}</span>
-            </div>
-          </div>
+          {/* Progress bar — memoized, re-renders independently of parent */}
+          <ProgressBar
+            position={state.position}
+            durationMs={currentTrack.durationMs}
+            isPlaying={isPlaying}
+            isPaused={isPaused}
+            onSeek={(pos) => emit('player:seek', { position: pos })}
+          />
 
           {/* Controls row */}
           <div className="flex items-center justify-between">

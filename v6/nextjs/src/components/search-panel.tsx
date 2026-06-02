@@ -111,8 +111,7 @@ export function SearchPanel() {
                 width={36}
                 height={36}
                 className="h-9 w-9 shrink-0 rounded object-cover"
-                unoptimized
-              />
+                $1/>
             )}
             <div className="min-w-0 flex-1">
               <p className="truncate text-[13px] font-medium text-ink">{track.title}</p>
@@ -122,7 +121,7 @@ export function SearchPanel() {
             </div>
             <button
               onClick={() => addTrack(track)}
-              aria-label={`Add ${track.title} to queue`}
+              aria-label={added.has(track.id) ? `Added ${track.title}` : `Add ${track.title} to queue`}
               className="shrink-0 rounded-full bg-elevated px-2.5 py-0.5 text-[11px] font-medium text-muted transition-colors duration-100 hover:bg-accent hover:text-ink"
             >
               {added.has(track.id) ? '✓' : '+'}
