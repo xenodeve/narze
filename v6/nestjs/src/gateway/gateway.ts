@@ -59,6 +59,7 @@ export class PlayerGateway implements OnGatewayInit, OnGatewayConnection {
     }
 
     client.data.user = user;
+    await this.guild.upsertUser(user.id, user.user_metadata ?? {});
     const guilds = await this.guild.getUserGuilds(user.id);
     client.emit('connect:ready', { user, guilds });
   }
@@ -110,6 +111,20 @@ export class PlayerGateway implements OnGatewayInit, OnGatewayConnection {
   async onLoop(@ConnectedSocket() client: Socket, @MessageBody() body: { guildId: string; mode: string }) {
     if (!await this.assertMember(client, body.guildId)) return;
     await this.redis.publish(`backend:${body.guildId}:player:loop`, { mode: body.mode });
+  }
+
+  @SubscribeMessage('guilds:sync')
+  async onGuildsSync(@ConnectedSocket() client: Socket, @MessageBody() body: { guilds: { id: string; name: string }[] }) {
+    const userId = client.data.user?.id;
+    if (!userId) return;
+    await this.guild.syncGuildMemberships(userId, body.guilds ?? []);
+  }
+
+  @SubscribeMessage('search:query')
+  async onSearchQuery(@ConnectedSocket() client: Socket, @MessageBody() body: { guildId: string; query: string; source?: string }) {
+    if (!await this.assertMember(client, body.guildId)) return;
+    client.join(`guild:${body.guildId}`);
+    await this.redis.publish(`backend:${body.guildId}:search:query`, { query: body.query, source: body.source });
   }
 
   @SubscribeMessage('queue:add')

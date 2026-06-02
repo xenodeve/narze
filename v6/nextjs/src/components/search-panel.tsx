@@ -111,7 +111,7 @@ export function SearchPanel() {
                 width={36}
                 height={36}
                 className="h-9 w-9 shrink-0 rounded object-cover"
-                $1/>
+              />
             )}
             <div className="min-w-0 flex-1">
               <p className="truncate text-[13px] font-medium text-ink">{track.title}</p>

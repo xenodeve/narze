@@ -50,4 +50,25 @@ export class GuildService {
       .single();
     return !!data;
   }
+
+  async upsertUser(userId: string, metadata: { full_name?: string; name?: string; avatar_url?: string }) {
+    const { error } = await this.supabase
+      .from('users')
+      .upsert({
+        id: userId,
+        username: metadata.full_name ?? metadata.name ?? userId,
+        avatar_url: metadata.avatar_url ?? null,
+        updated_at: new Date().toISOString(),
+      });
+    if (error) throw error;
+  }
+
+  async syncGuildMemberships(userId: string, guilds: { id: string; name: string }[]) {
+    if (!guilds.length) return;
+    const rows = guilds.map((g) => ({ user_id: userId, guild_id: g.id }));
+    const { error } = await this.supabase
+      .from('guild_members')
+      .upsert(rows, { onConflict: 'user_id,guild_id', ignoreDuplicates: true });
+    if (error) throw error;
+  }
 }

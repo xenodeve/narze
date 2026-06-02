@@ -7,11 +7,9 @@
 # Always prepend MD context reading to the prompt before calling.
 param(
     [string]$Skill = "",
-    [Parameter(Mandatory=$true, ValueFromRemainingArguments=$true)]
-    [string[]]$PromptParts
+    [Parameter(Mandatory=$true, Position=0)]
+    [string]$Prompt
 )
-
-$Prompt = $PromptParts -join " "
 
 # Prepend skill invocation if specified
 if ($Skill) {
