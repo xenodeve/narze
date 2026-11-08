@@ -8,3 +8,5 @@ export const SUPABASE = Symbol("SUPABASE");
 export const DEVELOPER_IDS = Symbol("DEVELOPER_IDS");
 /** Injection token for the Discord REST base URL. */
 export const DISCORD_API_URL = Symbol("DISCORD_API_URL");
+/** Injection token for how long the Backend waits for the Bot to answer an AdminQuery (#111). */
+export const ADMIN_QUERY_TIMEOUT_MS = Symbol("ADMIN_QUERY_TIMEOUT_MS");

@@ -62,13 +62,11 @@ export class HistoryStore {
     return ((data ?? []) as SessionRow[]).map(summaryOf);
   }
 
-  async session(discordId: string, id: string): Promise<ListeningSession | null> {
-    const { data, error } = await this.db
-      .from("listening_sessions")
-      .select(`${SUMMARY}, tracks`)
-      .eq("id", id)
-      .contains("participant_ids", [discordId])
-      .maybeSingle();
+  /** `viewer` null is an Admin (#111): any session opens; a user sees only sessions they were in. */
+  async session(viewer: string | null, id: string): Promise<ListeningSession | null> {
+    let query = this.db.from("listening_sessions").select(`${SUMMARY}, tracks`).eq("id", id);
+    if (viewer !== null) query = query.contains("participant_ids", [viewer]);
+    const { data, error } = await query.maybeSingle();
     check("read session", error);
     if (!data) return null;
     const row = data as SessionRow;
@@ -76,8 +74,34 @@ export class HistoryStore {
     return { ...session, tracks: row.tracks ?? [] };
   }
 
+  /** A Guild's sessions, newest first, for Admins (#111, spec #111). */
+  async sessionsIn(guildId: string, limit = 50): Promise<SessionSummary[]> {
+    const { data, error } = await this.db
+      .from("listening_sessions")
+      .select(SUMMARY)
+      .eq("guild_id", guildId)
+      .order("start_time", { ascending: false })
+      .limit(limit);
+    check("list guild sessions", error);
+    return ((data ?? []) as SessionRow[]).map(summaryOf);
+  }
+
   /** Spec #84: most played first. `guildId` "" means across every Guild, `discordId` "" every user. */
-  async top(guildId: string, discordId: string, limit = 20): Promise<TopPlayed[]> {
+  top(guildId: string, discordId: string, limit = 20): Promise<TopPlayed[]> {
+    return this.plays(guildId, discordId, "play_count", limit);
+  }
+
+  /** Spec #114: the same rows, last played first (an Admin's view of a user or a Guild). */
+  recent(guildId: string, discordId: string, limit = 50): Promise<TopPlayed[]> {
+    return this.plays(guildId, discordId, "last_played_at", limit);
+  }
+
+  private async plays(
+    guildId: string,
+    discordId: string,
+    first: "play_count" | "last_played_at",
+    limit: number,
+  ): Promise<TopPlayed[]> {
     const { data, error } = await this.db
       .from("play_history")
       .select(
@@ -85,8 +109,8 @@ export class HistoryStore {
       )
       .eq("guild_id", guildId)
       .eq("discord_id", discordId)
-      .order("play_count", { ascending: false })
-      .order("last_played_at", { ascending: false })
+      .order(first, { ascending: false })
+      .order(first === "play_count" ? "last_played_at" : "play_count", { ascending: false })
       .limit(limit);
     check("top played", error);
     return ((data ?? []) as TopRow[]).map((r) => ({

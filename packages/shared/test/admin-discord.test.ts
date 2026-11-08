@@ -5,6 +5,7 @@ import {
   fileTypeOf,
   RESTART_EXIT_CODE,
   SHUTDOWN_EXIT_CODE,
+  startOfDayBangkok,
 } from "../src/admin-discord";
 
 describe("attachments are typed for the channel viewer (#111, spec #111)", () => {
@@ -79,5 +80,15 @@ describe("admin queries to the Bot (#111)", () => {
   test("restart and shutdown exit differently, so a process manager restarts only one of them", () => {
     expect(SHUTDOWN_EXIT_CODE).toBe(0);
     expect(RESTART_EXIT_CODE).not.toBe(0);
+  });
+});
+
+describe("Active Today (#111, spec #114)", () => {
+  test("a day starts at midnight in Bangkok (UTC+7), whatever the server's zone", () => {
+    // 2026-11-08 01:30 in Bangkok is 2026-11-07 18:30 UTC.
+    expect(startOfDayBangkok(Date.UTC(2026, 10, 7, 18, 30))).toBe(Date.UTC(2026, 10, 7, 17, 0));
+    // 2026-11-08 23:59 in Bangkok is 16:59 UTC the same day.
+    expect(startOfDayBangkok(Date.UTC(2026, 10, 8, 16, 59))).toBe(Date.UTC(2026, 10, 7, 17, 0));
+    expect(startOfDayBangkok(Date.UTC(2026, 10, 8, 17, 0))).toBe(Date.UTC(2026, 10, 8, 17, 0));
   });
 });

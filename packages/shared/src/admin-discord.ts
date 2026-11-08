@@ -134,3 +134,36 @@ export type AdminQueryResult = z.infer<typeof AdminQueryResultSchema>;
 /** The Bot exits with these after answering; a process manager restarts it only on RESTART_EXIT_CODE. */
 export const SHUTDOWN_EXIT_CODE = 0;
 export const RESTART_EXIT_CODE = 75;
+
+/** A guild in the admin list (spec #110): what the Bot reports, plus whether a Player is playing. */
+export const AdminGuildRowSchema = AdminGuildSchema.extend({ playing: z.boolean() });
+export type AdminGuildRow = z.infer<typeof AdminGuildRowSchema>;
+
+/** One person in the admin user list (spec #114), from Play History and the Dashboard's users. */
+export const AdminUserSchema = z.object({
+  discordId: snowflake,
+  name: z.string(),
+  avatarUrl: url.nullable(),
+  plays: z.number().int().nonnegative(),
+  uniqueTracks: z.number().int().nonnegative(),
+  /** The later of their last play and their last Dashboard visit (ms); null when neither happened. */
+  lastActiveAt: z.number().int().nullable(),
+  /** A Dashboard tab is open right now (Presence). */
+  online: z.boolean(),
+});
+export type AdminUser = z.infer<typeof AdminUserSchema>;
+export const AdminUserListSchema = z.object({
+  users: z.array(AdminUserSchema),
+  activeToday: z.number().int().nonnegative(),
+});
+export type AdminUserList = z.infer<typeof AdminUserListSchema>;
+
+/** The admin pages read at most this many history items and sessions for one user (spec #114). */
+export const ADMIN_USER_ROWS = 500;
+
+const BANGKOK_OFFSET_MS = 7 * 60 * 60 * 1000;
+/** Midnight in Bangkok (UTC+7, no daylight saving) at or before `at`: where "Active Today" starts. */
+export function startOfDayBangkok(at: number): number {
+  const day = 24 * 60 * 60 * 1000;
+  return Math.floor((at + BANGKOK_OFFSET_MS) / day) * day - BANGKOK_OFFSET_MS;
+}
