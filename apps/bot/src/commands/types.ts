@@ -20,6 +20,13 @@ export interface Reply {
   notice: Notice;
   /** Errors are private, successes public (spec #14). */
   ephemeral: boolean;
+  /** /queue: more pages behind prev/next buttons; `render` reads the live queue (null: nothing playing). */
+  pager?: { pages: number; render(page: number): Notice | null };
+}
+
+export interface Choice {
+  name: string;
+  value: string;
 }
 
 export interface Command {
@@ -27,4 +34,6 @@ export interface Command {
   /** The handler may take longer than Discord's 3 s reply window (search, voice join): defer first. */
   slow?: boolean;
   run(ctx: CommandContext, music: Music): Promise<Reply>;
+  /** Suggestions for the focused option (Discord shows at most 25). */
+  autocomplete?(ctx: CommandContext, music: Music, focused: string): Promise<Choice[]> | Choice[];
 }

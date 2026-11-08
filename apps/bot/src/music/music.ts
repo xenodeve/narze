@@ -20,6 +20,10 @@ export interface PlayRequest {
   requester: Requester;
   /** Play next: insert at the head of the queue instead of the end (#101). */
   next?: boolean;
+  /** /playat: 0-based index in the upcoming queue (#102). */
+  position?: number;
+  /** /skipplay: play it now, dropping the current track and keeping the queue (#102). */
+  skipplay?: boolean;
 }
 
 export type PlayResult =
@@ -227,13 +231,27 @@ export function createMusic({
     const shown = first ? toTrack(first) : null;
     if (!first || !shown) return abandon({ kind: "error", reason: "not-found" });
     if (!player.connected) await player.connect();
+    // Where in the upcoming queue: /playnext and play-next at the head, /playat at its 0-based index
+    // (clamped to the end, as v5 did), otherwise the end.
+    const at = request.next ? 0 : request.position;
     if (player.queue.current) {
-      await player.queue.add(first, request.next ? 0 : undefined);
+      if (request.skipplay) {
+        // /skipplay: the new track plays now, the current one is dropped, the queue stays (spec #7).
+        await player.queue.add(first, 0);
+        bump(player);
+        player.set(FLAGS, { ...flagsOf(player), skipplay: true });
+        await player.skip();
+        return { kind: "started", track: shown };
+      }
+      const index = at === undefined ? undefined : Math.min(at, player.queue.tracks.length);
+      await player.queue.add(first, index);
       bump(player);
       await publish(player);
-      return { kind: "queued", track: shown, position: request.next ? 1 : player.queue.tracks.length };
+      return { kind: "queued", track: shown, position: (index ?? player.queue.tracks.length - 1) + 1 };
     }
-    player.set(FLAGS, { ...NO_FLAGS, firstFromCommand: true });
+    // From idle, /play announces in its own reply; /playnext, /playat and /skipplay never post a notice (spec #24).
+    const placed = at !== undefined || request.skipplay;
+    player.set(FLAGS, { ...NO_FLAGS, firstFromCommand: !placed, dontShow: Boolean(placed) });
     await player.queue.add(first);
     await player.play();
     return { kind: "started", track: shown };
@@ -402,6 +420,8 @@ export function createMusic({
         paused: player.paused,
         volume: player.volume,
         positionMs: player.position,
+        loop: player.repeatMode,
+        queue: (player.queue.tracks as LavalinkTrack[]).map(toTrack).filter((t): t is Track => t !== null),
       };
     },
   };

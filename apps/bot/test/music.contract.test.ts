@@ -298,6 +298,37 @@ describe("queue editing on the engine (#102)", () => {
     expect(state?.queue.map((t) => t.title)).toEqual(["Pretender"]);
   });
 
+  test("play at a position inserts there (/playat); out of range clamps to the end (v5)", async () => {
+    await play("lemon");
+    await play("idol");
+    await play("gurenge");
+    await music.play({
+      guildId: GUILD,
+      voiceChannelId: VOICE,
+      textChannelId: TEXT,
+      query: "pretender",
+      requester: dee,
+      position: 1,
+    });
+    expect(await eventually(titles, (t) => t?.length === 3)).toEqual(["Idol", "Pretender", "Gurenge"]);
+  });
+
+  test("skipplay plays the new track now, keeps the queue, and posts no notice (spec #7, #24)", async () => {
+    await play("lemon");
+    await play("idol");
+    await music.play({
+      guildId: GUILD,
+      voiceChannelId: VOICE,
+      textChannelId: TEXT,
+      query: "gurenge",
+      requester: dee,
+      skipplay: true,
+    });
+    const state = await eventually(stored, (s) => s?.current?.title === "Gurenge");
+    expect(state?.queue.map((t) => t.title)).toEqual(["Idol"]);
+    expect(notices.filter((n) => n.notice.description?.includes("Gurenge"))).toHaveLength(0);
+  });
+
   test("play-now announces the jump first, then plays it and keeps the rest in order (spec #39)", async () => {
     await four();
     const order: string[] = [];
