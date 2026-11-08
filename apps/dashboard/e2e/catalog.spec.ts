@@ -84,7 +84,8 @@ test("the guild page's Search tab adds straight into that server, no server pick
   await page.goto(`/guilds/${G_PLAY}`);
   await page.getByRole("tab", { name: "ค้นหา" }).click();
   await page.getByRole("searchbox", { name: "ค้นหาเพลง ศิลปิน หรืออัลบั้ม" }).fill("idol");
-  await page.getByRole("button", { name: "เล่น Idol", exact: true }).first().click();
+  // The Search tab's results, not the idle page's chart or top-played rows.
+  await page.getByRole("tabpanel").getByRole("button", { name: "เล่น Idol" }).first().click();
   await expect(page.getByText("เพิ่ม Idol แล้ว")).toBeVisible();
   await expect(page.getByRole("dialog", { name: "เลือกเซิร์ฟเวอร์" })).toHaveCount(0);
   expect(received).toContainEqual(

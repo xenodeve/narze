@@ -39,17 +39,19 @@ function Movement({ entry }: { entry: ChartEntry }) {
 export function ChartPanel({ guildId }: { guildId: string }) {
   const id = useId();
   const [region, setRegion] = useState<ChartRegion>("th");
-  const [chart, setChart] = useState<Chart | "unavailable" | null>(null);
+  // Each region's chart is kept for the visit: switching tabs back shows it at once.
+  const [charts, setCharts] = useState<Partial<Record<ChartRegion, Chart | "unavailable">>>({});
+  const chart = charts[region] ?? null;
   const [message, setMessage] = useState<string | null>(null);
   useEffect(() => {
-    setChart(null);
     setMessage(null);
+    if (charts[region]) return;
     let current = true;
-    void getChart(region).then((c) => current && setChart(c));
+    void getChart(region).then((c) => current && setCharts((all) => ({ ...all, [region]: c })));
     return () => {
       current = false;
     };
-  }, [region]);
+  }, [region, charts]);
   const play = async (entry: ChartEntry) => {
     setMessage(null);
     const result = await playInGuild(guildId, `${entry.title} ${entry.artist}`);

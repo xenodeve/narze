@@ -2,20 +2,17 @@ import "reflect-metadata";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { startFakeDiscord } from "@narze/fake-discord";
 import { FAKE_DISCORD_PORT, localSupabase } from "@narze/fake-discord/supabase-local";
-import { ChartSchema, DEFAULT_REDIS_URL } from "@narze/shared";
+import { ChartSchema, DEFAULT_REDIS_URL, RedisKeys } from "@narze/shared";
 import type { INestApplication } from "@nestjs/common";
 import Redis from "ioredis";
 import { createApp } from "../src/app";
-import { CHART_REFRESH_MS, ChartService, chartKey } from "../src/charts/chart-service";
+import { CHART_REFRESH_MS, ChartService } from "../src/charts/chart-service";
 
 const redisUrl = process.env.REDIS_URL ?? DEFAULT_REDIS_URL;
 const redis = new Redis(redisUrl);
-/** A test-only key prefix, so a running Backend's real charts are never touched. */
-const PREFIX = "test109:";
 
 let titles = ["Song A", "Song B", "Song C"];
 let up = true;
-let requests = 0;
 const byRegion: Record<string, number> = {};
 const apple = Bun.serve({
   port: 0,
@@ -23,7 +20,6 @@ const apple = Bun.serve({
     const path = new URL(req.url).pathname;
     if (!/^\/api\/v2\/(th|us)\/music\/most-played\/\d+\/songs\.json$/.test(path))
       return new Response("no", { status: 404 });
-    requests += 1;
     const region = path.split("/")[3] ?? "";
     byRegion[region] = (byRegion[region] ?? 0) + 1;
     if (!up) return new Response("down", { status: 503 });
@@ -66,20 +62,18 @@ const service = () =>
     chartsUrl: `http://127.0.0.1:${apple.port}`,
     spotify,
     now: () => clock,
-    keyPrefix: PREFIX,
   });
 
 beforeEach(async () => {
-  await redis.del(chartKey("th", PREFIX), chartKey("us", PREFIX));
+  await redis.del(RedisKeys.chart("th"), RedisKeys.chart("us"));
   titles = ["Song A", "Song B", "Song C"];
   up = true;
-  requests = 0;
   for (const k of Object.keys(byRegion)) delete byRegion[k];
   clock = 1_000_000;
 });
 
 afterAll(async () => {
-  await redis.del(chartKey("th", PREFIX), chartKey("us", PREFIX));
+  await redis.del(RedisKeys.chart("th"), RedisKeys.chart("us"));
   await redis.quit();
   apple.stop(true);
 });
@@ -94,11 +88,11 @@ describe("charts from Apple Music (#109, ADR-0010)", () => {
       [2, "Song B", null],
       [3, "Song C", null],
     ]);
-    // Apple's 100px artwork, asked for at a size the Dashboard can use.
-    expect(chart.entries[0]?.artwork).toBe("https://is1-ssl.mzstatic.com/0/300x300bb.jpg");
+    // Apple's 100px artwork, at twice the 40px the Dashboard shows.
+    expect(chart.entries[0]?.artwork).toBe("https://is1-ssl.mzstatic.com/0/80x80bb.jpg");
     expect(chart.entries[0]?.spotifyUrl).toBe("https://open.spotify.com/track/x");
     await charts.get("th");
-    expect(requests).toBe(1);
+    expect(byRegion).toEqual({ th: 1 });
   });
 
   test("after 3 days it refreshes, and each song's movement is against the previous update", async () => {
@@ -145,7 +139,6 @@ describe("GET /api/charts/:region (#109)", () => {
       supabase: localSupabase(),
       discordApiUrl: `http://127.0.0.1:${FAKE_DISCORD_PORT}/api/v10`,
       chartsUrl: `http://127.0.0.1:${apple.port}`,
-      chartsKeyPrefix: PREFIX,
     });
     await app.listen(0);
     url = await app.getUrl();

@@ -48,8 +48,6 @@ export interface AppOptions {
   youtubeApiKey?: string;
   /** Apple Music's RSS for charts (ADR-0010); the real one unless a test points elsewhere. */
   chartsUrl?: string;
-  /** A Redis key prefix for charts, so tests never touch a running Backend's copy. */
-  chartsKeyPrefix?: string;
 }
 
 /** Applies the Dashboard origin to every Socket.io server, so CORS lives in one place. */
@@ -117,16 +115,8 @@ class AppModule implements OnApplicationShutdown {
         {
           provide: ChartService,
           inject: [REDIS],
-          useFactory: (redis: Redis) => {
-            const charts = new ChartService({
-              redis,
-              chartsUrl: options.chartsUrl,
-              keyPrefix: options.chartsKeyPrefix,
-              spotify: createSpotifyApi(options.spotify ?? {}),
-            });
-            charts.start();
-            return charts;
-          },
+          useFactory: (redis: Redis) =>
+            new ChartService({ redis, chartsUrl: options.chartsUrl, spotify: createSpotifyApi(options.spotify ?? {}) }),
         },
         Authenticator,
         DiscordApi,

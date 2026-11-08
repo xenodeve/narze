@@ -17,6 +17,8 @@ export const Channels = {
 export const RedisKeys = {
   /** Set of guild ids the Bot is in. */
   botGuilds: "bot:guilds",
+  /** The Backend's cached Chart (#109, ADR-0010), refreshed every 3 days. */
+  chart: (region: string) => `chart:${region}`,
   /** Hash userId → voice channel id, for members currently in voice in one Guild. */
   voiceStates: (guildId: string) => `bot:voice:${guildId}`,
   /**

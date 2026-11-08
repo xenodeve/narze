@@ -15,7 +15,7 @@ test.beforeAll(async () => {
   await redis.sadd(RedisKeys.botGuilds, G);
   await redis.hset(RedisKeys.voiceStates(G), pim.id, "93");
   // Start from the feed, not a copy an earlier run cached.
-  await redis.del("e2e:chart:th", "e2e:chart:us");
+  await redis.del(RedisKeys.chart("th"), RedisKeys.chart("us"));
   await bot.subscribe(Channels.botCommands);
   bot.on("message", (_c, raw) => {
     const command = PlayerCommandSchema.parse(JSON.parse(raw));
@@ -27,6 +27,8 @@ test.beforeAll(async () => {
 test.afterAll(async () => {
   await redis.srem(RedisKeys.botGuilds, G);
   await redis.del(RedisKeys.voiceStates(G));
+  // The fake chart must not linger for a dev Backend sharing this Redis.
+  await redis.del(RedisKeys.chart("th"), RedisKeys.chart("us"));
   await bot.quit();
   await redis.quit();
 });
