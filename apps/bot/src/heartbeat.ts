@@ -20,7 +20,11 @@ export function startHeartbeat(options: HeartbeatOptions): () => void {
       guilds: options.guildCount(),
       version: options.version,
     };
-    void options.publish(Channels.botHeartbeat, JSON.stringify(heartbeat));
+    // A beat lost while Redis is down is replaced by the next one; an unhandled rejection would end
+    // the process (#133).
+    Promise.resolve()
+      .then(() => options.publish(Channels.botHeartbeat, JSON.stringify(heartbeat)))
+      .catch(() => {});
   };
   beat();
   const timer = setInterval(beat, options.intervalMs ?? HEARTBEAT_INTERVAL_MS);

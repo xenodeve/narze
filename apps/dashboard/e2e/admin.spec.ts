@@ -80,6 +80,12 @@ test("only a Developer manages the whitelist (#110, AC2)", async ({ page }) => {
   await expect(page.getByTestId("whitelist-row").filter({ hasText: fan.id })).toContainText("admin");
   await page.getByRole("button", { name: `ลบ ${fan.id}` }).click();
   await expect(page.getByTestId("whitelist-row").filter({ hasText: fan.id })).toHaveCount(0);
+  // A change the Backend refuses as a conflict says why, not "check the Discord ID" (#133).
+  await page.getByLabel("Discord ID").fill(dev.id);
+  await page.getByRole("button", { name: "เพิ่ม" }).click();
+  await expect(page.getByRole("alert")).toHaveText(
+    "เปลี่ยนไม่ได้: Developer ที่ตั้งไว้ใน env แก้จากหน้านี้ไม่ได้ และต้องเหลือ Developer อย่างน้อยหนึ่งคน",
+  );
 });
 
 test("an Admin who is not a Developer is sent away from the whitelist page (#133)", async ({ page }) => {

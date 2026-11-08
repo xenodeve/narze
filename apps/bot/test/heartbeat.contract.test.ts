@@ -61,3 +61,26 @@ describe("Bot heartbeat over Redis (Bot↔Backend contract)", () => {
     expect(after.length).toBeLessThanOrEqual(1);
   });
 });
+
+describe("a heartbeat that cannot be sent (#133)", () => {
+  test("a failed publish (Redis down) is dropped, not left as an unhandled rejection", async () => {
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown) => unhandled.push(reason);
+    process.on("unhandledRejection", onUnhandled);
+    try {
+      const stop = startHeartbeat({
+        publish: () => Promise.reject(new Error("MaxRetriesPerRequestError")),
+        botId: () => "1",
+        mode: "connected",
+        version: "test",
+        guildCount: () => 0,
+        intervalMs: 20,
+      });
+      await Bun.sleep(80);
+      stop();
+      expect(unhandled).toEqual([]);
+    } finally {
+      process.off("unhandledRejection", onUnhandled);
+    }
+  });
+});
