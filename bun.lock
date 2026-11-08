@@ -29,6 +29,7 @@
       },
       "devDependencies": {
         "@narze/fake-discord": "workspace:*",
+        "@narze/fake-lavalink": "workspace:*",
         "socket.io-client": "4.8.4",
       },
     },

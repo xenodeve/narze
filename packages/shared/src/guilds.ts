@@ -79,3 +79,14 @@ export function controlPermission(input: ControlPermissionInput): ControlPermiss
     ? { canControl: true, reason: "in-bot-voice", badge: "in-voice" }
     : { canControl: false, reason: "other-voice", badge: "view-only" };
 }
+
+/** Spec #91: may the signed-in user start playback in a Mutual Guild, and why (Select Server modal). */
+export const PlayPermissionSchema = z.object({
+  guildId: z.string(),
+  name: z.string(),
+  iconUrl: z.string().nullable(),
+  canPlay: z.boolean(),
+  reason: z.string(),
+});
+export const PlayPermissionListSchema = z.array(PlayPermissionSchema);
+export type PlayPermission = z.infer<typeof PlayPermissionSchema>;
