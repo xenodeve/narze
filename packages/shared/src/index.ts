@@ -6,4 +6,5 @@ export * from "./player";
 export * from "./progress";
 export * from "./queue";
 export * from "./reconcile";
+export * from "./search";
 export * from "./status";

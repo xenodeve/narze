@@ -1,5 +1,5 @@
+import type { TtlCache } from "@narze/shared/ttl-cache";
 import { playlistDisplayName, type ResolvedQuery, resolveQuery } from "./query";
-import type { TtlCache } from "./ttl-cache";
 
 export interface Choice {
   name: string;

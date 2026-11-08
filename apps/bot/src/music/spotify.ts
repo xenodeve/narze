@@ -1,4 +1,4 @@
-import { createTtlCache, WEEK_MS } from "./ttl-cache";
+import { createTtlCache, WEEK_MS } from "@narze/shared/ttl-cache";
 
 /** Spec #73: a token is used until 5 minutes before Spotify says it expires. */
 const TOKEN_MARGIN_MS = 5 * 60 * 1000;

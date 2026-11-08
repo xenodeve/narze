@@ -1,5 +1,6 @@
 import type { Requester, Track } from "@narze/shared";
 import { GuildEventTypes, moveTrack, type VoiceEventType } from "@narze/shared";
+import { createTtlCache } from "@narze/shared/ttl-cache";
 import type { LavalinkManager, Track as LavalinkTrack, Player, RepeatMode } from "lavalink-client";
 import { type AnnounceFlags, NO_FLAGS, nowPlayingNotice, recoveryNotice, shouldAnnounce } from "./announce";
 import type { Artwork } from "./artwork";
@@ -9,7 +10,6 @@ import { type PlayerPublisher, toPlayerState } from "./player-state";
 import { playlistDisplayName, resolveQuery } from "./query";
 import type { QueueSnapshot, SnapshotStore, StoredTrack } from "./queue-snapshot";
 import { toTrack } from "./track";
-import { createTtlCache } from "./ttl-cache";
 
 /** Spec #6/#19: a new Player starts at volume 15. */
 export const DEFAULT_VOLUME = 15;
