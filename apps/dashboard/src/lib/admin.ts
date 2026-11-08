@@ -11,6 +11,7 @@ import {
   AdminStatsSchema,
   AdminUserDetailSchema,
   AdminUserListSchema,
+  type BotPowerAction,
   ListeningSessionSchema,
   type LogLine,
   LogLineSchema,
@@ -87,7 +88,7 @@ export const getAdminUser = (id: string) => get(`/api/admin/users/${id}`, AdminU
 export const getAdminSession = (id: string) =>
   get(`/api/admin/sessions/${encodeURIComponent(id)}`, ListeningSessionSchema);
 /** Restart or shut the Bot down; the body names the action, as the Backend requires (#111 AC3). */
-export const powerBot = async (action: "restart" | "shutdown") =>
+export const powerBot = async (action: BotPowerAction) =>
   (await answer(apiSend("POST", `/api/admin/bot/${action}`, { confirm: action })))?.ok ?? false;
 
 export const getWhitelist = async () =>

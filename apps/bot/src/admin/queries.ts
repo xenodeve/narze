@@ -18,7 +18,7 @@ import type Redis from "ioredis";
 
 type Each<T> = { values(): Iterable<T> };
 type UserLike = { id: string; username: string; globalName?: string | null; bot: boolean; displayAvatarURL(): string };
-type Url = { url: string } | null;
+type Url = { url: string; proxyURL?: string } | null;
 
 /** The parts of a discord.js Message the channel viewer reads; tests build these from fixtures. */
 export interface MessageLike {
@@ -30,7 +30,7 @@ export interface MessageLike {
   member: { displayName: string } | null;
   mentions: {
     users: Each<UserLike>;
-    roles: Each<{ id: string; name: string; hexColor: string; color: number }>;
+    roles: Each<{ id: string; name: string; hexColor: string }>;
   };
   attachments: Each<{
     id: string;
@@ -92,7 +92,8 @@ export function toMessages(messages: MessageLike[]): DiscordMessage[] {
         mentionedRoles: [...m.mentions.roles.values()].map((r) => ({
           id: r.id,
           name: r.name,
-          color: r.color ? r.hexColor : null,
+          // A role without a colour reports black; Discord draws it in the default text colour.
+          color: r.hexColor === "#000000" ? null : r.hexColor,
         })),
         attachments: [...m.attachments.values()].map((a) => ({
           id: a.id,
@@ -113,9 +114,11 @@ export function toMessages(messages: MessageLike[]): DiscordMessage[] {
           color: e.hexColor,
           provider: e.provider?.name ? { name: e.provider.name, url: httpUrl(e.provider.url) } : null,
           author: e.author ? { name: e.author.name, iconUrl: httpUrl(e.author.iconURL) } : null,
-          thumbnail: httpUrl(e.thumbnail?.url),
-          image: httpUrl(e.image?.url),
-          video: httpUrl(e.video?.url),
+          // Discord's media proxy, so an admin's browser never fetches from the poster's own host.
+          thumbnail: httpUrl(e.thumbnail?.proxyURL ?? e.thumbnail?.url),
+          image: httpUrl(e.image?.proxyURL ?? e.image?.url),
+          // A YouTube player has no proxy; the Dashboard frames only YouTube's embed host.
+          video: httpUrl(e.video?.proxyURL ?? e.video?.url),
         })),
         reactions: [...m.reactions.cache.values()].map((r) => ({
           emoji: r.emoji.name ?? r.emoji.id ?? "?",
@@ -179,9 +182,10 @@ export async function answerAdminQuery(query: AdminQuery, { client, exit }: Admi
       setTimeout(() => exit(code), 0);
       return ok(null);
     }
-    case "guilds":
-      return ok([...client.guilds.cache.values()].map(toGuild));
   }
+  // While logging in the guild cache is incomplete: an empty list would be a wrong answer (m7).
+  if (!client.isReady()) return fail("not-ready");
+  if (query.kind === "guilds") return ok([...client.guilds.cache.values()].map(toGuild));
   const guild = client.guilds.cache.get(query.guildId);
   if (!guild) return fail("not-found");
   switch (query.kind) {
@@ -214,7 +218,7 @@ export async function answerAdminQuery(query: AdminQuery, { client, exit }: Admi
       if (!fetched) return fail("forbidden");
       const page: MessagePage = {
         channel: { id: channel.id, name: channel.name },
-        messages: toMessages([...fetched.values()] as unknown as MessageLike[]),
+        messages: toMessages([...fetched.values()]),
       };
       return ok(page);
     }

@@ -163,11 +163,11 @@ export function AdminSessionPage({ id }: { id: string }) {
 }
 
 function SessionDetail({ id }: { id: string }) {
-  const [mood, setMood] = useState<string | null>(null);
+  const [tint, setTint] = useState<string | null>(null);
   const session = useLoad(() => getAdminSession(id), id);
   const artwork = typeof session === "object" && session ? session.tracks.find((t) => t.thumbnail)?.thumbnail : null;
   useEffect(() => {
-    if (artwork) void moodFromArtwork(artwork).then(setMood);
+    if (artwork) void moodFromArtwork(artwork).then(setTint);
   }, [artwork]);
   if (session === null) return <Thinking label="กำลังโหลดเซสชัน" />;
   if (session === "failed")
@@ -179,7 +179,7 @@ function SessionDetail({ id }: { id: string }) {
   const minutes = Math.round(session.tracks.reduce((n, t) => n + t.durationMs, 0) / 60_000);
   return (
     <>
-      <header className={styles.hero} style={mood ? { ["--mood" as string]: mood } : undefined}>
+      <header className={styles.hero} style={tint ? { ["--artwork" as string]: tint } : undefined}>
         <p className={styles.hint}>{thaiDateTime(session.startTime)}</p>
         <h1 className={styles.title}>{session.guildName || "เซิร์ฟเวอร์ที่ไม่ทราบชื่อ"}</h1>
         <p className={`num ${styles.hint}`}>

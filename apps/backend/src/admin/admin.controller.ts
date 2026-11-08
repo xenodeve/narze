@@ -4,6 +4,8 @@ import {
   AdminStatsSchema,
   type AdminUser,
   type AdminUserList,
+  BotPowerActionSchema,
+  BotPowerRequestSchema,
   DiscordIdSchema,
   PlayerSummarySchema,
   parseJson,
@@ -21,6 +23,7 @@ import {
   Get,
   HttpCode,
   Inject,
+  Logger,
   NotFoundException,
   Param,
   Post,
@@ -44,6 +47,8 @@ import { readRing } from "./ring";
 @Controller("api/admin")
 @UseGuards(AdminGuard)
 export class AdminController {
+  private readonly logger = new Logger("AdminController");
+
   constructor(
     @Inject(AdminRoles) private readonly roles: AdminRoles,
     @Inject(REDIS) private readonly redis: Redis,
@@ -113,7 +118,9 @@ export class AdminController {
 
   /** Spec #111: the last 50 messages, read through the Bot and cached (AC2). */
   @Get("guilds/:guildId/channels/:channelId/messages")
-  messages(@Param("guildId") guildId: string, @Param("channelId") channelId: string) {
+  messages(@Req() request: AdminRequest, @Param("guildId") guildId: string, @Param("channelId") channelId: string) {
+    // Reading a private channel is recorded with who read it (security review).
+    this.logger.log(`${request.admin?.identity.discordId} read channel ${channelId} in ${guildId}`);
     return this.queries.messages(snowflake(guildId), snowflake(channelId));
   }
 
@@ -186,13 +193,16 @@ export class AdminController {
   @Post("bot/:action")
   @HttpCode(204)
   async power(@Req() request: AdminRequest, @Param("action") action: string, @Body() body: unknown) {
-    if (action !== "restart" && action !== "shutdown") throw new NotFoundException();
-    if ((body as { confirm?: unknown } | null)?.confirm !== action) {
-      throw new BadRequestException(`confirm with { "confirm": "${action}" }`);
+    const kind = BotPowerActionSchema.safeParse(action);
+    if (!kind.success) throw new NotFoundException();
+    if (BotPowerRequestSchema.safeParse(body).data?.confirm !== kind.data) {
+      throw new BadRequestException(`confirm with { "confirm": "${kind.data}" }`);
     }
     const by = request.admin?.identity.discordId;
     if (!by) throw new BadRequestException("no admin");
-    await this.queries.ask({ kind: action, by });
+    // Recorded here too: the Bot's own log line is lost when it cannot answer.
+    this.logger.warn(`${kind.data} asked by ${by}`);
+    await this.queries.ask({ kind: kind.data, by });
   }
 }
 

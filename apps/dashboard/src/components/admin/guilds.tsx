@@ -165,27 +165,30 @@ function GuildDetail({ id }: { id: string }) {
     `${path}?tab=${next.tab}${next.channel ? `&channel=${next.channel}` : ""}`;
 
   if (guild === null) return <Thinking label="กำลังถามบอท" />;
-  if (guild === "failed")
-    return (
-      <p role="alert" className={styles.error}>
-        ไม่พบเซิร์ฟเวอร์นี้ หรือบอทไม่ได้อยู่ในเซิร์ฟเวอร์นี้แล้ว
-      </p>
-    );
+  // Sessions and history come from Supabase: they still open when the Bot cannot answer (m3).
+  const known = guild === "failed" ? null : guild;
   return (
     <>
       <header className={styles.guildHead}>
-        <GuildIcon guild={guild} size={56} />
+        <GuildIcon guild={known ?? { name: "?", iconUrl: null }} size={56} />
         <div>
-          <h1 className={styles.title}>{guild.name}</h1>
-          <p className={`num ${styles.hint}`}>
-            {guild.memberCount} สมาชิก
-            {guild.joinedAt ? (
-              <>
-                {" · "}
-                <span data-testid="guild-joined">บอทเข้าเมื่อ {thaiDate(guild.joinedAt)}</span>
-              </>
-            ) : null}
-          </p>
+          <h1 className={styles.title}>{known?.name ?? `เซิร์ฟเวอร์ ${id}`}</h1>
+          {known ? null : (
+            <p role="alert" className={styles.error}>
+              บอทตอบเรื่องเซิร์ฟเวอร์นี้ไม่ได้ (ออฟไลน์อยู่ หรือออกจากเซิร์ฟเวอร์แล้ว) ยังดูเซสชันกับประวัติได้
+            </p>
+          )}
+          {known ? (
+            <p className={`num ${styles.hint}`}>
+              {known.memberCount} สมาชิก
+              {known.joinedAt ? (
+                <>
+                  {" · "}
+                  <span data-testid="guild-joined">บอทเข้าเมื่อ {thaiDate(known.joinedAt)}</span>
+                </>
+              ) : null}
+            </p>
+          ) : null}
         </div>
       </header>
       <div role="tablist" aria-label="ส่วนของเซิร์ฟเวอร์" className={pill.tabs}>
@@ -203,19 +206,21 @@ function GuildDetail({ id }: { id: string }) {
         ))}
       </div>
       <div role="tabpanel">
-        {tab === "overview" ? (
+        {tab === "overview" && !known ? (
+          <p className={styles.hint}>ภาพรวมต้องถามจากบอท ลองใหม่เมื่อบอทออนไลน์</p>
+        ) : tab === "overview" && known ? (
           <dl className={styles.facts}>
             <dt>ID</dt>
-            <dd className="mono num">{guild.id}</dd>
+            <dd className="mono num">{known.id}</dd>
             <dt>เจ้าของ</dt>
-            <dd className="mono num">{guild.ownerId}</dd>
+            <dd className="mono num">{known.ownerId}</dd>
             <dt>สมาชิก</dt>
-            <dd className="num">{guild.memberCount}</dd>
+            <dd className="num">{known.memberCount}</dd>
             <dt>บอทเข้าเมื่อ</dt>
-            <dd className="num">{guild.joinedAt ? thaiDateTime(guild.joinedAt) : "ไม่ทราบ"}</dd>
+            <dd className="num">{known.joinedAt ? thaiDateTime(known.joinedAt) : "ไม่ทราบ"}</dd>
             <dt>มุมมองผู้ใช้</dt>
             <dd>
-              <Link href={`/guilds/${guild.id}`}>เปิดหน้าเซิร์ฟเวอร์</Link>
+              <Link href={`/guilds/${known.id}`}>เปิดหน้าเซิร์ฟเวอร์</Link>
             </dd>
           </dl>
         ) : tab === "channels" ? (
@@ -302,7 +307,7 @@ export function SessionRows({ sessions }: { sessions: SessionSummary[] }) {
           </span>
           {s.isActive ? (
             <span className={`mono ${styles.badge}`} data-tone="live">
-              Live
+              กำลังฟังอยู่
             </span>
           ) : null}
         </li>

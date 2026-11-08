@@ -101,6 +101,93 @@ const page: MessagePage = {
         archived: false,
       },
     }),
+    message("493000000000000003", 1_700_000_120_000, {
+      content: "every kind",
+      attachments: [
+        {
+          id: "k1",
+          name: "clip.mp4",
+          url: "http://127.0.0.1:4611/clip.mp4",
+          size: 10,
+          contentType: "video/mp4",
+          fileType: "video",
+          width: null,
+          height: null,
+          spoiler: false,
+        },
+        {
+          id: "k2",
+          name: "voice.ogg",
+          url: "http://127.0.0.1:4611/voice.ogg",
+          size: 10,
+          contentType: "audio/ogg",
+          fileType: "audio",
+          width: null,
+          height: null,
+          spoiler: false,
+        },
+        {
+          id: "k3",
+          name: "spec.pdf",
+          url: "http://127.0.0.1:4611/spec.pdf",
+          size: 10,
+          contentType: "application/pdf",
+          fileType: "document",
+          width: null,
+          height: null,
+          spoiler: false,
+        },
+        {
+          id: "k4",
+          name: "SPOILER_plot.png",
+          url: PIXEL,
+          size: 10,
+          contentType: "image/png",
+          fileType: "image",
+          width: 1,
+          height: 1,
+          spoiler: true,
+        },
+      ],
+      embeds: [
+        {
+          type: "video",
+          title: "MV",
+          description: null,
+          url: "https://www.youtube.com/watch?v=abc",
+          color: null,
+          provider: { name: "YouTube", url: "https://www.youtube.com" },
+          author: null,
+          thumbnail: PIXEL,
+          image: null,
+          video: "https://www.youtube.com/embed/abc",
+        },
+        {
+          type: "gifv",
+          title: null,
+          description: null,
+          url: "https://tenor.com/x",
+          color: null,
+          provider: null,
+          author: null,
+          thumbnail: null,
+          image: null,
+          video: "http://127.0.0.1:4611/x.mp4",
+        },
+        {
+          type: "image",
+          title: null,
+          description: null,
+          url: PIXEL,
+          color: null,
+          provider: null,
+          author: null,
+          thumbnail: PIXEL,
+          image: null,
+          video: null,
+        },
+      ],
+    }),
   ],
 };
 
@@ -184,7 +271,7 @@ test("an admin opens a guild, reads a channel, and views a user (#111, AC5)", as
   await tab.getByRole("link", { name: "general" }).click();
   await expect(tab).toHaveURL(new RegExp(`tab=channels&channel=${CHANNEL}`));
   const messages = tab.getByTestId("discord-message");
-  await expect(messages).toHaveCount(2);
+  await expect(messages).toHaveCount(3);
   const rich = messages.nth(1);
   await expect(rich.getByTestId("message-text").locator("strong")).toHaveText("bold move");
   await expect(rich.getByText("@Kai")).toBeVisible();
@@ -199,9 +286,19 @@ test("an admin opens a guild, reads a channel, and views a user (#111, AC5)", as
   await expect(lightbox).toBeVisible();
   await tab.keyboard.press("Escape");
   await expect(lightbox).toBeHidden();
+  // AC1: every attachment and embed kind is drawn.
+  const kinds = messages.nth(2);
+  await expect(kinds.getByLabel("clip.mp4")).toHaveJSProperty("tagName", "VIDEO");
+  await expect(kinds.getByLabel("voice.ogg")).toHaveJSProperty("tagName", "AUDIO");
+  await expect(kinds.getByRole("link", { name: /spec\.pdf/ })).toHaveAttribute("download", "");
+  await kinds.getByRole("button", { name: /สปอยเลอร์/ }).click();
+  await expect(kinds.getByRole("button", { name: "ดูรูป SPOILER_plot.png" })).toBeVisible();
+  await expect(kinds.locator("iframe")).toHaveAttribute("src", "https://www.youtube.com/embed/abc");
+  await expect(kinds.getByLabel("GIF")).toHaveJSProperty("tagName", "VIDEO");
+  await expect(kinds.locator('img[src$="pixel.png"]')).not.toHaveCount(0);
   // A reload keeps the tab and the channel (URL state).
   await tab.reload();
-  await expect(tab.getByTestId("discord-message")).toHaveCount(2);
+  await expect(tab.getByTestId("discord-message")).toHaveCount(3);
 
   await tab.goto("/admin/users");
   const user = tab.getByTestId("admin-user").filter({ hasText: "Lumi" });

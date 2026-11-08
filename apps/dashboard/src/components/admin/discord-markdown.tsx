@@ -97,7 +97,7 @@ const RULES: Array<{ re: RegExp; draw: (m: RegExpExecArray, names: Names, key: s
     draw: (m, n, key) => <Spoiler key={key}>{inline(m[1] ?? "", n)}</Spoiler>,
   },
   {
-    re: /\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/,
+    re: /\[([^\]\n]{1,256})\]\((https?:\/\/[^\s)]{1,2048})\)/,
     draw: (m, _n, key) => (
       <a key={key} href={m[2]} target="_blank" rel="noopener noreferrer">
         {m[1]}
@@ -149,22 +149,41 @@ const RULES: Array<{ re: RegExp; draw: (m: RegExpExecArray, names: Names, key: s
   },
 ];
 
-function inline(text: string, names: Names): ReactNode[] {
+/** Discord's own limit is 4000 characters; anything longer is cut before parsing (security review). */
+const MAX_PARSED = 4000;
+
+/**
+ * Leftmost rule wins. Each rule's next match is remembered and searched again only once the scan
+ * has passed it, so a message costs about one pass per rule instead of one per token (a crafted
+ * message could otherwise freeze an admin's tab).
+ */
+function inline(full: string, names: Names): ReactNode[] {
+  const text = full.length > MAX_PARSED ? `${full.slice(0, MAX_PARSED)}…` : full;
   const out: ReactNode[] = [];
-  let rest = text;
-  while (rest) {
-    let best: { m: RegExpExecArray; rule: (typeof RULES)[number] } | null = null;
-    for (const rule of RULES) {
-      const m = rule.re.exec(rest);
-      if (m && (!best || m.index < best.m.index)) best = { m, rule };
+  const scanners = RULES.map((rule) => new RegExp(rule.re.source, "g"));
+  const next: Array<RegExpExecArray | null | undefined> = RULES.map(() => undefined);
+  let at = 0;
+  while (at < text.length) {
+    let best = -1;
+    for (let i = 0; i < RULES.length; i++) {
+      let found = next[i];
+      if (found === undefined || (found && found.index < at)) {
+        const scanner = scanners[i] as RegExp;
+        scanner.lastIndex = at;
+        found = scanner.exec(text);
+        next[i] = found;
+      }
+      if (found && (best < 0 || found.index < (next[best] as RegExpExecArray).index)) best = i;
     }
-    if (!best) {
-      out.push(rest);
+    const match = best < 0 ? null : (next[best] as RegExpExecArray);
+    if (!match) {
+      out.push(text.slice(at));
       break;
     }
-    if (best.m.index > 0) out.push(rest.slice(0, best.m.index));
-    out.push(best.rule.draw(best.m, names, `i${out.length}`));
-    rest = rest.slice(best.m.index + best.m[0].length);
+    if (match.index > at) out.push(text.slice(at, match.index));
+    out.push((RULES[best] as (typeof RULES)[number]).draw(match, names, `i${out.length}`));
+    // An empty match cannot happen (every rule consumes), but never loop in place.
+    at = Math.max(match.index + match[0].length, at + 1);
   }
   return out;
 }

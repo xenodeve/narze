@@ -1,13 +1,14 @@
 "use client";
 
-import type { ListeningSession, SessionEvent, SessionSummary } from "@narze/shared";
+import { type ListeningSession, type SessionEvent, type SessionSummary, SocketEvents } from "@narze/shared";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { SignedIn } from "@/components/catalog/browse";
 import { Thinking } from "@/components/catalog/thinking";
 import { formatTime } from "@/components/now-playing/progress";
 import { initial } from "@/lib/format";
 import { getSession, listSessions, sessionLength, useSessionEvents } from "@/lib/history";
+import { onSocketEvents } from "@/lib/socket";
 import styles from "./sessions.module.css";
 
 const SIGNED_OUT = "เข้าสู่ระบบด้วย Discord ก่อน แล้วจะเห็นประวัติการฟังของคุณ";
@@ -47,30 +48,45 @@ export function SessionsPage() {
   return <SignedIn signedOut={SIGNED_OUT}>{() => <SessionList />}</SignedIn>;
 }
 
+/** Puts a live session into the list (newest first); while searching, only sessions already shown. */
+function upsert(list: SessionSummary[], summary: SessionSummary, searching: boolean): SessionSummary[] {
+  const known = list.some((s) => s.id === summary.id);
+  if (!known && searching) return list;
+  const rest = list.filter((s) => s.id !== summary.id);
+  return [summary, ...rest].sort((a, b) => b.startTime - a.startTime);
+}
+
 function SessionList() {
   const [sessions, setSessions] = useState<SessionSummary[] | null | "failed">(null);
   const [query, setQuery] = useState("");
+  // Bumped when the socket is (re)connected: events sent while it was down are not replayed.
+  const [epoch, setEpoch] = useState(0);
+  // Live sessions that arrive while the list is still loading; that list may predate them.
+  const early = useRef<SessionSummary[]>([]);
   // The search runs on the server (server name, people, tracks), a moment after typing stops.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `epoch` only asks for a fresh read
   useEffect(() => {
     const timer = setTimeout(
       () => {
-        void listSessions(query).then((list) => setSessions(list ?? "failed"));
+        void listSessions(query).then((list) => {
+          if (!list) return setSessions("failed");
+          const waiting = early.current.splice(0);
+          setSessions(waiting.reduce((all, s) => upsert(all, s, Boolean(query.trim())), list));
+        });
       },
       query ? 250 : 0,
     );
     return () => clearTimeout(timer);
-  }, [query]);
+  }, [query, epoch]);
+  useEffect(() => onSocketEvents({ [SocketEvents.sessionReady]: () => setEpoch((n) => n + 1) }), []);
   useSessionEvents(
     useCallback(
       (event: SessionEvent) => {
         const summary = summaryOf(event);
         setSessions((list) => {
-          if (!Array.isArray(list)) return list;
-          const known = list.some((s) => s.id === summary.id);
-          // While searching, sessions on screen stay live; a new one waits for the next search.
-          if (!known && query.trim()) return list;
-          const rest = list.filter((s) => s.id !== summary.id);
-          return [summary, ...rest].sort((a, b) => b.startTime - a.startTime);
+          if (Array.isArray(list)) return upsert(list, summary, Boolean(query.trim()));
+          early.current.push(summary);
+          return list;
         });
       },
       [query],

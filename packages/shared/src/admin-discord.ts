@@ -133,6 +133,11 @@ export const AdminQueryResultSchema = z.union([
 ]);
 export type AdminQueryResult = z.infer<typeof AdminQueryResultSchema>;
 
+/** POST /api/admin/bot/:action — the body must name the action again (#111 AC3). */
+export const BotPowerActionSchema = z.enum(["restart", "shutdown"]);
+export type BotPowerAction = z.infer<typeof BotPowerActionSchema>;
+export const BotPowerRequestSchema = z.object({ confirm: BotPowerActionSchema });
+
 /** The Bot exits with these after answering; a process manager restarts it only on RESTART_EXIT_CODE. */
 export const SHUTDOWN_EXIT_CODE = 0;
 export const RESTART_EXIT_CODE = 75;

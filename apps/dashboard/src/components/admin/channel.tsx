@@ -96,9 +96,10 @@ function Message({ message: m, threadHref }: { message: DiscordMessage; threadHr
         ))}
         {m.reactions.length ? (
           <ul className={styles.reactions} aria-label="รีแอคชัน">
-            {m.reactions.map((r) => (
-              <li key={r.emoji} className={styles.reaction} data-testid="reaction">
-                <span>{/^\d+$/.test(r.emoji) ? "😶" : r.emoji.length > 2 ? `:${r.emoji}:` : r.emoji}</span>
+            {m.reactions.map((r, i) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: two custom emoji may share a name
+              <li key={`${r.emoji}-${i}`} className={styles.reaction} data-testid="reaction">
+                <span>{/^\w+$/.test(r.emoji) ? `:${r.emoji}:` : r.emoji}</span>
                 <span className="num">{r.count}</span>
               </li>
             ))}
@@ -132,7 +133,7 @@ function AttachmentView({ attachment: a, onOpen }: { attachment: Attachment; onO
     return (
       <button type="button" className={styles.imageButton} onClick={onOpen} aria-label={`ดูรูป ${a.name}`}>
         {/* biome-ignore lint/performance/noImgElement: Discord CDN attachments, sizes unknown to Next */}
-        <img src={a.url} alt={a.name} className={styles.image} loading="lazy" />
+        <img src={a.url} alt={a.name} className={styles.image} loading="lazy" referrerPolicy="no-referrer" />
       </button>
     );
   }
@@ -168,7 +169,15 @@ function EmbedView({ embed: e, message }: { embed: Embed; message: DiscordMessag
   }
   if (e.type === "image" && (e.image ?? e.thumbnail)) {
     // biome-ignore lint/performance/noImgElement: embed pictures from Discord's proxy
-    return <img src={e.image ?? e.thumbnail ?? ""} alt="" className={styles.image} loading="lazy" />;
+    return (
+      <img
+        src={e.image ?? e.thumbnail ?? ""}
+        alt=""
+        className={styles.image}
+        loading="lazy"
+        referrerPolicy="no-referrer"
+      />
+    );
   }
   const frame = e.type === "video" ? framable(e.video) : null;
   return (
@@ -202,10 +211,10 @@ function EmbedView({ embed: e, message }: { embed: Embed; message: DiscordMessag
         />
       ) : e.image ? (
         // biome-ignore lint/performance/noImgElement: embed pictures from Discord's proxy
-        <img src={e.image} alt="" className={styles.image} loading="lazy" />
+        <img src={e.image} alt="" className={styles.image} loading="lazy" referrerPolicy="no-referrer" />
       ) : e.thumbnail ? (
         // biome-ignore lint/performance/noImgElement: embed thumbnails from Discord's proxy
-        <img src={e.thumbnail} alt="" className={styles.thumb} loading="lazy" />
+        <img src={e.thumbnail} alt="" className={styles.thumb} loading="lazy" referrerPolicy="no-referrer" />
       ) : null}
     </article>
   );
@@ -234,7 +243,7 @@ function Lightbox({ attachment: a, onClose }: { attachment: Attachment; onClose:
         <a href={a.url} target="_blank" rel="noopener noreferrer" className={styles.ghost}>
           เปิดในแท็บใหม่
         </a>
-        <a href={a.url} download="" className={styles.ghost}>
+        <a href={a.url} download="" target="_blank" rel="noopener noreferrer" className={styles.ghost}>
           ดาวน์โหลด
         </a>
         <button type="button" className={styles.ghost} onClick={() => dialog.current?.close()}>

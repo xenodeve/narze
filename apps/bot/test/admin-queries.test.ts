@@ -99,6 +99,17 @@ describe("Discord messages for the channel viewer (#111, spec #111)", () => {
     expect(out[0]?.embeds.map((e) => e.type)).toEqual(["rich", "video", "gifv", "image"]);
     expect(out[0]?.embeds[1]?.video).toBe("https://www.youtube.com/embed/abc");
     expect(out[0]?.embeds[0]?.author).toEqual({ name: "Narze", iconUrl: "https://example.com/i.png" });
+    // A link preview's picture comes through Discord's proxy, not the poster's host.
+    const proxied = toMessages([
+      message("13", 3_000, {
+        embeds: [
+          embed("article", {
+            thumbnail: { url: "https://evil.example/pixel.png", proxyURL: "https://images-ext-1.discordapp.net/x.png" },
+          }),
+        ],
+      }),
+    ]);
+    expect(proxied[0]?.embeds[0]?.thumbnail).toBe("https://images-ext-1.discordapp.net/x.png");
   });
 
   test("mentions, role colours, reactions, a reply within the page, and a thread preview", () => {
@@ -161,5 +172,60 @@ describe("restart and shutdown (#111)", () => {
     ]);
     await Bun.sleep(10);
     expect(exits).toEqual([RESTART_EXIT_CODE, SHUTDOWN_EXIT_CODE]);
+  });
+});
+
+describe("the admin query bus over Redis (#111, scrutinize M2)", () => {
+  test("answers on bot:admin-results in the shared shapes; a Bot still logging in says not-ready", async () => {
+    const { AdminGuildSchema, AdminQueryResultSchema, Channels, DEFAULT_REDIS_URL } = await import("@narze/shared");
+    const { default: Redis } = await import("ioredis");
+    const { startAdminQueries } = await import("../src/admin/queries");
+    const url = process.env.REDIS_URL ?? DEFAULT_REDIS_URL;
+    const [redis, subscriber, asker, listener] = [new Redis(url), new Redis(url), new Redis(url), new Redis(url)];
+    let ready = false;
+    const guild = {
+      id: "600000000000000001",
+      name: "Bus Club",
+      iconURL: () => null,
+      memberCount: 9,
+      joinedTimestamp: 1_700_000_000_000,
+      ownerId: "600000000000000002",
+      channels: { cache: new Map(), fetch: async () => null },
+    };
+    const client = { isReady: () => ready, guilds: { cache: new Map([[guild.id, guild]]) } } as never;
+    await startAdminQueries({ subscriber, redis, client, exit: () => {} });
+    await listener.subscribe(Channels.botAdminResults);
+    const ask = (id: string) =>
+      new Promise<unknown>((resolve) => {
+        listener.on("message", (_c, raw) => {
+          const result = AdminQueryResultSchema.parse(JSON.parse(raw));
+          if (result.id === id) resolve(result);
+        });
+        void asker.publish(Channels.botAdminQueries, JSON.stringify({ id, kind: "guilds" }));
+      });
+    expect(await ask("bus-1")).toEqual({ id: "bus-1", ok: false, error: "not-ready" });
+    ready = true;
+    const answered = (await ask("bus-2")) as { ok: true; data: unknown };
+    expect(AdminGuildSchema.array().parse(answered.data)).toEqual([
+      {
+        id: guild.id,
+        name: "Bus Club",
+        iconUrl: null,
+        memberCount: 9,
+        joinedAt: 1_700_000_000_000,
+        ownerId: guild.ownerId,
+      },
+    ]);
+    for (const c of [redis, subscriber, asker, listener]) await c.quit();
+  });
+});
+
+describe("the supervisor (#111, scrutinize M1)", () => {
+  test("starts the Bot again only after a Dashboard restart; any other exit stays down", async () => {
+    const { afterExit } = await import("../src/supervise");
+    expect(afterExit(RESTART_EXIT_CODE)).toBe("restart");
+    expect(afterExit(SHUTDOWN_EXIT_CODE)).toBe("stop");
+    expect(afterExit(1)).toBe("stop");
+    expect(afterExit(null)).toBe("stop");
   });
 });

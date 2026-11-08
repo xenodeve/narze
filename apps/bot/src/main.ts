@@ -230,6 +230,12 @@ if (redis && settings) {
   });
   await listener.subscribe(Channels.guildEvents).catch(logFailure("settings updates"));
 }
+/**
+ * The one way out: SIGINT/SIGTERM exit 0; a Dashboard restart exits RESTART_EXIT_CODE (#111).
+ * Until everything below is running there is nothing to save, so an early restart just exits; the
+ * full shutdown replaces this once it can run (scrutinize m1: no ReferenceError during login).
+ */
+let shutdown = async (code = 0): Promise<void> => process.exit(code);
 if (redis) {
   await startCommandBus({ subscriber: redis.duplicate(), redis, music, textChannelFor }).catch((error: Error) =>
     console.warn(`[bot] command bus: ${error.message}`),
@@ -324,10 +330,11 @@ if (env.DISCORD_TOKEN) await client.login(env.DISCORD_TOKEN);
 else console.warn("[bot] DISCORD_TOKEN not set — running without Discord (heartbeat only)");
 
 let stopping = false;
-/** The one way out: SIGINT/SIGTERM exit 0; a Dashboard restart exits RESTART_EXIT_CODE (#111). */
-const shutdown = async (code = 0) => {
+shutdown = async (code = 0) => {
   if (stopping) return;
   stopping = true;
+  // A step that hangs must not keep the Bot alive forever (scrutinize m2).
+  setTimeout(() => process.exit(code), 10_000).unref();
   stopHeartbeat();
   clearInterval(snapshotTimer);
   if (statsTimer) clearInterval(statsTimer);
