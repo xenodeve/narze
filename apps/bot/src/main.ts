@@ -259,6 +259,7 @@ const registry = redis ? createGuildRegistry(redis) : null;
 const voiceSnapshotOf = (guild: Guild): GuildVoiceSnapshot => ({
   id: guild.id,
   memberCount: guild.memberCount,
+  ownerId: guild.ownerId,
   voice: guild.voiceStates.cache
     .filter((v) => v.channelId)
     .map((v) => [v.id, v.channelId as string] as [string, string]),
@@ -294,6 +295,14 @@ client.on("guildCreate", (guild) => {
   void recordJoin(guild).catch(logFailure("guild settings"));
   // Spec #22: a Thai welcome in the system channel; errors swallowed (v5).
   void guild.systemChannel?.send(WELCOME).catch(() => {});
+});
+// #141: ownership follows a change of hands at once, not at the owner's next sign-in.
+client.on("guildUpdate", (before, after) => {
+  if (before.ownerId !== after.ownerId) void registry?.owner(after.id, after.ownerId).catch(logFailure("guild owner"));
+});
+// A guild back after an outage comes as guildAvailable, not guildUpdate: re-record it (owner included).
+client.on("guildAvailable", (guild) => {
+  void registry?.add(voiceSnapshotOf(guild)).catch(logFailure("guild registry"));
 });
 client.on("channelCreate", (channel) => {
   if ("guild" in channel) publishTextChannels(channel.guild);

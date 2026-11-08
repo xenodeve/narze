@@ -28,7 +28,7 @@ In v5 the caller's identity was self-asserted: the Bot's HTTP API read `req.body
 
 - `bun run verify` and `bun run e2e` need Supabase local running (`bun run infra:up`), as they already needed Redis. The T4 gate fails closed without it.
 - Each authenticated request costs one round trip to Supabase Auth. A short-lived verification cache is the lever if this shows up in #114's measurements; it would trade revocation latency for it.
-- The Discord token is used once at sign-in and not stored; the guild snapshot refreshes only at the next sign-in. Guild changes in between appear in the Bot-side set (Redis) but not in the user's own list.
+- The Discord token is used once at sign-in and not stored; the guild snapshot refreshes only at the next sign-in. Guild changes in between appear in the Bot-side set (Redis) but not in the user's own list. **Server Owner is the exception (#141):** the Bot publishes each guild's owner (`bot:guild-owners`, written on ready, join, leave and `guildUpdate`), and the Backend takes it over the snapshot's `is_owner` in `GuildDirectory.mutual()` and on every `permission()`, so a change of hands applies at once, also on an open socket. A guild the Bot has published no owner for still uses the snapshot. A member removed from a guild keeps reading it until the next sign-in: seeing removals would need the privileged GuildMembers intent.
 - Bot Owner (guild settings, #106) is not yet part of the badge; the ladder (`packages/shared/src/guilds.ts:52`) treats it as false until then.
 - **Presence assumes one Backend process:** the Backend clears the tab counts on start and orders writes per user in memory. A second instance needs a per-instance count first.
 - Only the first page of guilds (Discord's maximum, 200) is fetched.
@@ -59,7 +59,7 @@ In v5 the caller's identity was self-asserted: the Bot's HTTP API read `req.body
 
 - `bun run verify` และ `bun run e2e` ต้องมี Supabase local รันอยู่ (`bun run infra:up`) เหมือนที่ต้องมี Redis อยู่แล้ว ถ้าไม่มี gate ของ T4 จะไม่ยอม merge
 - ทุกคำขอที่ต้องยืนยันตัวตนเสียหนึ่ง round trip ไปที่ Supabase Auth ถ้าการวัดใน #114 เห็นว่าเป็นปัญหา ทางแก้คือ cache ผลการยืนยันสั้น ๆ แลกกับการถอน token ที่ช้าลง
-- Discord token ใช้ครั้งเดียวตอน login และไม่เก็บไว้ snapshot ของ guild จึงอัปเดตตอน login ครั้งถัดไปเท่านั้น guild ที่เปลี่ยนระหว่างนั้นจะเห็นในชุดฝั่ง Bot (Redis) แต่ไม่เห็นในรายการของผู้ใช้เอง
+- Discord token ใช้ครั้งเดียวตอน login และไม่เก็บไว้ snapshot ของ guild จึงอัปเดตตอน login ครั้งถัดไปเท่านั้น guild ที่เปลี่ยนระหว่างนั้นจะเห็นในชุดฝั่ง Bot (Redis) แต่ไม่เห็นในรายการของผู้ใช้เอง **ยกเว้น Server Owner (#141):** Bot publish เจ้าของของแต่ละ guild (`bot:guild-owners` เขียนตอน ready, ตอนเข้า, ตอนออก และตอน `guildUpdate`) แล้ว Backend ใช้ค่านี้แทน `is_owner` จาก snapshot ใน `GuildDirectory.mutual()` และทุกครั้งที่เรียก `permission()` การโอนเจ้าของจึงมีผลทันที แม้ socket จะเปิดค้างอยู่ guild ที่ Bot ยังไม่เคย publish เจ้าของมาให้จะยังใช้ snapshot ส่วนสมาชิกที่ถูกนำออกจาก guild ยังอ่านข้อมูลได้จนกว่าจะ login ครั้งถัดไป เพราะการรู้ว่ามีคนถูกนำออกต้องใช้ GuildMembers intent ซึ่งเป็น intent พิเศษ
 - Bot Owner (ตั้งค่า guild ใน #106) ยังไม่ได้อยู่ในป้ายสิทธิ์ ลำดับการตรวจ (`packages/shared/src/guilds.ts:52`) ถือว่าเป็น false ไปก่อน
 - **Presence ถือว่ามี Backend อยู่ process เดียว** Backend ล้างตัวนับแท็บตอนเริ่ม และเรียงลำดับการเขียนต่อผู้ใช้ไว้ในหน่วยความจำ ถ้าจะมีหลาย instance ต้องนับแยกต่อ instance ก่อน
 - ดึงรายชื่อ guild แค่หน้าแรก (สูงสุดที่ Discord ให้คือ 200)

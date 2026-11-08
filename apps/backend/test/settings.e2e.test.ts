@@ -87,6 +87,28 @@ describe("Guild Settings over HTTP (#106, spec #92, #121)", () => {
     expect(permissions.find((p) => p.guildId === G_MEM)?.reason).toBe("bot-owner");
   });
 
+  test("the Server Owner is who the Bot says now, not the sign-in snapshot (#141)", async () => {
+    // Ivy owned Own Club when she signed in; then she handed it over. The Bot saw the change.
+    try {
+      await redis.hset(RedisKeys.botGuildOwners, G_OWN, "340000000000000999");
+      const read = (await (await call("GET", `/api/guilds/${G_OWN}/settings`)).json()) as { canEdit: boolean };
+      expect(read.canEdit).toBe(false);
+      expect((await call("PUT", `/api/guilds/${G_OWN}/settings`, { avatar: { hat: "crown" } })).status).toBe(403);
+      const before = (await (await call("GET", "/api/me/play-permissions")).json()) as Array<{
+        guildId: string;
+        reason: string;
+      }>;
+      const own = before.find((p) => p.guildId === G_OWN);
+      expect(own).toBeDefined();
+      expect(own?.reason).not.toBe("server-owner");
+      // And back: the Bot says she owns it again.
+      await redis.hset(RedisKeys.botGuildOwners, G_OWN, ivy.id);
+      expect((await call("PUT", `/api/guilds/${G_OWN}/settings`, { avatar: { hat: "crown" } })).status).toBe(200);
+    } finally {
+      await redis.hdel(RedisKeys.botGuildOwners, G_OWN);
+    }
+  });
+
   test("a Music Channel must be one of the Guild's text channels; null clears it", async () => {
     expect((await call("PUT", `/api/guilds/${G_OWN}/settings`, { musicChannelId: "777" })).status).toBe(400);
     expect((await call("PUT", `/api/guilds/${G_OWN}/settings`, { musicChannelId: "501" })).status).toBe(200);

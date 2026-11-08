@@ -43,7 +43,7 @@ export class PlayerController {
   /** View Permission: the caller must be in this Mutual Guild. */
   private async member(authorization: string | undefined, guildId: string) {
     const { discordId } = await this.auth.require(authorization);
-    const mutual = await this.directory.mutual(await this.store.guildsOf(discordId));
+    const mutual = await this.directory.mutual(await this.store.guildsOf(discordId), discordId);
     const guild = mutual.find((g) => g.id === guildId);
     if (!guild) throw new ForbiddenException("not a member of this server");
     return { discordId, guild };

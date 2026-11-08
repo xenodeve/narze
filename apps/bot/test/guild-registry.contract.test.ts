@@ -16,20 +16,32 @@ const G1 = "910000000000000001";
 const G2 = "910000000000000002";
 
 beforeEach(async () => {
-  await redis.del(RedisKeys.botGuilds, RedisKeys.botMemberCounts, RedisKeys.voiceStates(G1), RedisKeys.voiceStates(G2));
+  await redis.del(
+    RedisKeys.botGuilds,
+    RedisKeys.botMemberCounts,
+    RedisKeys.botGuildOwners,
+    RedisKeys.voiceStates(G1),
+    RedisKeys.voiceStates(G2),
+  );
 });
 afterAll(async () => {
-  await redis.del(RedisKeys.botGuilds, RedisKeys.botMemberCounts, RedisKeys.voiceStates(G1), RedisKeys.voiceStates(G2));
+  await redis.del(
+    RedisKeys.botGuilds,
+    RedisKeys.botMemberCounts,
+    RedisKeys.botGuildOwners,
+    RedisKeys.voiceStates(G1),
+    RedisKeys.voiceStates(G2),
+  );
   await redis.quit();
 });
 
 describe("the Bot's guild set and voice states on Redis (Bot→Backend contract)", () => {
   test("ready replaces the whole set and drops voice states of guilds the Bot left while away", async () => {
     await registry.replace([
-      { id: G1, memberCount: 5, voice: [["1", "50"]] },
-      { id: G2, memberCount: 3, voice: [] },
+      { id: G1, memberCount: 5, voice: [["1", "50"]], ownerId: "100" },
+      { id: G2, memberCount: 3, voice: [], ownerId: "200" },
     ]);
-    await registry.replace([{ id: G2, memberCount: 4, voice: [["2", "60"]] }]);
+    await registry.replace([{ id: G2, memberCount: 4, voice: [["2", "60"]], ownerId: "200" }]);
     expect(await redis.smembers(RedisKeys.botGuilds)).toEqual([G2]);
     expect(await redis.hgetall(RedisKeys.voiceStates(G1))).toEqual({});
     expect(await redis.hgetall(RedisKeys.voiceStates(G2))).toEqual({ "2": "60" });
@@ -37,12 +49,37 @@ describe("the Bot's guild set and voice states on Redis (Bot→Backend contract)
   });
 
   test("joining and leaving a guild updates the set", async () => {
-    await registry.add({ id: G1, memberCount: 5, voice: [["1", "50"]] });
+    await registry.add({ id: G1, memberCount: 5, voice: [["1", "50"]], ownerId: "100" });
     expect(await redis.sismember(RedisKeys.botGuilds, G1)).toBe(1);
     await registry.remove(G1);
     expect(await redis.sismember(RedisKeys.botGuilds, G1)).toBe(0);
     expect(await redis.exists(RedisKeys.voiceStates(G1))).toBe(0);
     expect(await redis.hexists(RedisKeys.botMemberCounts, G1)).toBe(0);
+  });
+
+  test("each guild's owner is published, follows a change of hands, and goes with the guild (#141)", async () => {
+    await registry.replace([
+      { id: G1, memberCount: 5, voice: [], ownerId: "100" },
+      { id: G2, memberCount: 3, voice: [], ownerId: "200" },
+    ]);
+    expect(await redis.hgetall(RedisKeys.botGuildOwners)).toEqual({ [G1]: "100", [G2]: "200" });
+    const listener = new Redis(process.env.REDIS_URL ?? DEFAULT_REDIS_URL);
+    await listener.subscribe(Channels.guildEvents);
+    const heard = new Promise<string>((resolve) =>
+      listener.on("message", (_c, raw) => {
+        const event = GuildEventSchema.parse(JSON.parse(raw));
+        if (event.type === GuildEventTypes.ownerUpdate && event.guildId === G1) resolve(event.type);
+      }),
+    );
+    await registry.owner(G1, "101");
+    expect(await redis.hget(RedisKeys.botGuildOwners, G1)).toBe("101");
+    // Key first, then the event the Backend answers with a permission push.
+    expect(await heard).toBe(GuildEventTypes.ownerUpdate);
+    await listener.quit();
+    await registry.remove(G1);
+    expect(await redis.hexists(RedisKeys.botGuildOwners, G1)).toBe(0);
+    await registry.replace([{ id: G2, memberCount: 3, voice: [], ownerId: "200" }]);
+    expect(await redis.hgetall(RedisKeys.botGuildOwners)).toEqual({ [G2]: "200" });
   });
 
   test("a member moving channel or leaving voice is reflected", async () => {

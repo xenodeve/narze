@@ -149,6 +149,26 @@ describe("Control Permission on the server (#101)", () => {
     socket.close();
   });
 
+  test("an owner who handed the guild over loses owner rights on an open socket at once (#141)", async () => {
+    // Signed in (and connected) as the owner; then the Bot sees the guild change hands.
+    const socket = await signedIn(ownerSession);
+    await redis.hdel(RedisKeys.voiceStates(GUILD), owner.id);
+    try {
+      await redis.hset(RedisKeys.botGuildOwners, GUILD, "300000000000000999");
+      const before = relayed.length;
+      // Out of voice and no longer the owner: refused like any member, nothing reaches the Bot.
+      expect(await command(socket, { action: "volume", volume: 41 })).toMatchObject({ ok: false });
+      expect(relayed.length).toBe(before);
+      // The Bot says they own it again: the same socket controls again.
+      await redis.hset(RedisKeys.botGuildOwners, GUILD, owner.id);
+      answer = { ok: true };
+      expect(await command(socket, { action: "volume", volume: 42 })).toEqual({ ok: true });
+    } finally {
+      await redis.hdel(RedisKeys.botGuildOwners, GUILD);
+      socket.close();
+    }
+  });
+
   test("a malformed command or a guild outside the user's Mutual Guilds is refused", async () => {
     const socket = await signedIn(ownerSession);
     expect(await command(socket, { action: "volume", volume: 5000 })).toMatchObject({ ok: false, error: "invalid" });
@@ -210,6 +230,39 @@ describe("Control Permission on the server (#101)", () => {
       reason: "in-bot-voice",
     });
     socket.close();
+  });
+
+  test("a change of hands reaches an open tab within 2 s (permission:update with the Bot's owner, #141)", async () => {
+    await summary({ playing: true, queueLength: 0, voiceChannelId: "80" });
+    await redis.hdel(RedisKeys.voiceStates(GUILD), owner.id);
+    const socket = await signedIn(ownerSession);
+    try {
+      const demoted = new Promise<{ canControl: boolean; reason: string }>((resolve) =>
+        socket.on(SocketEvents.permissionUpdate, (p: { guildId: string; canControl: boolean; reason: string }) => {
+          if (p.guildId === GUILD && p.reason !== "server-owner") resolve(p);
+        }),
+      );
+      // What the Bot does on guildUpdate: the hash, then the event.
+      await redis.hset(RedisKeys.botGuildOwners, GUILD, "300000000000000999");
+      await redis.publish(
+        Channels.guildEvents,
+        JSON.stringify({
+          type: GuildEventTypes.ownerUpdate,
+          guildId: GUILD,
+          revision: 0,
+          sequence: 0,
+          ts: Date.now(),
+          data: null,
+        }),
+      );
+      expect(await Promise.race([demoted, Bun.sleep(2000).then(() => null)])).toMatchObject({
+        canControl: false,
+        reason: "not-in-voice",
+      });
+    } finally {
+      await redis.hdel(RedisKeys.botGuildOwners, GUILD);
+      socket.close();
+    }
   });
 
   test("the Player read carries the caller's permission, and members read the voice channels", async () => {

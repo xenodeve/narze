@@ -119,7 +119,7 @@ export class UserGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
 
   private async signIn(client: Socket, identity: Identity): Promise<void> {
     const data = client.data as SessionData;
-    const guilds = await this.directory.mutual(await this.store.guildsOf(identity.discordId));
+    const guilds = await this.directory.mutual(await this.store.guildsOf(identity.discordId), identity.discordId);
     // The tab may have closed while we were verifying; counting it now would leak a Presence tab.
     if (client.disconnected) return;
     data.guilds = new Map(guilds.map((g) => [g.id, g]));
@@ -167,6 +167,11 @@ export class UserGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
       this.server.to(session.data.participants.map((p) => userRoom(p.id))).emit(name, session.data);
       return;
     }
+    // #141: the guild changed hands; every open tab gets its permission again.
+    if (event.type === GuildEventTypes.ownerUpdate) {
+      await this.pushPermissions(event.guildId);
+      return;
+    }
     if (event.type === GuildEventTypes.voiceUpdate) {
       const list = VoiceChannelListSchema.safeParse(event.data);
       if (list.success)
@@ -199,12 +204,21 @@ export class UserGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     }
   }
 
-  /** The signed-in tabs in a Guild's room, with who they are and their stored guild. */
+  /**
+   * The signed-in tabs in a Guild's room, with who they are and their stored guild — its Server
+   * Owner as the Bot sees it now (#141), not as it was when the tab connected.
+   */
   private async listeners(guildId: string) {
-    return (await this.server.in(guildRoom(guildId)).fetchSockets()).flatMap((socket) => {
+    const [sockets, owner] = await Promise.all([
+      this.server.in(guildRoom(guildId)).fetchSockets(),
+      this.directory.owner(guildId),
+    ]);
+    return sockets.flatMap((socket) => {
       const { identity, guilds } = socket.data as SessionData;
-      const guild = guilds?.get(guildId);
-      return identity && guild ? [{ socket, discordId: identity.discordId, guild }] : [];
+      const stored = guilds?.get(guildId);
+      if (!identity || !stored) return [];
+      const guild = owner ? { ...stored, isOwner: owner === identity.discordId } : stored;
+      return [{ socket, discordId: identity.discordId, guild }];
     });
   }
 
