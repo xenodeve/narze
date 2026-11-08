@@ -1,4 +1,5 @@
 export * from "./channels";
+export * from "./commands";
 export * from "./guilds";
 export * from "./json";
 export * from "./player";

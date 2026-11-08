@@ -15,6 +15,7 @@
 .stage {
   position: relative;
   isolation: isolate;
+  container-type: inline-size;
   overflow: hidden;
   min-height: 360px;
   border: 1px solid var(--line);
@@ -44,9 +45,11 @@
   padding: clamp(20px, 3.5vw, 40px);
 }
 
-@media (max-width: 640px) {
+/* The stage, not the viewport, decides: beside a sidebar it can be narrow on a wide screen. */
+@container (max-width: 680px) {
   .content {
     grid-template-columns: minmax(0, 1fr);
+    align-items: start;
   }
 }
 
@@ -139,15 +142,32 @@
 }
 
 .track {
+  position: relative;
   height: 4px;
   border-radius: var(--r-pill);
   background: var(--line);
-  overflow: hidden;
+}
+
+/* An invisible range over the bar: drag, click and arrow keys seek; the 24px box is the hit area. */
+.seek {
+  position: absolute;
+  inset: -10px 0;
+  width: 100%;
+  height: 24px;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.track:has(.seek:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 6px;
 }
 
 /* Progress fill is one of the few places accent appears (DESIGN.md §2 rule 2); scaled, never re-laid out. */
 .fill {
   height: 100%;
+  border-radius: inherit;
   background: var(--accent);
   transform: scaleX(0);
   transform-origin: left;
@@ -158,6 +178,12 @@
   display: flex;
   justify-content: space-between;
   color: var(--ink-2);
+  font-size: 0.8125rem;
+}
+
+.seekError {
+  margin: 4px 0 0;
+  color: var(--danger);
   font-size: 0.8125rem;
 }
 

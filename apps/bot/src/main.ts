@@ -1,5 +1,6 @@
 import { DEFAULT_REDIS_URL } from "@narze/shared";
 import { Client, GatewayIntentBits, type Guild } from "discord.js";
+import { startCommandBus } from "./command-bus";
 import { announcer, handleInteractions } from "./discord/interactions";
 import { createGuildRegistry, type GuildVoiceSnapshot } from "./guild-registry";
 import { startHeartbeat } from "./heartbeat";
@@ -7,6 +8,7 @@ import { createLavalink } from "./lavalink";
 import { createMusic } from "./music/music";
 import { createPlayerPublisher, type PlayerPublisher } from "./music/player-state";
 import { detectRuntimeMode } from "./runtime-mode";
+import { firstSendableTextChannel, perGuildDebounce, publicVoiceChannels } from "./voice-channels";
 
 const env = process.env;
 const VERSION = env.BOT_VERSION ?? "7.0.0-dev";
@@ -37,6 +39,22 @@ const music = createMusic({
 });
 handleInteractions(client, music, () => lavalink.nodeManager.leastUsedNodes().length > 0);
 
+const textChannelFor = (guildId: string): string | null => {
+  const guild = client.guilds.cache.get(guildId);
+  return guild ? firstSendableTextChannel(guild) : null;
+};
+if (redis) {
+  await startCommandBus({ subscriber: redis.duplicate(), redis, music, textChannelFor }).catch((error: Error) =>
+    console.warn(`[bot] command bus: ${error.message}`),
+  );
+}
+
+const voiceLists = perGuildDebounce(async (guildId) => {
+  const guild = client.guilds.cache.get(guildId);
+  if (guild && registry) await registry.voiceChannels(guildId, publicVoiceChannels(guild));
+});
+const publishVoiceChannels = (guild: Guild) => voiceLists.schedule(guild.id);
+
 const registry = redis ? createGuildRegistry(redis) : null;
 const voiceSnapshotOf = (guild: Guild): GuildVoiceSnapshot => ({
   id: guild.id,
@@ -52,12 +70,17 @@ client.once("clientReady", async (ready) => {
   await lavalink.init({ id: ready.user.id, username: ready.user.username });
   await registry?.replace(ready.guilds.cache.map(voiceSnapshotOf)).catch(logFailure("guild registry"));
   if (redis) await createPlayerPublisher(redis).sweep().catch(logFailure("sweep stale Player States"));
+  for (const guild of ready.guilds.cache.values()) publishVoiceChannels(guild);
 });
 client.on("guildCreate", (guild) => void registry?.add(voiceSnapshotOf(guild)).catch(logFailure("guild registry")));
-client.on("guildDelete", (guild) => void registry?.remove(guild.id).catch(logFailure("guild registry")));
+client.on("guildDelete", (guild) => {
+  voiceLists.cancel(guild.id);
+  void registry?.remove(guild.id).catch(logFailure("guild registry"));
+});
 client.on("voiceStateUpdate", (old, state) => {
   // Mute, deafen and stream toggles fire this too; only a channel change matters here.
   if (old.channelId === state.channelId) return;
+  publishVoiceChannels(state.guild);
   void registry?.voice(state.guild.id, state.id, state.channelId).catch(logFailure("voice registry"));
 });
 

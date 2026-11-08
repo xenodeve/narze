@@ -3,9 +3,11 @@
 import type { PlayerState, Track } from "@narze/shared";
 import dynamic from "next/dynamic";
 import { type CSSProperties, useEffect, useState } from "react";
+import { Controls } from "@/components/controls";
 import { MoodAurora } from "@/components/mood-aurora";
+import { explain, sendCommand } from "@/lib/control";
 import { moodFromArtwork, moodFromText } from "@/lib/mood";
-import { usePlayer } from "@/lib/use-player";
+import { type Permission, usePlayer } from "@/lib/use-player";
 import styles from "./now-playing.module.css";
 import { formatTime, Progress } from "./progress";
 
@@ -59,7 +61,13 @@ function Artwork({ track }: { track: Track }) {
   );
 }
 
-function Stage({ state }: { state: PlayerState }) {
+function Stage({ guildId, state, permission }: { guildId: string; state: PlayerState; permission: Permission }) {
+  const [seekError, setSeekError] = useState<string | null>(null);
+  /** A refused seek says why; the bar itself never moved, since it follows the server's state. */
+  const seek = async (positionMs: number) => {
+    setSeekError(null);
+    setSeekError(explain(await sendCommand(guildId, { action: "seek", positionMs })));
+  };
   const track = state.current;
   const mood = useMood(track);
   const avatarState = !track ? "default" : state.paused ? "default" : "working";
@@ -84,7 +92,17 @@ function Stage({ state }: { state: PlayerState }) {
                 ) : null}
                 <span>ขอโดย {track.requester.name}</span>
               </p>
-              <Progress key={track.uri} state={state} />
+              <Progress
+                key={track.uri}
+                state={state}
+                onSeek={permission.canControl ? (ms) => void seek(ms) : undefined}
+              />
+              {seekError ? (
+                <p role="alert" className={styles.seekError}>
+                  {seekError}
+                </p>
+              ) : null}
+              <Controls guildId={guildId} state={state} permission={permission} />
             </div>
           </>
         ) : (
@@ -92,7 +110,8 @@ function Stage({ state }: { state: PlayerState }) {
             <h1 id="now-title" className={styles.title}>
               ยังไม่มีเพลงเล่นอยู่
             </h1>
-            <p className={styles.author}>ใช้ /play ใน Discord แล้วเพลงจะขึ้นที่นี่ทันที</p>
+            <p className={styles.author}>ใช้ /play ใน Discord หรือเพิ่มเพลงจากตรงนี้ แล้วเพลงจะขึ้นทันที</p>
+            <Controls guildId={guildId} state={null} permission={permission} />
           </div>
         )}
         <div className={styles.avatar} aria-hidden="true">
@@ -151,6 +170,8 @@ export function NowPlaying({ guildId, userId }: { guildId: string; userId: strin
   return (
     <div className={styles.page}>
       <Stage
+        guildId={guildId}
+        permission={view.permission}
         state={
           state ?? {
             guildId,

@@ -1,18 +1,11 @@
-import { Account } from "@/components/account";
+import { AppShell } from "@/components/app-shell";
 import { GuildView } from "@/components/guild-view";
-import styles from "../../page.module.css";
 
 export default async function GuildPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   return (
-    <main className={styles.main}>
-      <div className={styles.bar}>
-        <a className={`mono ${styles.kicker}`} href="/">
-          ← NARZE · V7
-        </a>
-        <Account />
-      </div>
+    <AppShell guildId={id}>
       <GuildView guildId={id} />
-    </main>
+    </AppShell>
   );
 }

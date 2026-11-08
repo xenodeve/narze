@@ -1,0 +1,97 @@
+.shell {
+  min-height: 100dvh;
+}
+
+/* Sticky glass top bar, 60px (DESIGN.md §5). */
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  height: var(--nav-h);
+  padding: 0 var(--gutter);
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--bg) 78%, transparent);
+  backdrop-filter: saturate(1.4) blur(14px);
+}
+
+.brand {
+  color: var(--ink-2);
+  text-decoration: none;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.body {
+  display: grid;
+  grid-template-columns: var(--side-w) minmax(0, 1fr);
+  max-width: var(--max);
+  margin-inline: auto;
+}
+
+.side {
+  position: sticky;
+  top: var(--nav-h);
+  align-self: start;
+  max-height: calc(100dvh - var(--nav-h));
+  overflow-y: auto;
+  padding: 24px 12px 24px var(--gutter);
+}
+
+/* Wide screens: the sidebar is always open; the summary is only the narrow-screen toggle. */
+.sideToggle {
+  display: none;
+}
+
+.nav {
+  font-size: 0.9375rem;
+}
+
+.monogram {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  background: var(--fill);
+  color: var(--ink-2);
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+.content {
+  min-width: 0;
+  padding: clamp(24px, 4vw, 48px) var(--gutter);
+}
+
+@media (max-width: 900px) {
+  .body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .side {
+    position: sticky;
+    top: var(--nav-h);
+    z-index: 5;
+    max-height: none;
+    padding: 0 var(--gutter);
+    border-bottom: 1px solid var(--line);
+    background: var(--bg);
+  }
+
+  .sideToggle {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+    color: var(--ink-2);
+    font-size: 0.875rem;
+    cursor: pointer;
+  }
+
+  .side[open] .nav {
+    padding-bottom: 12px;
+  }
+}

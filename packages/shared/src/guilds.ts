@@ -39,9 +39,24 @@ export type ControlReason =
   | "server-owner"
   | "bot-owner"
   | "in-voice"
-  | "in-bot-voice"
   | "join-voice"
-  | "join-bot-voice";
+  | "in-bot-voice"
+  | "not-in-voice"
+  | "other-voice"
+  /** Not part of the ladder: a non-owner picked a channel other than their own to start in (#101). */
+  | "own-voice-only";
+
+/** v5's reason strings (spec #98, C.4). "No active player - can start playback" is a UI contract: it hides the idle banner. */
+export const CONTROL_REASON_TEXT: Record<ControlReason, string> = {
+  "server-owner": "Server owner",
+  "bot-owner": "Bot owner in this guild",
+  "in-voice": "No active player - can start playback",
+  "join-voice": "Join a voice channel to start playback",
+  "in-bot-voice": "In same voice channel",
+  "not-in-voice": "You must be in a voice channel to control the bot",
+  "other-voice": "You must be in the same voice channel as the bot",
+  "own-voice-only": "You can only start playback in your own voice channel",
+};
 
 export interface ControlPermission {
   canControl: boolean;
@@ -59,7 +74,8 @@ export function controlPermission(input: ControlPermissionInput): ControlPermiss
       ? { canControl: true, reason: "in-voice", badge: "can-play" }
       : { canControl: false, reason: "join-voice", badge: "view-only" };
   }
-  return input.userVoiceChannelId !== null && input.userVoiceChannelId === input.botVoiceChannelId
+  if (input.userVoiceChannelId === null) return { canControl: false, reason: "not-in-voice", badge: "view-only" };
+  return input.userVoiceChannelId === input.botVoiceChannelId
     ? { canControl: true, reason: "in-bot-voice", badge: "in-voice" }
-    : { canControl: false, reason: "join-bot-voice", badge: "view-only" };
+    : { canControl: false, reason: "other-voice", badge: "view-only" };
 }

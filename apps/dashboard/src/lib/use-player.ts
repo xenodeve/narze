@@ -1,11 +1,10 @@
 "use client";
 
-import type { GuildEvent, PlayerState } from "@narze/shared";
+import type { ControlPermission, GuildEvent, PlayerState } from "@narze/shared";
 import { GuildEventTypes, SocketEvents } from "@narze/shared/channels";
 import { reconcile } from "@narze/shared/reconcile";
 import { useEffect, useRef, useState } from "react";
-import { BACKEND_URL } from "./config";
-import { currentAccessToken } from "./session";
+import { apiGet } from "./api";
 import { onSocketEvents } from "./socket";
 
 export type PlayerView =
@@ -13,7 +12,12 @@ export type PlayerView =
   | { status: "forbidden" }
   | { status: "failed" }
   /** `state.syncedAt` is already on this browser's clock. */
-  | { status: "ready"; state: PlayerState | null };
+  | { status: "ready"; state: PlayerState | null; permission: Permission };
+
+/** The caller's Control Permission in this Guild, kept live by `permission:update` (#101). */
+export type Permission = Pick<ControlPermission, "canControl" | "reason">;
+
+const UNKNOWN: Permission = { canControl: false, reason: "not-in-voice" };
 
 /** Moves `syncedAt` from the server's clock to ours, given one reading of both clocks. */
 const onLocalClock = (state: PlayerState, serverNow: number, localNow: number): PlayerState => {
@@ -24,6 +28,8 @@ const onLocalClock = (state: PlayerState, serverNow: number, localNow: number): 
     lastSeekAt: state.lastSeekAt === null ? null : state.lastSeekAt + shift,
   };
 };
+
+const permissionOf = (view: PlayerView): Permission => (view.status === "ready" ? view.permission : UNKNOWN);
 
 /**
  * One Guild's Player State: loaded from the Backend's Hot Cache, then kept live from the Guild
@@ -45,19 +51,21 @@ export function usePlayer(guildId: string, userId: string): PlayerView {
     const load = async () => {
       const startedAt = applied.current;
       try {
-        const res = await fetch(`${BACKEND_URL}/api/guilds/${guildId}/player`, {
-          headers: { authorization: `Bearer ${currentAccessToken() ?? ""}` },
-        });
+        const res = await apiGet(`/api/guilds/${guildId}/player`);
         if (res.status === 403) {
           if (!cancelled) setView({ status: "forbidden" });
           return;
         }
         if (!res.ok) throw new Error(String(res.status));
-        const body = (await res.json()) as { state: PlayerState | null; now: number };
+        const body = (await res.json()) as { state: PlayerState | null; now: number; permission: Permission };
         if (cancelled || applied.current !== startedAt) return;
         revision.current = body.state?.revision ?? null;
         epoch.current = body.state?.epoch ?? null;
-        setView({ status: "ready", state: body.state ? onLocalClock(body.state, body.now, Date.now()) : null });
+        setView({
+          status: "ready",
+          state: body.state ? onLocalClock(body.state, body.now, Date.now()) : null,
+          permission: body.permission ?? UNKNOWN,
+        });
       } catch {
         if (!cancelled) setView({ status: "failed" });
       }
@@ -70,7 +78,7 @@ export function usePlayer(guildId: string, userId: string): PlayerView {
         applied.current += 1;
         revision.current = null;
         epoch.current = null;
-        setView({ status: "ready", state: null });
+        setView((current) => ({ status: "ready", state: null, permission: permissionOf(current) }));
         return;
       }
       const state = event.data as PlayerState;
@@ -84,12 +92,27 @@ export function usePlayer(guildId: string, userId: string): PlayerView {
       revision.current = event.revision;
       epoch.current = state.epoch;
       // The event carries the Bot time it was sent; that is close enough to "now" on arrival.
-      setView({ status: "ready", state: onLocalClock(state, event.ts, Date.now()) });
+      setView((current) => ({
+        status: "ready",
+        state: onLocalClock(state, event.ts, Date.now()),
+        permission: permissionOf(current),
+      }));
     };
 
     void load();
+    const onPermission = (raw: unknown) => {
+      const update = raw as { guildId?: string } & Permission;
+      if (update?.guildId !== guildId) return;
+      setView((current) =>
+        current.status === "ready"
+          ? { ...current, permission: { canControl: update.canControl, reason: update.reason } }
+          : current,
+      );
+    };
+
     const off = onSocketEvents({
       [SocketEvents.playerEvent]: onEvent,
+      [SocketEvents.permissionUpdate]: onPermission,
       [SocketEvents.sessionReady]: () => void load(),
     });
     return () => {

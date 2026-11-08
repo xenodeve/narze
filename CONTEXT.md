@@ -53,6 +53,10 @@ Glossary for the whole repo (single-context). When a term appears in **bold**, u
 
 **Presence** — whether a user has at least one Dashboard tab open. Each signed-in socket counts one tab (Redis `presence:tabs`); the user turns active on the first and inactive when the last closes (`users.active`). Reset on Backend start.
 
+**Acting User** — the signed-in user a Dashboard command runs as. Taken from the verified token, never from the request; carried to the **Bot** with every command and recorded as the **Requester** of web-added tracks (ADR-0008).
+
+**Voice-Channel Picker** — the Dashboard dialog where a **Server Owner** or **Bot Owner** with no **Player** chooses the voice channel the Bot joins; lists only channels every member can see, with who is in them, live. Other members start playback in their own channel.
+
 ## History
 
 **Listening Session** — one per **Guild**, from the first track until the Bot leaves voice. Records every started track and every participant. Session events reach only participants.
@@ -134,6 +138,10 @@ Dashboard ──REST/Socket.io──▶ Backend ──Redis pub/sub──▶ Bot
 **Permission Badge** — คำเดียวที่สรุป **Control Permission** บนแถวของรายการเซิร์ฟเวอร์: `owner` · `in-voice` (อยู่ห้องเสียงเดียวกับ Bot) · `can-play` (ยังไม่มี Player และผู้ใช้อยู่ในห้องเสียง) · `view-only` คำนวณโดย `controlPermission()` ใน `packages/shared`
 
 **Presence** — ผู้ใช้เปิดแท็บ Dashboard อยู่อย่างน้อยหนึ่งแท็บหรือไม่ ทุก socket ที่ login แล้วนับเป็นหนึ่งแท็บ (Redis `presence:tabs`) ผู้ใช้เป็น active ตอนแท็บแรกเปิด และกลับเป็นไม่ active ตอนแท็บสุดท้ายปิด (`users.active`) ล้างค่าทุกครั้งที่ Backend เริ่มทำงาน
+
+**Acting User** — ผู้ใช้ที่ login อยู่ซึ่งเป็นเจ้าของคำสั่งจาก Dashboard ได้มาจาก token ที่ตรวจแล้วเท่านั้น ไม่ใช่จากคำขอ ถูกส่งไปพร้อมทุกคำสั่งถึง **Bot** และบันทึกเป็น **Requester** ของเพลงที่เพิ่มจากเว็บ (ADR-0008)
+
+**Voice-Channel Picker** — กล่องใน Dashboard ที่ **Server Owner** หรือ **Bot Owner** ใช้เลือกห้องเสียงให้บอทเข้าเมื่อยังไม่มี **Player** แสดงเฉพาะห้องที่สมาชิกทุกคนมองเห็น พร้อมรายชื่อคนในห้องแบบสด ส่วนสมาชิกคนอื่นเริ่มเล่นได้ในห้องของตัวเองเท่านั้น
 
 ## ประวัติ
 

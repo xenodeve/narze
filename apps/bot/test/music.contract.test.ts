@@ -16,6 +16,13 @@ const dee = { id: "500000000000000001", name: "Dee", avatarUrl: null };
 const CATALOG = [
   { title: "Lemon", author: "Kenshi Yonezu", uri: "https://music.youtube.com/watch?v=lemon", lengthMs: 255_000 },
   { title: "Idol", author: "YOASOBI", uri: "https://music.youtube.com/watch?v=idol", lengthMs: 213_000 },
+  { title: "Gurenge", author: "LiSA", uri: "https://music.youtube.com/watch?v=gurenge", lengthMs: 239_000 },
+  {
+    title: "Pretender",
+    author: "Official HIGE DANdism",
+    uri: "https://music.youtube.com/watch?v=pretender",
+    lengthMs: 326_000,
+  },
 ];
 
 const redis = new Redis(process.env.REDIS_URL ?? DEFAULT_REDIS_URL);
@@ -77,6 +84,7 @@ beforeEach(async () => {
     lavalink,
     publisher: createPlayerPublisher(redis),
     epoch: "test-epoch",
+    oembedTitle: async (url) => (url.includes("open.spotify.com/track/lemon") ? "Lemon - Kenshi Yonezu" : null),
     announce: async (channelId, notice) => {
       notices.push({ channelId, notice });
     },
@@ -200,5 +208,55 @@ describe("playing from Discord against Fake Lavalink (#100)", () => {
     fake.finishTrack(GUILD);
     await eventually(stored, (s) => s?.current?.title === "Idol");
     expect(fake.searches().slice(before)).toContain("https://music.youtube.com/watch?v=idol");
+  });
+});
+
+describe("web controls on the engine (#101)", () => {
+  const titles = async () => (await stored())?.queue.map((t) => t.title);
+
+  test("play-next puts the track at the head of the queue instead of the end", async () => {
+    await play("lemon");
+    await play("idol");
+    await music.play({
+      guildId: GUILD,
+      voiceChannelId: VOICE,
+      textChannelId: TEXT,
+      query: "gurenge",
+      requester: dee,
+      next: true,
+    });
+    expect(await eventually(titles, (t) => t?.length === 2)).toEqual(["Gurenge", "Idol"]);
+  });
+
+  test("previous restarts the current track (v5 has no history)", async () => {
+    await play("lemon");
+    await eventually(stored, (s) => s?.current?.title === "Lemon");
+    await music.seek(GUILD, 90_000);
+    expect(await music.previous(GUILD)).toBe(true);
+    expect(fake.player(GUILD)?.position).toBe(0);
+  });
+
+  test("loop sets a mode, and without one cycles off → track → queue → off (spec #47)", async () => {
+    await play("lemon");
+    expect(await music.setLoop(GUILD, "queue")).toBe("queue");
+    expect(await music.setLoop(GUILD, null)).toBe("off");
+    expect(await music.setLoop(GUILD, null)).toBe("track");
+    expect((await eventually(stored, (s) => s?.loop === "track"))?.loop).toBe("track");
+  });
+
+  test("shuffle keeps the same tracks in the queue and bumps the revision", async () => {
+    await play("lemon");
+    for (const q of ["idol", "gurenge", "pretender"]) await play(q);
+    const before = await eventually(stored, (s) => s?.queue.length === 3);
+    expect(await music.shuffle(GUILD)).toBe(true);
+    const after = await eventually(stored, (s) => (s?.revision ?? 0) > (before?.revision ?? 0));
+    expect(after?.queue.map((t) => t.title).sort()).toEqual(["Gurenge", "Idol", "Pretender"]);
+  });
+
+  test("a Spotify link Lavalink cannot resolve plays by its oEmbed title instead (spec #70)", async () => {
+    expect(await play("https://open.spotify.com/track/lemon")).toMatchObject({
+      kind: "started",
+      track: { title: "Lemon" },
+    });
   });
 });

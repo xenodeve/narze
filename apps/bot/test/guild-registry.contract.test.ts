@@ -1,5 +1,12 @@
 import { afterAll, beforeEach, describe, expect, test } from "bun:test";
-import { DEFAULT_REDIS_URL, RedisKeys } from "@narze/shared";
+import {
+  Channels,
+  DEFAULT_REDIS_URL,
+  GuildEventSchema,
+  GuildEventTypes,
+  RedisKeys,
+  VoiceChannelListSchema,
+} from "@narze/shared";
 import Redis from "ioredis";
 import { createGuildRegistry } from "../src/guild-registry";
 
@@ -44,5 +51,24 @@ describe("the Bot's guild set and voice states on Redis (Bot→Backend contract)
     expect(await redis.hget(RedisKeys.voiceStates(G1), "7")).toBe("71");
     await registry.voice(G1, "7", null);
     expect(await redis.hexists(RedisKeys.voiceStates(G1), "7")).toBe(0);
+  });
+});
+
+describe("voice channels for the Dashboard picker (spec #86)", () => {
+  test("the list is stored and announced as a voice:update Guild event", async () => {
+    const listener = new Redis(process.env.REDIS_URL ?? DEFAULT_REDIS_URL);
+    await listener.subscribe(Channels.guildEvents);
+    const announced = new Promise<unknown>((resolve) =>
+      listener.on("message", (_c, raw) => {
+        const event = GuildEventSchema.parse(JSON.parse(raw));
+        if (event.guildId === G1 && event.type === GuildEventTypes.voiceUpdate) resolve(event.data);
+      }),
+    );
+    const list = [{ id: "70", name: "Lounge", members: [{ id: "7", name: "Dee", avatarUrl: null }] }];
+    await registry.voiceChannels(G1, list);
+    expect(VoiceChannelListSchema.parse(await announced)).toEqual(list);
+    expect(JSON.parse((await redis.get(RedisKeys.voiceChannels(G1))) ?? "null")).toEqual(list);
+    await redis.del(RedisKeys.voiceChannels(G1));
+    await listener.quit();
   });
 });

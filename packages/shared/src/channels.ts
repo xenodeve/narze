@@ -7,6 +7,10 @@ export const Channels = {
   botHeartbeat: "bot:status:heartbeat",
   /** Bot → Backend: every Guild event (GuildEventSchema, ADR-0007). */
   guildEvents: "guild:events",
+  /** Backend → Bot: a PlayerCommand already allowed by Control Permission (#101). */
+  botCommands: "bot:commands",
+  /** Bot → Backend: the CommandResult for each command id. */
+  botCommandResults: "bot:command-results",
 } as const;
 
 /** Redis keys the Bot writes and the Backend reads (ADR-0002). Never authoritative: the Bot rebuilds them on ready. */
@@ -27,6 +31,8 @@ export const RedisKeys = {
    * Guild event, like the summary. The Backend's Hot Cache sits in front of it (ADR-0006).
    */
   playerState: (guildId: string) => `player:state:${guildId}`,
+  /** JSON VoiceChannelList of one Guild, for the voice-channel picker (spec #86). */
+  voiceChannels: (guildId: string) => `bot:voice-channels:${guildId}`,
   /** Hash discordId → number of open Dashboard tabs (Presence). */
   presence: "presence:tabs",
 } as const;
@@ -39,6 +45,8 @@ export const GuildEventTypes = {
   playerState: "player:state",
   /** data: null — the Player was destroyed. */
   playerGone: "player:gone",
+  /** data: VoiceChannelList — someone joined, left or moved voice channels in the Guild. */
+  voiceUpdate: "voice:update",
 } as const;
 
 /** Socket.io event names shared by Backend and Dashboard (ADR-0001). */
@@ -50,4 +58,10 @@ export const SocketEvents = {
   guildSummary: "guild:summary",
   /** Backend → a Guild's room: the GuildEvent carrying a PlayerState (or `player:gone`). */
   playerEvent: "player:event",
+  /** Dashboard → Backend with ack: `{ guildId, command: PlayerAction }`; ack `{ ok, reason?, error? }`. */
+  playerCommand: "player:command",
+  /** Backend → one tab: `{ guildId, canControl, reason }` whenever its Control Permission may have changed. */
+  permissionUpdate: "permission:update",
+  /** Backend → a Guild's room: the Guild's VoiceChannelList changed. */
+  voiceChannels: "voice:channels",
 } as const;
