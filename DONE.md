@@ -6,6 +6,54 @@
 
 ---
 
+## #103 Resilience: 24/7, Queue Recovery, voice-drop recovery, Standalone (2026-11-08, branch `feat/103-resilience`)
+
+**Goal:** the Bot survives a restart, a voice drop and a missing Redis without losing the music; 24/7 keeps it in voice.
+
+**Shipped:**
+- **24/7 / Idle Player:**
+  - Spec #10, #27: queue end leaves voice, unless 24/7 is on; then the Player stays as an Idle Player, published with `current: null`.
+  - `/skip` on the last track defers to the same rule.
+  - `/247` command with v5's replies.
+- **Queue Snapshot + Queue Recovery** (spec #21, #35, #123):
+  - `apps/bot/src/music/queue-snapshot.ts`: one file per Guild, writes ordered per Guild, unique temp file then rename.
+  - Written on every publish, every 10 s, and on SIGINT/SIGTERM.
+  - Restored from Lavalink's `encoded`, 5 s after every node connect (`main.ts`).
+  - Cleared when the Player leaves, but **not** when Lavalink destroys it (`NodeReconnectFail`).
+  - `recovering` flag on Player State, plus a recovery notice instead of Now Playing.
+- **Voice-drop recovery** (spec #28):
+  - Triggers on codes 4006/4009/4014/4015 or `byRemote`: reconnect, seek back on the same track only, resume.
+  - Guild events `voice:disconnect|reconnected|reconnect-failed`, relayed (not cached).
+  - Dashboard status line.
+  - Fake Lavalink `closeVoice`.
+- **Standalone:** plays and recovers without Redis. The direct Supabase settings read moved to #106 (no settings table yet; ADR-0003 note).
+
+**Validation:**
+- `bun run verify` exit 0, twice: shared 55, fake-lavalink 7, bot 115, backend 39, fake-discord 3, build.
+- `bun run e2e`: 19 passed.
+- Red first:
+  - 24/7 engine tests and `/247`
+  - snapshot store, including concurrent saves (ENOENT before)
+  - restart restoring queue, current track, position and 24/7
+  - Lavalink failure keeps the snapshot
+  - restore never writes `current: null`
+  - `/play` during a restore waits
+  - each recoverable close code, plus remote, non-recoverable and paused cases
+  - skip, leave and a double drop during a reconnect
+  - Dashboard: Idle, recovering and voice-status e2e
+- Characterization (passed first): the Standalone recovery test.
+- **Not run:** CI (#116); real Discord or Lavalink (#121).
+
+**Lessons:**
+- lavalink-client destroys every Player when the node gives up reconnecting. Anything keyed on `playerDestroy` must look at the reason.
+- Two tests that share Redis can't both treat the keyspace as theirs. The bot's sweep test wiped the Backend e2e's state when `verify` ran them in parallel (the `player.e2e` failure).
+- Drawn-only socket events aren't cached, so an e2e must resend them until the tab is in the room.
+- Same-key siblings in React (`key={track.uri}` on two elements) render a duplicate as soon as a conditional sibling is inserted.
+
+**Next:** #104.
+
+---
+
 ## #102 Queue management from Discord and the Dashboard (2026-11-08, branch `feat/102-queue-management`)
 
 **Goal:** edit the queue from both sides (move, remove, clear, play-now, /playnext, /playat, /playqueue, /skipplay, /queue pages), with every tab converging on the server's order.

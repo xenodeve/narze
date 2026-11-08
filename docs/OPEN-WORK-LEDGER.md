@@ -16,7 +16,7 @@ decision) · 🔴 **UNTRACKED** (MD-only, no GitHub issue — highest miss-risk)
 
 | Item | Status | Gate | Next action |
 |---|---|---|---|
-| v7 rewrite — PRD #97 (17 slices #98–#114, sub-issues of #97); plan `docs/superpowers/plans/2026-11-08-narze-v7-rewrite.md`. **#98 done** (PR #115), **#99 done** (PR #119), **#100 done** (PR #120), **#101 done** (PR #122), **#102 done** (feat/102-queue-management) | 🟢 | — | Next: #103. Manual real-playback check: #121 (needs a Discord token + test guild) |
+| v7 rewrite — PRD #97 (17 slices #98–#114, sub-issues of #97); plan `docs/superpowers/plans/2026-11-08-narze-v7-rewrite.md`. **#98 done** (PR #115), **#99 done** (PR #119), **#100 done** (PR #120), **#101 done** (PR #122), **#102 done** (PR #123), **#103 done** (feat/103-resilience) | 🟢 | — | Next: #104. Standalone Supabase settings read carried to #106. Manual real-playback check: #121 (needs a Discord token + test guild) |
 
 | Local Redis in `docker-compose.yml` has no password and publishes 6379: anyone on the network can publish fake heartbeats (status display only). Bind to 127.0.0.1 or set `requirepass` before any deployment | 🟡 | #114 hardening | Fold into #114's security review |
 | Backend e2e `beforeAll` once timed out at ~5.4 s on the first full-suite run; not reproduced in 7 runs (mitigated with a 30 s hook timeout) | 🟡 | recurrence | If it recurs, time `createApp` vs `listen` |
