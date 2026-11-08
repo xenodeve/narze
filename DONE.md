@@ -6,6 +6,23 @@
 
 ---
 
+## #107 Library: playlists, import, Likes (2026-11-08, branch `feat/107-library`)
+
+**Goal:** each signed-in user has their own playlists and Likes, can play them into a Guild, and sees a change live in every tab they have open.
+
+**Shipped:**
+- **Data:** `playlists`, `playlist_tracks`, `likes` (Supabase, RLS read-own, writes only through the Backend). `replace_playlist_tracks` swaps a track list in one transaction.
+- **Backend:** `/api/library/playlists[/:id]` (owner only; another user's playlist is a 404), `POST /api/library/import` (Spotify or YouTube playlist link → spec #71 preview, Spotify album and added-at), `/api/library/likes`. `library:update` goes to the user room. A 5000-track playlist saves and reads back whole (4 MB JSON limit; reads page past PostgREST's 1000-row cap).
+- **Dashboard:** `/library` (grid, create, import with the supplied LatticeLoader), `/library/[id]` (rename, reorder, remove, play all from the source playlist, play one, delete), `/library/liked`. The supplied PulseHeart on Catalog rows, the queue, Now Playing and Library rows, from one likes store per signed-in user.
+
+**Validated:**
+- `bun run verify` exit 0 (backend library e2e 11/11).
+- `bun run e2e` 29/29, including `e2e/library.spec.ts` 4/4: import, rename and reorder followed by another tab, play all, delete; like/unlike into Liked; an app-made playlist with play-all off; a second user on the same tab not seeing the first user's likes.
+- Red first for the review fixes: 1000 of 5000 tracks came back; a second user saw the first user's heart; a malformed id answered 500.
+- Screenshots at 1280 and 390 px.
+
+**Not done here:** play-all of the *saved* tracks (needs a multi-track play command), atomic create, import rate limit, shared Button/useModal, PulseHeart's server-wide count, the stale "primary = ink fill" DESIGN.md row: all in #128. Real Spotify and Lavalink untested (#121).
+
 ## #106 Guild Settings: Bot Owner, Music Channel, outfit, notifications (2026-11-08, branch `feat/106-guild-settings`)
 
 **Goal:** per-Guild settings that only the Server Owner or Bot Owner can change, enforced on the server and live in every tab; the Bot Avatar's outfit everywhere; now-playing notifications.
