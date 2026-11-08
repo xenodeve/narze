@@ -1,5 +1,5 @@
 import type { Track } from "@narze/shared";
-import { COLOR_SUCCESS, DEFAULT_ICON, formatDuration, type Notice } from "./format";
+import { COLOR_SUCCESS, DEFAULT_ICON, escapeText, formatDuration, type Notice } from "./format";
 
 /** Player flags that decide whether a track start is announced (spec #15, #24, #25). */
 export interface AnnounceFlags {
@@ -35,12 +35,18 @@ export function shouldAnnounce(flags: AnnounceFlags, queueSize: number): boolean
 }
 
 /** The embed posted when a track starts (spec #23): one new message per track, never edited. */
-export function nowPlayingNotice(track: Track): Notice {
+export function nowPlayingNotice(track: Track, link: { iconUrl?: string; authorUrl?: string } = {}): Notice {
   const lines = [`\`▶️\`┃**${track.title}** \` ${formatDuration(track.durationMs)} \``];
+  const from = track.playlist;
+  if (from) lines.push(`> จาก: ${escapeText(from.name)} (${from.index}/${from.total})`);
   lines.push(`> Requested by <@${track.requester.id}>`);
   return {
     color: COLOR_SUCCESS,
-    author: { name: "Go to Page", url: track.uri, iconUrl: track.requester.avatarUrl ?? DEFAULT_ICON },
+    author: {
+      name: "Go to Page",
+      url: link.authorUrl ?? track.uri,
+      iconUrl: link.iconUrl ?? track.requester.avatarUrl ?? DEFAULT_ICON,
+    },
     description: lines.join("\n"),
     thumbnailUrl: track.artworkUrl,
   };

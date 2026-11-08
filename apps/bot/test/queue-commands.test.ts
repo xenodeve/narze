@@ -45,6 +45,9 @@ function music(queue: Track[], over: Partial<Music> = {}): Music {
     setLoop: mock(async (_g: string, mode: string | null) => mode ?? "track"),
     playNow: mock(async () => "ok"),
     setTwentyFourSeven: mock(async () => true),
+    suggest: mock(async (q: string) => [{ name: `(A) ${q}`, value: `https://x.test/${q}` }]),
+    suggestionStats: mock(() => ({ entries: 3, bytes: 2048, oldestAt: 1_700_000_000_000 })),
+    clearSuggestions: mock(() => {}),
     ...over,
   } as unknown as Music;
 }
@@ -138,7 +141,7 @@ describe("/playnext, /playat, /playqueue, /skipplay (spec #7)", () => {
   });
 
   test("/playat autocomplete offers next, end and each position", async () => {
-    const choices = await command("playat").autocomplete?.(ctx(), music([track("a"), track("b")]), "");
+    const choices = await command("playat").autocomplete?.(ctx(), music([track("a"), track("b")]), "", "position");
     expect(choices).toEqual([
       { name: "1. ถัดจากเพลงปัจจุบัน (ลำดับแรก)", value: "1" },
       { name: "3. ท้ายคิว", value: "3" },
@@ -149,7 +152,7 @@ describe("/playnext, /playat, /playqueue, /skipplay (spec #7)", () => {
   test("/playqueue autocomplete names the track it means; running it plays that one now", async () => {
     const m = music([track("a"), track("b")]);
     const b = track("b").uri;
-    expect(await command("playqueue").autocomplete?.(ctx(), m, "b")).toEqual([
+    expect(await command("playqueue").autocomplete?.(ctx(), m, "b", "song")).toEqual([
       { name: "2. (b Artist) b", value: `2|${b}` },
     ]);
     const reply = await command("playqueue").run(ctx({ song: `2|${b}` }), m);
@@ -190,5 +193,123 @@ describe("/247 (spec #10)", () => {
     expect(text(await command("247").run(ctx(), none))).toBe("> `❌` ไม่มีบอทในห้อง");
     const elsewhere = { ...ctx(), memberVoiceChannelId: "99" };
     expect(text(await command("247").run(elsewhere, music([])))).toBe("> `❌` คุณต้องอยู่ในห้องเดียวกับบอท");
+  });
+});
+
+describe("playlist replies (#104, spec #4)", () => {
+  const added = (started: boolean, firstPosition = 1) => ({
+    kind: "playlist" as const,
+    playlist: {
+      name: "Anime Hits",
+      url: "https://x.test/p",
+      count: 3,
+      durationMs: 600_000,
+      thumbnail: "https://i.test/p.jpg",
+    },
+    started,
+    firstPosition,
+  });
+
+  test("/play of a playlist while playing lists name, time, count, queue size and room", async () => {
+    const m = music([track("a"), track("b"), track("c"), track("d")], {
+      play: mock(async () => added(false, 2)) as never,
+    });
+    const reply = await command("play").run(ctx({ query: "https://x.test/p" }), m);
+    expect(text(reply)).toBe(
+      "> `📝` **Playlist:** Anime Hits\n> `⌛` **เวลา:** ` 10:00 ` \n> `📊` **มี:** ` 3 ` เพลง \n> **คิวทั้งหมด:** ` 4 ` เพลง \n> **ห้อง:** <#70>",
+    );
+    expect(reply.notice.author).toMatchObject({ name: "Go to Playlist", url: "https://x.test/p" });
+    expect(reply.notice.thumbnailUrl).toBe("https://i.test/p.jpg");
+  });
+
+  test("from idle it starts with 📙 and no queue line; /playnext says where it landed", async () => {
+    const idle = music([], { play: mock(async () => added(true)) as never });
+    expect(text(await command("play").run(ctx({ query: "https://x.test/p" }), idle))).toBe(
+      "> `📙` **Playlist:** Anime Hits\n> `⌛` **เวลา:** ` 10:00 ` \n> `📊` **มี:** ` 3 ` เพลง \n> **ห้อง:** <#70>",
+    );
+    const next = music([track("a"), track("b"), track("c")], { play: mock(async () => added(false)) as never });
+    expect(text(await command("playnext").run(ctx({ query: "https://x.test/p" }), next))).toBe(
+      "> `📝` **Playlist:** Anime Hits\n> `⌛` **เวลา:** ` 10:00 ` \n> `📊` **มี:** ` 3 ` เพลง \n> **ลำดับ:** ` 1 ถึง 3 ` \n> **คิวทั้งหมด:** ` 3 ` เพลง \n> **ห้อง:** <#70>",
+    );
+  });
+});
+
+describe("search autocomplete and /cache (#104, spec #2, #69)", () => {
+  test("/play, /playnext, /playat's query and /skipplay suggest tracks", async () => {
+    for (const name of ["play", "playnext", "skipplay"]) {
+      expect(await command(name).autocomplete?.(ctx(), music([]), "idol", "query")).toEqual([
+        { name: "(A) idol", value: "https://x.test/idol" },
+      ]);
+    }
+    expect(await command("playat").autocomplete?.(ctx(), music([]), "idol", "query")).toEqual([
+      { name: "(A) idol", value: "https://x.test/idol" },
+    ]);
+    expect((await command("playat").autocomplete?.(ctx(), music([]), "", "position"))?.[0]?.name).toContain(
+      "แทรกเป็นเพลงแรก",
+    );
+  });
+
+  test("/skipplay with nothing playing says it cannot skip", async () => {
+    const idle = music([], { status: mock(() => null) as never });
+    expect(await command("skipplay").autocomplete?.(ctx(), idle, "x", "query")).toEqual([
+      { name: "ไม่มีเพลงก่อนหน้า ไม่สามารถใช้ skipplay ได้", value: "nobeforsong_error" },
+    ]);
+  });
+
+  test("a suggestion that was an error is refused when run (v5 sentinels)", async () => {
+    const m = music([]);
+    expect(text(await command("play").run(ctx({ query: "no_song" }), m))).toBe("> `❌` กรุณาระบุเพลง");
+    expect(text(await command("play").run(ctx({ query: "error" }), m))).toBe("> `❌` กรุณาระบุเพลงที่ถูกต้อง");
+    expect(m.play).not.toHaveBeenCalled();
+  });
+
+  test("/cache stats and clear, privately", async () => {
+    const m = music([]);
+    const stats = await command("cache").run(ctx({ action: "stats" }), m);
+    expect(stats.ephemeral).toBe(true);
+    expect(stats.notice).toMatchObject({
+      title: "📊 Cache Statistics",
+      footer: "Cache จะหมดอายุภายใน 30 นาที",
+      fields: [
+        { name: "📁 จำนวนรายการ cache", value: "`3` รายการ", inline: true },
+        { name: "💾 ขนาดรวม", value: "`2.00` KB", inline: true },
+        { name: "📅 รายการเก่าสุด", value: "<t:1700000000:R>", inline: true },
+      ],
+    });
+    const cleared = await command("cache").run(ctx({ action: "clear" }), m);
+    expect(m.clearSuggestions).toHaveBeenCalled();
+    expect(cleared.notice).toMatchObject({
+      title: "🗑️ Cache Cleared",
+      description: "✅ ลบ cache ทั้งหมดแล้ว\n\n📊 **ก่อนลบ:**\n• รายการ: `3`\n• ขนาด: `2.00 KB`",
+    });
+  });
+});
+
+describe("#104 review fixes", () => {
+  test("only the exact sentinel values are refused: a song called Error or fatal_error still plays", async () => {
+    const m = music([]);
+    for (const query of ["Error", "fatal_error"]) await command("play").run(ctx({ query }), m);
+    expect(m.play).toHaveBeenCalledTimes(2);
+    expect(text(await command("play").run(ctx({ query: "nobeforsong_error" }), m))).toBe("> `❌` กรุณาระบุเพลงที่ถูกต้อง");
+  });
+
+  test("a playlist name cannot inject markdown; the reply shows the playlist display icon", async () => {
+    const m = music([], {
+      play: mock(async () => ({
+        kind: "playlist",
+        playlist: {
+          name: "[free](https://evil.test)",
+          url: "u",
+          count: 1,
+          durationMs: 1000,
+          thumbnail: null,
+          icon: "https://icon.test/p",
+        },
+        started: true,
+      })) as never,
+    });
+    const reply = await command("play").run(ctx({ query: "u" }), m);
+    expect(text(reply)).toContain(String.raw`**Playlist:** \[free\]\(https://evil.test\)`);
+    expect(reply.notice.author?.iconUrl).toBe("https://icon.test/p");
   });
 });

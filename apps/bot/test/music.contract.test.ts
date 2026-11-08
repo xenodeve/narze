@@ -29,6 +29,17 @@ const CATALOG = [
   },
 ];
 
+const MIX_URL = "https://www.youtube.com/watch?v=lemon&list=RDlemon";
+const PLAYLIST_URL = "https://music.youtube.com/playlist?list=PLanime";
+const PLAYLISTS = [
+  {
+    name: "Anime Hits",
+    url: PLAYLIST_URL,
+    tracks: [CATALOG[1], CATALOG[2], CATALOG[3]].filter((t) => t !== undefined),
+  },
+  { name: "Mix - Lemon", url: MIX_URL, tracks: [CATALOG[0], CATALOG[1]].filter((t) => t !== undefined) },
+];
+
 const redis = new Redis(process.env.REDIS_URL ?? DEFAULT_REDIS_URL);
 let fake: FakeLavalink;
 let lavalink: LavalinkManager;
@@ -86,7 +97,7 @@ async function connect(): Promise<LavalinkManager> {
 
 beforeEach(async () => {
   await redis.del(RedisKeys.playerState(GUILD), RedisKeys.playerSummary(GUILD));
-  fake = await startFakeLavalink({ password: "pw", catalog: CATALOG });
+  fake = await startFakeLavalink({ password: "pw", catalog: CATALOG, playlists: PLAYLISTS });
   voicePackets = [];
   notices = [];
   clock = 1_000_000;
@@ -742,5 +753,166 @@ describe("voice-drop recovery (#103, spec #28)", () => {
     fake.closeVoice(GUILD, 4006, false);
     expect((await reconnected())?.data).toMatchObject({ resumed: false });
     expect(fake.player(GUILD)?.paused).toBe(true);
+  });
+});
+
+describe("playlists (#104, spec #3, #4, #65, #66)", () => {
+  test("a playlist from idle plays its first track and queues the rest, each carrying the playlist", async () => {
+    const result = await play(PLAYLIST_URL);
+    expect(result).toMatchObject({
+      kind: "playlist",
+      started: true,
+      playlist: { name: "Anime Hits", url: PLAYLIST_URL, count: 3, durationMs: 213_000 + 239_000 + 326_000 },
+    });
+    const state = await eventually(stored, (s) => s?.current?.title === "Idol" && s.queue.length === 2);
+    expect(state?.current?.playlist).toEqual({ name: "Anime Hits", url: PLAYLIST_URL, index: 1, total: 3 });
+    expect(state?.queue.map((t) => [t.title, t.playlist?.index])).toEqual([
+      ["Gurenge", 2],
+      ["Pretender", 3],
+    ]);
+  });
+
+  test("a YouTube Mix is a radio station, and its link is kept as given (spec #65)", async () => {
+    const result = await play(MIX_URL);
+    expect(result).toMatchObject({ kind: "playlist", playlist: { name: "สถานีวิทยุLemon", url: MIX_URL } });
+  });
+
+  test("while playing, a playlist goes to the end, or to the head with play-next", async () => {
+    await play("pretender");
+    await eventually(stored, (s) => s?.current?.title === "Pretender");
+    expect(await play(PLAYLIST_URL)).toMatchObject({ kind: "playlist", started: false, firstPosition: 1 });
+    await music.play({
+      guildId: GUILD,
+      voiceChannelId: VOICE,
+      textChannelId: TEXT,
+      query: MIX_URL,
+      requester: dee,
+      next: true,
+    });
+    const state = await eventually(stored, (s) => s?.queue.length === 5);
+    expect(state?.queue.map((t) => t.title)).toEqual(["Lemon", "Idol", "Idol", "Gurenge", "Pretender"]);
+  });
+});
+
+describe("artwork and the author icon on the engine (#104, spec #62–#68)", () => {
+  const art = (usePlaylistUrl = false) => {
+    // One engine per Lavalink manager, as in the Bot: the one from beforeEach stops listening.
+    for (const event of ["trackStart", "queueEnd", "playerDestroy", "playerSocketClosed"] as const) {
+      lavalink.removeAllListeners(event);
+    }
+    music = createMusic({
+      lavalink,
+      publisher: createPlayerPublisher(redis),
+      announce: async (channelId, notice) => {
+        notices.push({ channelId, notice });
+      },
+      now: () => clock,
+      artwork: {
+        trackArt: async (t) => `https://art.test/${t.info.title}.jpg`,
+        playlistArt: async () => "https://art.test/list.jpg",
+        icon: async (t) => `https://icon.test/${t?.author ?? "none"}`,
+      },
+      usePlaylistUrl,
+    });
+  };
+
+  test("a played track shows its resolved artwork, and the notice its icon", async () => {
+    art();
+    await play("lemon");
+    await eventually(stored, (s) => s?.current?.title === "Lemon");
+    await play("idol");
+    expect(
+      (await eventually(stored, (s) => s?.queue[0]?.artworkUrl === "https://art.test/Idol.jpg"))?.queue[0]?.artworkUrl,
+    ).toBe("https://art.test/Idol.jpg");
+    fake.finishTrack(GUILD);
+    await eventually(
+      () => notices.length,
+      (n) => n > 0,
+    );
+    expect(notices[0]?.notice).toMatchObject({
+      thumbnailUrl: "https://art.test/Idol.jpg",
+      author: { iconUrl: "https://icon.test/YOASOBI", url: "https://music.youtube.com/watch?v=idol" },
+    });
+  });
+
+  test("a playlist carries its picture; with use_playlist_url its tracks link to the playlist", async () => {
+    art(true);
+    await play("lemon");
+    await eventually(stored, (s) => s?.current?.title === "Lemon");
+    expect(await play(PLAYLIST_URL)).toMatchObject({ playlist: { thumbnail: "https://art.test/list.jpg" } });
+    fake.finishTrack(GUILD);
+    await eventually(
+      () => notices.length,
+      (n) => n > 0,
+    );
+    expect(notices[0]?.notice.author?.url).toBe(PLAYLIST_URL);
+  });
+});
+
+describe("autocomplete on the engine (#104, spec #69)", () => {
+  test("suggestions come from the node, and a repeated query does not search again", async () => {
+    const before = fake.searches().length;
+    expect(await music.suggest("idol")).toEqual([
+      { name: "(YOASOBI) Idol", value: "https://music.youtube.com/watch?v=idol" },
+    ]);
+    await music.suggest("idol");
+    expect(fake.searches().length).toBe(before + 1);
+    expect(music.suggestionStats().entries).toBe(1);
+    music.clearSuggestions();
+    await music.suggest("idol");
+    expect(fake.searches().length).toBe(before + 2);
+  });
+});
+
+describe("#104 review fixes on the engine", () => {
+  const engineWith = (artwork: Parameters<typeof createMusic>[0]["artwork"]) => {
+    for (const event of ["trackStart", "queueEnd", "playerDestroy", "playerSocketClosed"] as const) {
+      lavalink.removeAllListeners(event);
+    }
+    music = createMusic({
+      lavalink,
+      publisher: createPlayerPublisher(redis),
+      announce: async (channelId, notice) => {
+        notices.push({ channelId, notice });
+      },
+      now: () => clock,
+      artwork,
+    });
+  };
+
+  test("a slow picture never holds back the Dashboard: the started track is published first", async () => {
+    let release: (url: string | null) => void = () => {};
+    const pending = new Promise<string | null>((resolve) => {
+      release = resolve;
+    });
+    engineWith({ trackArt: () => pending, playlistArt: async () => null, icon: async () => "https://icon.test/x" });
+    void play("lemon");
+    expect((await eventually(stored, (s) => s?.current?.title === "Lemon"))?.current?.title).toBe("Lemon");
+    release("https://art.test/late.jpg");
+    expect(
+      (await eventually(stored, (s) => s?.current?.artworkUrl === "https://art.test/late.jpg"))?.current?.artworkUrl,
+    ).toBe("https://art.test/late.jpg");
+  });
+
+  test("a picture that did not check out shows none, not Lavalink's", async () => {
+    engineWith({ trackArt: async () => null, playlistArt: async () => null, icon: async () => "https://icon.test/x" });
+    await play("lemon");
+    await play("idol");
+    const state = await eventually(stored, (s) => s?.queue.length === 1);
+    expect(state?.queue[0]?.artworkUrl).toBeNull();
+  });
+
+  test("a playlist reply carries the playlist display icon", async () => {
+    const seen: Array<boolean | undefined> = [];
+    engineWith({
+      trackArt: async () => null,
+      playlistArt: async () => "https://art.test/list.jpg",
+      icon: async (_t, _p, display) => {
+        seen.push(display);
+        return display ? "https://icon.test/display" : "https://icon.test/track";
+      },
+    });
+    expect(await play(PLAYLIST_URL)).toMatchObject({ playlist: { icon: "https://icon.test/display" } });
+    expect(seen).toContain(true);
   });
 });

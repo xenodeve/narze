@@ -6,6 +6,43 @@
 
 ---
 
+## #104 Track Resolution depth: playlists, pictures, icons, autocomplete, /cache (2026-11-08, branch `feat/104-track-resolution`)
+
+**Goal:** playlists play whole and say where each track came from. Tracks show the right picture, the notice shows the configured icon, and the play commands suggest tracks.
+
+**Shipped:**
+- **Playlists (spec #3, #4, #65, #66):**
+  - Every track is added, carrying its playlist (1-based index and total).
+  - A YouTube Mix (`list=RD…`, but not `RDCLAK` albums) keeps its link and is named `สถานีวิทยุ…`.
+  - Replies use v5's 📙/📝 lines; the notice shows `จาก: <name> (i/n)`.
+- **Pictures (spec #48, #62–#64):**
+  - `thumbnails.ts` classifies music vs video and upgrades thumbnails to maxres or hq, using parallel HEAD checks that skip internal addresses and don't follow redirects.
+  - A playlist picture comes from Spotify or the page's og:image (upgraded), falling back to the first track's.
+- **Icons (spec #67, #68):** modes come from env with v5's defaults; the artist image comes from Spotify (client credentials, token reused until 5 min before expiry); `USE_PLAYLIST_URL` is supported.
+- **Autocomplete (spec #2, #69):**
+  - The v5 §3 algorithm and strings, with an in-process TTL cache (30 min, ≤ 1000 entries) that works without Redis.
+  - Only exact sentinel values are refused.
+  - `/cache stats|clear` (ManageGuild).
+- **Latency:** a track start publishes and posts its notice at once; the resolved picture follows as its own revision. Icon and playlist lookups are capped at 1.5 s and 3 s, and the autocomplete search at 2.5 s.
+
+**Validation:**
+- `bun run verify` exit 0: bot 168 plus shared, fake-lavalink, backend, fake-discord and build.
+- `bun run e2e`: 19 passed.
+- Red first: playlists (fake, engine, Mix rule, schema, replies, notice line); thumbnails; lookups; artwork; engine wiring; autocomplete and commands; the review fixes (sentinels, escaping, RDCLAK, anchored Mix rename, long values, og upgrade, SSRF guard, publish-before-art, display icon).
+- Not red first: `ttl-cache` (written with its code); the engine autocomplete test and the `null`-artwork test (characterization; the fake has no artwork, so the latter cannot discriminate).
+- **Not run:** real YouTube, Spotify or Lavalink (#121); CI (#116).
+
+**Lessons:**
+- A lookup awaited on the track-start path delays the realtime Dashboard by its worst-case timeout. Publish first, and let the picture follow as a revision.
+- `x ?? fallback` makes a deliberate `null` ("checked, none") indistinguishable from "not looked up".
+- Two engines on one Lavalink manager in a test both react to every event. Tests that build their own engine must stop the `beforeEach` one first.
+
+**Follow-up (not built):** a 5,000-track playlist puts its metadata in every Player State publish and snapshot write. Cap or summarise the published queue if that shows up in #121.
+
+**Next:** #105.
+
+---
+
 ## #103 Resilience: 24/7, Queue Recovery, voice-drop recovery, Standalone (2026-11-08, branch `feat/103-resilience`)
 
 **Goal:** the Bot survives a restart, a voice drop and a missing Redis without losing the music; 24/7 keeps it in voice.

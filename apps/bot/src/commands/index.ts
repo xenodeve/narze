@@ -1,3 +1,4 @@
+import { cache } from "./cache";
 import { clear } from "./clear";
 import { join } from "./join";
 import { leave } from "./leave";
@@ -14,7 +15,7 @@ import { twentyFourSeven } from "./twenty-four-seven";
 import type { Command } from "./types";
 import { volume } from "./volume";
 
-/** The slash commands so far (spec #1): #100, #102 and #103; /setchannel and /cache arrive with #106 and #104. */
+/** The slash commands so far (spec #1): #100, #102, #103 and #104; /setchannel arrives with #106. */
 export const commands: Command[] = [
   play,
   pause,
@@ -32,4 +33,5 @@ export const commands: Command[] = [
   playqueue,
   skipplay,
   twentyFourSeven,
+  cache,
 ];

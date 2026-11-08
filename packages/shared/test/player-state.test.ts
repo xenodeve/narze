@@ -53,6 +53,16 @@ describe("Player State", () => {
     expect(PlayerStateSchema.safeParse(noEpoch).success).toBe(false);
   });
 
+  test("a queued track may say which playlist it came from (spec #66); index is 1-based", () => {
+    const from = { name: "Anime Hits", url: "https://x.test/p", index: 2, total: 3 };
+    expect(PlayerStateSchema.parse({ ...state, queue: [{ ...track, playlist: from }] }).queue[0]?.playlist).toEqual(
+      from,
+    );
+    expect(
+      PlayerStateSchema.safeParse({ ...state, queue: [{ ...track, playlist: { ...from, index: 0 } }] }).success,
+    ).toBe(false);
+  });
+
   test("a state may say it is being recovered after a restart (#103); older states still parse", () => {
     expect(PlayerStateSchema.parse({ ...state, recovering: true }).recovering).toBe(true);
     expect(PlayerStateSchema.parse(state).recovering).toBeUndefined();

@@ -23,6 +23,8 @@ export interface FakeLavalinkOptions {
   catalog?: FakeCatalogTrack[];
   /** Source managers the node reports in /v4/info (the Bot picks its search prefix from these). */
   sourceManagers?: string[];
+  /** Playlist URLs: loading one answers `loadType: "playlist"` with these tracks (#104). */
+  playlists?: Array<{ name: string; url: string; tracks: FakeCatalogTrack[] }>;
 }
 
 interface LavalinkTrack {
@@ -113,6 +115,17 @@ export async function startFakeLavalink(options: FakeLavalinkOptions): Promise<F
 
   function loadTracks(identifier: string) {
     searches.push(identifier);
+    const playlist = options.playlists?.find((p) => p.url === identifier);
+    if (playlist) {
+      return {
+        loadType: "playlist",
+        data: {
+          info: { name: playlist.name, selectedTrack: -1 },
+          pluginInfo: {},
+          tracks: playlist.tracks.map(toLavalinkTrack),
+        },
+      };
+    }
     if (/^https?:\/\//.test(identifier)) {
       const track = catalog.find((t) => t.info.uri === identifier);
       return track ? { loadType: "track", data: track } : { loadType: "empty", data: {} };

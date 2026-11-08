@@ -76,3 +76,37 @@ describe("Queue Recovery notice (#103)", () => {
     expect(recoveryNotice(null, 0, 0).description).toBe("`🔄`┃**กู้คิวเพลงหลังบอทรีสตาร์ท** กลับเข้าห้องเสียงแล้ว (24/7)");
   });
 });
+
+describe("Now-Playing Notice for a playlist track (#104, spec #66)", () => {
+  test("says which playlist it came from, as i/n", () => {
+    const track = {
+      uri: "https://music.youtube.com/watch?v=idol",
+      source: "youtubemusic" as const,
+      title: "Idol",
+      author: "YOASOBI",
+      durationMs: 213_000,
+      artworkUrl: null,
+      requester: { id: "1", name: "Dee", avatarUrl: null },
+      playlist: { name: "Anime Hits", url: "https://x.test/p", index: 2, total: 3 },
+    };
+    expect(nowPlayingNotice(track).description).toBe(
+      "`▶️`┃**Idol** ` 03:33 `\n> จาก: Anime Hits (2/3)\n> Requested by <@1>",
+    );
+  });
+});
+
+test("a playlist name in the notice is escaped (#104 review)", () => {
+  const track = {
+    uri: "u",
+    source: "youtubemusic" as const,
+    title: "t",
+    author: "a",
+    durationMs: 1000,
+    artworkUrl: null,
+    requester: { id: "1", name: "Dee", avatarUrl: null },
+    playlist: { name: "*bold*", url: "p", index: 1, total: 1 },
+  };
+  const description = nowPlayingNotice(track).description ?? "";
+  expect(description).toContain(String.raw`\*bold\* (1/1)`);
+  expect(description).not.toContain(" *bold* ");
+});

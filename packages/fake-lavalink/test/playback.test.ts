@@ -102,3 +102,28 @@ describe("Fake Lavalink voice socket (#103)", () => {
     expect(await closed).toEqual({ code: 4006, byRemote: false });
   });
 });
+
+describe("Fake Lavalink playlists (#104)", () => {
+  test("a playlist URL resolves to every track with the playlist's name", async () => {
+    fake = await startFakeLavalink({
+      password: "pw",
+      catalog: CATALOG,
+      playlists: [{ name: "Mix - Lemon", url: "https://music.youtube.com/playlist?list=RDlemon", tracks: CATALOG }],
+    });
+    const manager = new LavalinkManager({
+      nodes: [{ id: "fake", host: "127.0.0.1", port: fake.port, authorization: "pw", retryAmount: 1, retryDelay: 50 }],
+      sendToShard: () => {},
+      client: BOT,
+    });
+    const ready = new Promise<void>((resolve) => manager.nodeManager.on("connect", () => resolve()));
+    await manager.init(BOT);
+    await ready;
+    lavalink = manager;
+    const result = await manager.nodeManager
+      .leastUsedNodes()[0]
+      ?.search({ query: "https://music.youtube.com/playlist?list=RDlemon" }, { id: "1" });
+    expect(result?.loadType).toBe("playlist");
+    expect(result?.playlist?.name).toBe("Mix - Lemon");
+    expect(result?.tracks.map((t) => t.info.title)).toEqual(["Lemon"]);
+  });
+});

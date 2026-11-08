@@ -81,12 +81,13 @@ export function handleInteractions(client: Client, music: Music, isReady: () => 
   });
 }
 
-/** Autocomplete: the command builds suggestions from the live queue (Discord shows at most 25). */
+/** Autocomplete: the command builds suggestions for the focused option (Discord shows at most 25). */
 async function suggest(interaction: AutocompleteInteraction<"cached">, music: Music): Promise<void> {
   const command = commands.find((c) => c.data.name === interaction.commandName);
   if (!command?.autocomplete) return interaction.respond([]);
   const ctx = contextOf(interaction as unknown as ChatInputCommandInteraction<"cached">);
-  const choices = await command.autocomplete(ctx, music, String(interaction.options.getFocused()));
+  const focused = interaction.options.getFocused(true);
+  const choices = await command.autocomplete(ctx, music, String(focused.value), focused.name);
   await interaction.respond(choices.slice(0, 25));
 }
 
