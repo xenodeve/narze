@@ -1,3 +1,7 @@
+# The whole repo is LF. Without this, core.autocrlf=true checks files out as CRLF, and Biome's
+# formatter (LF) fails lint in any fresh checkout, including the T4 gate's own worktree (#116).
+* text=auto eol=lf
+
 # Hook scripts run under bash/sh and are byte-identical copies of the xeno-skills
 # originals (LF). Pin LF so core.autocrlf=true cannot rewrite them on checkout.
 .githooks/* text eol=lf
