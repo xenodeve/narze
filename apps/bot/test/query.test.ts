@@ -19,6 +19,25 @@ describe("what the Bot asks Lavalink for (spec #3, #55)", () => {
     });
   });
 
+  test("URLs that point inside the network are refused (Lavalink would fetch them)", () => {
+    for (const url of [
+      "http://localhost:6379/",
+      "http://127.0.0.1/a.mp3",
+      "http://10.0.0.5/x",
+      "http://192.168.1.21:4599/",
+      "http://172.20.0.3/",
+      "http://169.254.169.254/latest/meta-data/",
+      "http://[::1]/",
+      "http://redis/",
+    ]) {
+      expect(resolveQuery(url, [])).toEqual({ ok: false, reason: "unsupported" });
+    }
+    expect(resolveQuery("https://cdn.example.com/song.mp3", [])).toEqual({
+      ok: true,
+      query: "https://cdn.example.com/song.mp3",
+    });
+  });
+
   test("Deezer and Apple Music are refused, and an empty query is an error", () => {
     expect(resolveQuery("https://www.deezer.com/track/1", [])).toEqual({ ok: false, reason: "unsupported" });
     expect(resolveQuery("https://music.apple.com/th/album/x", [])).toEqual({ ok: false, reason: "unsupported" });

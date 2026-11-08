@@ -173,6 +173,8 @@ describe("playing from Discord against Fake Lavalink (#100)", () => {
 
   test("pause toggles, seek and volume reach the node, and each change is published", async () => {
     await play("lemon");
+    // lavalink-client resets `paused` when TrackStartEvent arrives, which can be after play() returns.
+    await eventually(stored, (s) => s?.current?.title === "Lemon");
     expect(await music.togglePause(GUILD)).toMatchObject({ paused: true });
     expect((await eventually(stored, (s) => s?.paused === true))?.paused).toBe(true);
     expect(await music.togglePause(GUILD)).toMatchObject({ paused: false });

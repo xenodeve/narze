@@ -1,3 +1,5 @@
+import { isInternalUrl } from "./url-safety";
+
 export type ResolvedQuery =
   | { ok: true; query: string; source?: "spsearch" | "ytmsearch" }
   | { ok: false; reason: "empty" | "unsupported" };
@@ -14,6 +16,13 @@ export function resolveQuery(input: string, sourceManagers: readonly string[]): 
   if (!text) return { ok: false, reason: "empty" };
   if (UNSUPPORTED.test(text)) return { ok: false, reason: "unsupported" };
   if (/^https?:\/\//i.test(text)) {
+    let url: URL;
+    try {
+      url = new URL(text);
+    } catch {
+      return { ok: false, reason: "unsupported" };
+    }
+    if (isInternalUrl(url)) return { ok: false, reason: "unsupported" };
     // Spec #3: a YouTube list= link plays as the YouTube Music playlist (everything after list= kept).
     const list = /youtu\.?be/i.test(text) ? text.split("list=").slice(1).join("list=") : "";
     return { ok: true, query: list ? `https://music.youtube.com/playlist?list=${list}` : text };
