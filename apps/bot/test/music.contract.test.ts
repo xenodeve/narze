@@ -486,6 +486,25 @@ describe("Queue Recovery after a restart (#103, spec #21, #35, #123)", () => {
     expect(notices[0]?.notice.description).toContain("กู้คิวเพลง");
   });
 
+  test("Standalone Mode: with nothing to publish to, the Bot still plays and recovers (ADR-0003)", async () => {
+    const snapshots = await snapshotsDir();
+    const silent = { publish: async () => {}, gone: async () => {}, jump: async () => {} };
+    const standalone = (manager: LavalinkManager) =>
+      createMusic({ lavalink: manager, publisher: silent, snapshots, announce: async () => {}, now: () => clock });
+    music = standalone(lavalink);
+    expect(await play("lemon")).toMatchObject({ kind: "started" });
+    await play("idol");
+    await music.flush();
+    lavalink.removeAllListeners();
+    await lavalink.nodeManager.leastUsedNodes()[0]?.destroy?.();
+
+    lavalink = await connect();
+    music = standalone(lavalink);
+    expect(await music.recover()).toBe(1);
+    expect(await eventually(() => fake.player(GUILD)?.track?.info.title, (t) => t === "Lemon")).toBe("Lemon");
+    expect(music.status(GUILD)?.queue.map((t) => t.title)).toEqual(["Idol"]);
+  });
+
   test("the snapshot is cleared when the queue ends without 24/7, and a Guild left behind is skipped", async () => {
     const snapshots = await snapshotsDir();
     music = engine(lavalink, snapshots);

@@ -25,7 +25,7 @@ Glossary for the whole repo (single-context). When a term appears in **bold**, u
 
 **Queue Revision** — monotonic integer per **Guild**, bumped by every queue mutation and carried on every queue event so clients can drop stale or out-of-order updates and refetch on a gap.
 
-**Queue Snapshot** — local JSON file the **Bot** writes on every track change (queue, current track, position, **24/7**). Restored ~5 s after ready (**Queue Recovery**), cleared on queue end. Not stored in Redis or Supabase, so it works in both modes.
+**Queue Snapshot** — local JSON file per **Guild** the **Bot** writes on every published change, every 10 s and on shutdown (queue, current track, position, volume, loop, **24/7**, voice and text channel; tracks keep Lavalink's `encoded`, so they play again without a new search). Default location `.data/queue-snapshots/` (`QUEUE_SNAPSHOT_DIR`). Restored ~5 s after the Lavalink node is up (**Queue Recovery**), cleared when the **Player** is destroyed (queue end without 24/7, `/leave`, kicked). Not stored in Redis or Supabase, so it works in both modes. A hard kill restores the last write, at most ~10 s old.
 
 **Player State** — the published snapshot: current track, position + sync time, paused, volume, loop mode, **24/7**, queue, **Queue Revision**, voice channel. **Invalid Player State** = a snapshot with malformed track identity (missing uri, source or requester); it is never published.
 
@@ -111,7 +111,7 @@ Dashboard ──REST/Socket.io──▶ Backend ──Redis pub/sub──▶ Bot
 
 **Queue Revision** — ตัวเลขที่เพิ่มขึ้นอย่างเดียวต่อ **Guild** เพิ่มทุกครั้งที่แก้คิว และแนบไปกับทุก event ของคิว ให้ฝั่ง client ทิ้งข้อมูลเก่าหรือที่มาผิดลำดับได้ และดึงใหม่ทั้งชุดเมื่อเลขกระโดด
 
-**Queue Snapshot** — ไฟล์ JSON ในเครื่องที่ **Bot** เขียนทุกครั้งที่เปลี่ยนเพลง (คิว, เพลงปัจจุบัน, ตำแหน่ง, **24/7**) กู้คืนประมาณ 5 วินาทีหลังพร้อม (**Queue Recovery**) และลบทิ้งตอนคิวหมด ไม่เก็บใน Redis หรือ Supabase จึงใช้ได้ทั้งสองโหมด
+**Queue Snapshot** — ไฟล์ JSON ในเครื่องหนึ่งไฟล์ต่อ **Guild** ที่ **Bot** เขียนทุกครั้งที่ publish การเปลี่ยนแปลง ทุก 10 วินาที และตอนปิด (คิว, เพลงปัจจุบัน, ตำแหน่ง, ระดับเสียง, ลูป, **24/7**, ห้องเสียงและห้องข้อความ เพลงเก็บ `encoded` ของ Lavalink ไว้ จึงเล่นซ้ำได้โดยไม่ต้องค้นใหม่) ที่เก็บเริ่มต้นคือ `.data/queue-snapshots/` (`QUEUE_SNAPSHOT_DIR`) กู้คืนประมาณ 5 วินาทีหลัง node ของ Lavalink พร้อม (**Queue Recovery**) และลบทิ้งเมื่อ **Player** ถูกทำลาย (คิวหมดโดยไม่เปิด 24/7, `/leave` หรือถูกเตะออก) ไม่เก็บใน Redis หรือ Supabase จึงใช้ได้ทั้งสองโหมด ถ้าถูก kill ฉับพลันจะได้สิ่งที่เขียนไว้ครั้งล่าสุด เก่าไม่เกินประมาณ 10 วินาที
 
 **Player State** — snapshot ที่ประกาศออกไป ได้แก่ เพลงปัจจุบัน, ตำแหน่งพร้อมเวลาที่ซิงก์, หยุดอยู่หรือไม่, ระดับเสียง, โหมดวน, **24/7**, คิว, **Queue Revision** และห้องเสียง **Invalid Player State** คือ snapshot ที่ข้อมูลระบุตัวเพลงเสีย (ไม่มี uri, source หรือ requester) จะไม่ถูกประกาศเด็ดขาด
 
