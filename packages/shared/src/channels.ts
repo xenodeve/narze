@@ -45,6 +45,8 @@ export const GuildEventTypes = {
   playerState: "player:state",
   /** data: null — the Player was destroyed. */
   playerGone: "player:gone",
+  /** data: `{ fromIndex, title }` — a queued track is about to play now; sent before the queue update (spec #39). */
+  queueJump: "queue:jump",
   /** data: VoiceChannelList — someone joined, left or moved voice channels in the Guild. */
   voiceUpdate: "voice:update",
 } as const;

@@ -131,6 +131,11 @@ export class UserGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
       this.onPlayerEvent(event);
       return;
     }
+    if (event.type === GuildEventTypes.queueJump) {
+      // Not cached: it only lets the Dashboard animate the jump before the queue update (spec #39).
+      this.server.to(guildRoom(event.guildId)).emit(SocketEvents.playerEvent, event);
+      return;
+    }
     if (event.type === GuildEventTypes.voiceUpdate) {
       const list = VoiceChannelListSchema.safeParse(event.data);
       if (list.success)

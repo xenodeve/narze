@@ -1,6 +1,11 @@
 import {
+  ActionRowBuilder,
+  type AutocompleteInteraction,
+  ButtonBuilder,
+  ButtonStyle,
   type ChatInputCommandInteraction,
   type Client,
+  ComponentType,
   EmbedBuilder,
   type GuildMember,
   MessageFlags,
@@ -8,8 +13,8 @@ import {
   type VoiceBasedChannel,
 } from "discord.js";
 import { commands } from "../commands";
-import type { CommandContext } from "../commands/types";
-import type { Notice } from "../music/format";
+import type { CommandContext, Reply } from "../commands/types";
+import { COLOR_FAILURE, type Notice } from "../music/format";
 import type { Music } from "../music/music";
 
 export function toEmbed(notice: Notice): EmbedBuilder {
@@ -40,6 +45,10 @@ const FAILED = "There was an error while executing this command!";
 /** Routes slash commands to their handlers; DMs get no response (v5). */
 export function handleInteractions(client: Client, music: Music, isReady: () => boolean): void {
   client.on("interactionCreate", async (interaction) => {
+    if (interaction.isAutocomplete() && interaction.inCachedGuild()) {
+      await suggest(interaction, music).catch(() => {});
+      return;
+    }
     if (!interaction.isChatInputCommand() || !interaction.inCachedGuild()) return;
     const command = commands.find((c) => c.data.name === interaction.commandName);
     if (!command) return;
@@ -51,7 +60,9 @@ export function handleInteractions(client: Client, music: Music, isReady: () => 
       if (command.slow) await interaction.deferReply();
       const reply = await command.run(contextOf(interaction), music);
       const embeds = [toEmbed(reply.notice)];
-      if (!interaction.deferred) {
+      if (reply.pager) {
+        await page(interaction, reply.notice, reply.pager);
+      } else if (!interaction.deferred) {
         await interaction.reply({ embeds, flags: reply.ephemeral ? MessageFlags.Ephemeral : undefined });
       } else if (reply.ephemeral) {
         // A deferred public reply cannot turn private: replace it with a private follow-up.
@@ -67,6 +78,76 @@ export function handleInteractions(client: Client, music: Music, isReady: () => 
         interaction.replied || interaction.deferred ? interaction.followUp(answer) : interaction.reply(answer);
       await send.catch(() => {});
     }
+  });
+}
+
+/** Autocomplete: the command builds suggestions from the live queue (Discord shows at most 25). */
+async function suggest(interaction: AutocompleteInteraction<"cached">, music: Music): Promise<void> {
+  const command = commands.find((c) => c.data.name === interaction.commandName);
+  if (!command?.autocomplete) return interaction.respond([]);
+  const ctx = contextOf(interaction as unknown as ChatInputCommandInteraction<"cached">);
+  const choices = await command.autocomplete(ctx, music, String(interaction.options.getFocused()));
+  await interaction.respond(choices.slice(0, 25));
+}
+
+const PAGER_MS = 5 * 60 * 1000;
+
+/**
+ * /queue's pages (spec #8): prev / page / next buttons, usable only by whoever ran the command, for
+ * five minutes; each click re-reads the queue. When the time is up the buttons are disabled.
+ */
+async function page(
+  interaction: ChatInputCommandInteraction<"cached">,
+  first: Notice,
+  pager: NonNullable<Reply["pager"]>,
+): Promise<void> {
+  let current = 0;
+  let pages = pager.pages;
+  const buttons = (disabled = false) =>
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId("queue_prev")
+        .setLabel("← หน้าก่อน")
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(disabled || current === 0),
+      new ButtonBuilder()
+        .setCustomId("queue_page_info")
+        .setLabel(`${current + 1}/${pages}`)
+        .setStyle(ButtonStyle.Primary)
+        .setDisabled(true),
+      new ButtonBuilder()
+        .setCustomId("queue_next")
+        .setLabel("หน้าถัดไป →")
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(disabled || current >= pages - 1),
+    );
+  const message = await interaction.reply({ embeds: [toEmbed(first)], components: [buttons()], withResponse: true });
+  const collector = message.resource?.message?.createMessageComponentCollector({
+    componentType: ComponentType.Button,
+    time: PAGER_MS,
+  });
+  collector?.on("collect", async (click) => {
+    if (click.user.id !== interaction.user.id) {
+      await click.reply({ content: "คุณไม่สามารถใช้ปุ่มนี้ได้", flags: MessageFlags.Ephemeral }).catch(() => {});
+      return;
+    }
+    const shown = pager.render(Math.max(0, current + (click.customId === "queue_next" ? 1 : -1)));
+    if (!shown) {
+      collector.stop();
+      await click
+        .update({
+          embeds: [toEmbed({ color: COLOR_FAILURE, description: "> `❌` ไม่มีเพลงกำลังเล่นแล้ว" })],
+          components: [],
+        })
+        .catch(() => {});
+      return;
+    }
+    current = shown.page;
+    pages = shown.pages;
+    await click.update({ embeds: [toEmbed(shown.notice)], components: [buttons()] }).catch(() => {});
+  });
+  collector?.on("end", () => {
+    void interaction.editReply({ components: [buttons(true)] }).catch(() => {});
   });
 }
 

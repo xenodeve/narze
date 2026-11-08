@@ -1,4 +1,5 @@
 import type { Requester, Track } from "@narze/shared";
+import { moveTrack } from "@narze/shared";
 import type { LavalinkManager, Track as LavalinkTrack, Player, RepeatMode } from "lavalink-client";
 import { type AnnounceFlags, NO_FLAGS, nowPlayingNotice, shouldAnnounce } from "./announce";
 import type { Notice } from "./format";
@@ -19,6 +20,10 @@ export interface PlayRequest {
   requester: Requester;
   /** Play next: insert at the head of the queue instead of the end (#101). */
   next?: boolean;
+  /** /playat: 0-based index in the upcoming queue (#102). */
+  position?: number;
+  /** /skipplay: play it now, dropping the current track and keeping the queue (#102). */
+  skipplay?: boolean;
 }
 
 export type PlayResult =
@@ -32,7 +37,7 @@ export interface MusicOptions {
   epoch?: string;
   /** Title of a Spotify URL from its public oEmbed, for links Lavalink cannot resolve (spec #70). */
   oembedTitle?: (url: string) => Promise<string | null>;
-  publisher: Pick<PlayerPublisher, "publish" | "gone">;
+  publisher: Pick<PlayerPublisher, "publish" | "gone" | "jump">;
   /** Posts a Now-Playing Notice in a text channel. */
   announce: (channelId: string, notice: Notice) => Promise<void>;
   now?: () => number;
@@ -71,6 +76,9 @@ async function spotifyOembedTitle(url: string): Promise<string | null> {
   return typeof body?.title === "string" ? body.title : null;
 }
 
+/** The outcome of a queue edit that names its track (#102). */
+export type QueueEdit = "ok" | "invalid-index" | "stale";
+
 export function createMusic({
   lavalink,
   publisher,
@@ -83,6 +91,12 @@ export function createMusic({
 
   /** Every queue mutation bumps the Queue Revision (ADR-0007). */
   const bump = (player: Player) => player.set(REVISION, (player.get<number | undefined>(REVISION) ?? 0) + 1);
+
+  /** A queue edit lands: one new revision, then the state goes out. */
+  async function commit(player: Player): Promise<void> {
+    bump(player);
+    await publish(player);
+  }
 
   async function publish(player: Player): Promise<void> {
     // A destroyed player (/leave while a track start was being handled) must not come back.
@@ -195,6 +209,16 @@ export function createMusic({
 
   const existing = (guildId: string) => lavalink.getPlayer(guildId) ?? null;
 
+  /**
+   * An edit names its track by index and uri; the queue may have moved since the client saw it
+   * (a track ended, another tab edited). Checked synchronously, right before the change.
+   */
+  function checkAt(player: Player, index: number, uri: string): "invalid-index" | "stale" | null {
+    const track = player.queue.tracks[index] as LavalinkTrack | undefined;
+    if (!track) return "invalid-index";
+    return toTrack(track)?.uri === uri ? null : "stale";
+  }
+
   /** One /play per Guild at a time: two at once could both see an idle player and both start. */
   const locks = new Map<string, Promise<unknown>>();
   function serial<T>(guildId: string, task: () => Promise<T>): Promise<T> {
@@ -226,13 +250,26 @@ export function createMusic({
     const shown = first ? toTrack(first) : null;
     if (!first || !shown) return abandon({ kind: "error", reason: "not-found" });
     if (!player.connected) await player.connect();
+    // Where in the upcoming queue: /playnext and play-next at the head, /playat at its 0-based index
+    // (clamped to the end, as v5 did), otherwise the end.
+    const at = request.next ? 0 : request.position;
     if (player.queue.current) {
-      await player.queue.add(first, request.next ? 0 : undefined);
-      bump(player);
-      await publish(player);
-      return { kind: "queued", track: shown, position: request.next ? 1 : player.queue.tracks.length };
+      if (request.skipplay) {
+        // /skipplay: the new track plays now, the current one is dropped, the queue stays (spec #7).
+        // No bump here: the track start that follows is the one revision for this edit.
+        await player.queue.add(first, 0);
+        player.set(FLAGS, { ...flagsOf(player), skipplay: true });
+        await player.skip();
+        return { kind: "started", track: shown };
+      }
+      const index = at === undefined ? undefined : Math.min(at, player.queue.tracks.length);
+      await player.queue.add(first, index);
+      await commit(player);
+      return { kind: "queued", track: shown, position: (index ?? player.queue.tracks.length - 1) + 1 };
     }
-    player.set(FLAGS, { ...NO_FLAGS, firstFromCommand: true });
+    // From idle, /play announces in its own reply; /playnext, /playat and /skipplay never post a notice (spec #24).
+    const placed = at !== undefined || request.skipplay;
+    player.set(FLAGS, { ...NO_FLAGS, firstFromCommand: !placed, dontShow: Boolean(placed) });
     await player.queue.add(first);
     await player.play();
     return { kind: "started", track: shown };
@@ -267,9 +304,61 @@ export function createMusic({
       const player = existing(guildId);
       if (!player || player.queue.tracks.length < 2) return false;
       await player.queue.shuffle();
-      bump(player);
-      await publish(player);
+      await commit(player);
       return true;
+    },
+
+    /** Spec #46 move inside the upcoming queue. */
+    async move(guildId: string, from: number, to: number, uri: string): Promise<QueueEdit> {
+      const player = existing(guildId);
+      if (!player) return "invalid-index";
+      const refused = checkAt(player, from, uri);
+      if (refused) return refused;
+      const tracks = player.queue.tracks as LavalinkTrack[];
+      const next = moveTrack(tracks, from, to);
+      if (!next) return "invalid-index";
+      await player.queue.splice(0, tracks.length, next);
+      await commit(player);
+      return "ok";
+    },
+
+    async remove(guildId: string, index: number, uri: string): Promise<QueueEdit> {
+      const player = existing(guildId);
+      if (!player) return "invalid-index";
+      const refused = checkAt(player, index, uri);
+      if (refused) return refused;
+      await player.queue.splice(index, 1);
+      await commit(player);
+      return "ok";
+    },
+
+    async clear(guildId: string): Promise<boolean> {
+      const player = existing(guildId);
+      if (!player) return false;
+      await player.queue.splice(0, player.queue.tracks.length);
+      await commit(player);
+      return true;
+    },
+
+    /**
+     * Plays a queued track now and keeps the rest in order. The jump is announced first so the
+     * Dashboard can animate it before the list changes (spec #39); no notice for it (spec #24).
+     */
+    async playNow(guildId: string, index: number, uri: string): Promise<QueueEdit> {
+      const player = existing(guildId);
+      if (!player?.queue.current) return "invalid-index";
+      const refused = checkAt(player, index, uri);
+      if (refused) return refused;
+      const track = player.queue.tracks[index] as LavalinkTrack;
+      await publisher
+        .jump(guildId, player.get<number | undefined>(REVISION) ?? 0, { fromIndex: index, title: track.info.title })
+        .catch(warn("publish queue jump"));
+      await player.queue.splice(index, 1);
+      await player.queue.add(track, 0);
+      // The track start that follows bumps the revision once for this edit.
+      player.set(FLAGS, { ...flagsOf(player), dontShow: true });
+      await player.skip();
+      return "ok";
     },
 
     /** Toggles pause; null when nothing is playing. */
@@ -340,6 +429,8 @@ export function createMusic({
         paused: player.paused,
         volume: player.volume,
         positionMs: player.position,
+        loop: player.repeatMode,
+        queue: (player.queue.tracks as LavalinkTrack[]).map(toTrack).filter((t): t is Track => t !== null),
       };
     },
   };

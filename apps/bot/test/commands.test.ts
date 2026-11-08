@@ -61,7 +61,23 @@ const text = (reply: Reply) => reply.notice.description ?? reply.notice.title ??
 describe("the eight commands of #100 are registered with v5's descriptions (spec #1)", () => {
   test("names", () => {
     expect(commands.map((c) => c.data.name).sort()).toEqual(
-      ["join", "leave", "pause", "ping", "play", "seek", "skip", "volume"].sort(),
+      [
+        "join",
+        "leave",
+        "pause",
+        "ping",
+        "play",
+        "seek",
+        "skip",
+        "volume",
+        "queue",
+        "clear",
+        "loop",
+        "playnext",
+        "playat",
+        "playqueue",
+        "skipplay",
+      ].sort(),
     );
   });
 });

@@ -31,7 +31,11 @@ lavalink.nodeManager.on("error", (node, error) => console.warn(`[bot] lavalink n
 client.on("raw", (packet) => lavalink.sendRawData(packet));
 
 // Standalone Mode plays without publishing: there is no Redis to publish to (ADR-0003).
-const silent: Pick<PlayerPublisher, "publish" | "gone"> = { publish: async () => {}, gone: async () => {} };
+const silent: Pick<PlayerPublisher, "publish" | "gone" | "jump"> = {
+  publish: async () => {},
+  gone: async () => {},
+  jump: async () => {},
+};
 const music = createMusic({
   lavalink,
   publisher: redis ? createPlayerPublisher(redis) : silent,

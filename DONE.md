@@ -6,6 +6,32 @@
 
 ---
 
+## #102 Queue management from Discord and the Dashboard (2026-11-08, branch `feat/102-queue-management`)
+
+**Goal:** edit the queue from both sides (move, remove, clear, play-now, /playnext, /playat, /playqueue, /skipplay, /queue pages), with every tab converging on the server's order.
+
+**Shipped:**
+- **Contract:** `move` / `remove` / `playNow` carry the track's `uri`. The Bot checks it synchronously before the change and answers `stale` when the queue moved under the index. `queue:jump` is relayed so the Dashboard animates the row out before the update (spec #39). One edit is exactly one Queue Revision: an edit that starts a track lets the track start do the bump.
+- **Shared:** `moveTrack` (spec #46 semantics) and `reducePlayer`, which replaces the ad-hoc reconcile in `use-player`.
+- **Bot:** /queue with an invoker-only pager that re-counts pages per click; /clear, /loop, /playnext, /playat (autocomplete), /playqueue (choices are `<position>|<uri>`), /skipplay; titles in Discord markdown go through `trackLink` / `escapeText` (`apps/bot/src/music/format.ts`).
+- **Dashboard:** `QueuePanel` with stable keys, optimistic edits that revert on refusal or time out, reorder by pointer (captured, cancel-safe), by keyboard (announced), swipe-to-remove on touch (the supplied `SwipeRow`), clear with a confirm dialog.
+
+**Validation:**
+- `bun run verify` exit 0: shared 54, fake-lavalink 6, bot 88, backend 39, fake-discord 3, build.
+- `bun run e2e`: 14 passed, then the queue spec 3 passed with the new pointer-drag test; that test was proved red by deleting the `pointercancel` listener.
+- Bot tests assert `revision === before + 1` after play-now and /skipplay (red at +2 first), and that a stale uri leaves the queue untouched.
+- Screenshots: queue panel at 1280 light and 390 dark.
+- **Not run:** CI (#116), real Discord (#121).
+
+**Lessons:**
+- An index is not an identity: any edit that crosses a network names the item it means.
+- The earlier unexplained `verify` exit 1 was the Fake Lavalink test ending before lavalink-client's auto-advance request landed (ECONNRESET between tests); reproduced 4/4, gone 5/5 after the test waited for the next track start.
+- A synthetic `pointerdown` cannot be captured (`setPointerCapture` throws), so a drag test built from dispatched events passes vacuously; drive the real mouse.
+
+**Next:** #103.
+
+---
+
 ## #101 Dashboard control with server-side Control Permission (2026-11-08, branch `feat/101-dashboard-control`)
 
 **Goal:** control playback from the web, with the permission ladder enforced on the server even for a direct socket call, live permission changes, a voice-channel picker and optimistic UI that reverts.

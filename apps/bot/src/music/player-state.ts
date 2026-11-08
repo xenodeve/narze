@@ -81,6 +81,10 @@ export function createPlayerPublisher(redis: Redis) {
         .publish(Channels.guildEvents, event(GuildEventTypes.playerSummary, state.guildId, state.revision, summary))
         .exec();
     },
+    /** Announces that a queued track is about to play now, before the queue update (spec #39). */
+    async jump(guildId: string, revision: number, data: { fromIndex: number; title: string }): Promise<void> {
+      await redis.publish(Channels.guildEvents, event(GuildEventTypes.queueJump, guildId, revision, data));
+    },
     /**
      * On start: no Player survives a Bot restart until Queue Recovery (#103), so any state a
      * previous process left is removed and announced as gone, or the Backend would keep serving it.

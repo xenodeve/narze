@@ -64,4 +64,29 @@ describe("Fake Lavalink playback", () => {
     expect(await started).toBe("Lemon");
     expect(fake?.player(GUILD)?.track?.info.title).toBe("Lemon");
   });
+
+  test("stopping a track ends it like a real node, so the client plays the next one", async () => {
+    const manager = await connected();
+    const player = manager.createPlayer({ guildId: GUILD, voiceChannelId: "5", textChannelId: "6" });
+    const result = await player.search({ query: "lemon", source: "ytmsearch" }, { id: "1" });
+    const first = result.tracks[0];
+    if (!first) throw new Error("no track");
+    await player.queue.add([first, first]);
+    const ended = new Promise<string>((resolve) =>
+      manager.on("trackEnd", (_p, _t, payload) => resolve(payload.reason)),
+    );
+    let starts = 0;
+    // The client's request that starts the next track must land before the fake stops (afterEach).
+    const nextStarted = new Promise<void>((resolve) =>
+      manager.on("trackStart", () => {
+        starts += 1;
+        if (starts === 2) resolve();
+      }),
+    );
+    await player.play();
+    await Bun.sleep(20);
+    await player.skip();
+    expect(await ended).toBe("stopped");
+    await nextStarted;
+  });
 });

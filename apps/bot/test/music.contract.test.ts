@@ -32,6 +32,7 @@ let music: Music;
 let voicePackets: Array<Record<string, unknown>>;
 let notices: Array<{ channelId: string; notice: Notice }>;
 let clock: number;
+let jumpSpy: (data: { fromIndex: number; title: string }) => void = () => {};
 
 const stored = async (): Promise<PlayerState | null> => {
   const raw = await redis.get(RedisKeys.playerState(GUILD));
@@ -82,7 +83,10 @@ beforeEach(async () => {
   );
   music = createMusic({
     lavalink,
-    publisher: createPlayerPublisher(redis),
+    publisher: {
+      ...createPlayerPublisher(redis),
+      jump: async (_guildId, _revision, data) => jumpSpy(data),
+    },
     epoch: "test-epoch",
     oembedTitle: async (url) => (url.includes("open.spotify.com/track/lemon") ? "Lemon - Kenshi Yonezu" : null),
     announce: async (channelId, notice) => {
@@ -112,6 +116,7 @@ describe("playing from Discord against Fake Lavalink (#100)", () => {
       publisher: {
         publish: () => Promise.reject(new Error("redis down")),
         gone: () => Promise.reject(new Error("redis down")),
+        jump: () => Promise.reject(new Error("redis down")),
       },
       announce: async () => {},
       now: () => clock,
@@ -258,5 +263,95 @@ describe("web controls on the engine (#101)", () => {
       kind: "started",
       track: { title: "Lemon" },
     });
+  });
+});
+
+describe("queue editing on the engine (#102)", () => {
+  const titles = async () => (await stored())?.queue.map((t) => t.title);
+  const uriAt = async (i: number) => (await stored())?.queue[i]?.uri ?? "";
+  async function four() {
+    await play("lemon");
+    for (const q of ["idol", "gurenge", "pretender"]) await play(q);
+    await eventually(titles, (t) => t?.length === 3);
+  }
+
+  test("move follows spec #46 (to may equal length; moving down drops before the target)", async () => {
+    await four();
+    expect(await music.move(GUILD, 0, 3, await uriAt(0))).toBe("ok");
+    expect(await eventually(titles, (t) => t?.[2] === "Idol")).toEqual(["Gurenge", "Pretender", "Idol"]);
+    expect(await music.move(GUILD, 0, 9, await uriAt(0))).toBe("invalid-index");
+  });
+
+  test("remove and clear edit the queue and bump the revision", async () => {
+    await four();
+    const before = (await stored())?.revision ?? 0;
+    expect(await music.remove(GUILD, 1, await uriAt(1))).toBe("ok");
+    expect(await eventually(titles, (t) => t?.length === 2)).toEqual(["Idol", "Pretender"]);
+    expect(await music.clear(GUILD)).toBe(true);
+    const after = await eventually(stored, (s) => s?.queue.length === 0);
+    expect(after?.revision).toBeGreaterThan(before + 1);
+  });
+
+  test("an edit naming a track that is no longer at that index is refused as stale, untouched", async () => {
+    await four();
+    const idol = await uriAt(0);
+    expect(await music.remove(GUILD, 1, idol)).toBe("stale");
+    expect(await music.playNow(GUILD, 1, idol)).toBe("stale");
+    expect(await music.move(GUILD, 1, 3, idol)).toBe("stale");
+    expect(await titles()).toEqual(["Idol", "Gurenge", "Pretender"]);
+  });
+
+  test("play at a position inserts there (/playat); out of range clamps to the end (v5)", async () => {
+    await play("lemon");
+    await play("idol");
+    await play("gurenge");
+    await music.play({
+      guildId: GUILD,
+      voiceChannelId: VOICE,
+      textChannelId: TEXT,
+      query: "pretender",
+      requester: dee,
+      position: 1,
+    });
+    expect(await eventually(titles, (t) => t?.length === 3)).toEqual(["Idol", "Pretender", "Gurenge"]);
+  });
+
+  test("skipplay plays the new track now, keeps the queue, and posts no notice (spec #7, #24)", async () => {
+    await play("lemon");
+    await play("idol");
+    const before = (await eventually(stored, (s) => s?.queue.length === 1))?.revision ?? 0;
+    await music.play({
+      guildId: GUILD,
+      voiceChannelId: VOICE,
+      textChannelId: TEXT,
+      query: "gurenge",
+      requester: dee,
+      skipplay: true,
+    });
+    const state = await eventually(stored, (s) => s?.current?.title === "Gurenge");
+    expect(state?.queue.map((t) => t.title)).toEqual(["Idol"]);
+    // One edit, one revision (ADR-0007): the track start is the bump, not a second one before it.
+    expect(state?.revision).toBe(before + 1);
+    expect(notices.filter((n) => n.notice.description?.includes("Gurenge"))).toHaveLength(0);
+  });
+
+  test("play-now announces the jump first, then plays it and keeps the rest in order (spec #39)", async () => {
+    await four();
+    const order: string[] = [];
+    const jumped = new Promise<void>((resolve) => {
+      jumpSpy = (data) => {
+        order.push(`jump:${data.title}`);
+        resolve();
+      };
+    });
+    const before = (await stored())?.revision ?? 0;
+    expect(await music.playNow(GUILD, 2, await uriAt(2))).toBe("ok");
+    await jumped;
+    const state = await eventually(stored, (s) => s?.current?.title === "Pretender");
+    order.push(`now:${state?.current?.title}`);
+    expect(order).toEqual(["jump:Pretender", "now:Pretender"]);
+    expect(state?.queue.map((t) => t.title)).toEqual(["Idol", "Gurenge"]);
+    expect(state?.revision).toBe(before + 1);
+    expect(notices.filter((n) => n.notice.description?.includes("Pretender"))).toHaveLength(0);
   });
 });
