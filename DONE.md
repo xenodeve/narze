@@ -6,6 +6,33 @@
 
 ---
 
+## #108 Listening Sessions and Play History (2026-11-08, branch `feat/108-sessions-history`)
+
+**Goal:** a record of who listened to what with the Bot, visible only to the people who were there, and the most-played lists to start from when nothing plays.
+
+**Shipped:**
+- **Data:** `listening_sessions` (tracks and participants embedded, `participant_ids`, a generated `search_text` of names and titles), `play_history` (guild-user, user and guild rows), `record_play()`. RLS on; only the secret key reads or writes.
+- **Bot** (`apps/bot/src/history/*`):
+  - One session per Guild, from the first track until the Bot leaves voice. Participants are the room's non-bot members at each track start plus remote requesters.
+  - Each change goes to `listening-sessions.json` first. A new or ended session is saved at once; other changes are written behind within 5 minutes. A session's saves run in order, and a failed save is retried.
+  - A restart ends the sessions left active, at the restart time, and announces them.
+  - A track Queue Recovery restores is not a new play. A Player Lavalink took down keeps its session.
+  - Every track start records a play with `isMusic`/`isVideo` from `classify()`.
+- **Backend:** `GET /api/sessions[?q=]` and `/api/sessions/:id` are for participants only; anyone else gets a 404. `GET /api/history/top?scope=me|guildId=` (the Guild's list is for members only). `session:update`/`session:end` carry the summary plus the newest track and go to participants' user rooms only.
+- **Dashboard:**
+  - `/sessions`: a Row list with the Live badge and search.
+  - `/sessions/[id]`: a sticky header and replay through Select Server.
+  - Top-played (mine and the server's) on the idle guild page.
+  - The "ประวัติการฟัง" nav item.
+
+**Validated:**
+- `bun run verify` exit 0: bot 198 (incl. the recorder, history, store contract and music hooks), backend history e2e 5/5 (AC2: a Guild member who was not a participant gets no event and a 404), shared `trackKey` (AC3).
+- `bun run e2e` 31/31, including `e2e/sessions.spec.ts`: AC5 (live, replay, live end) and AC4 (top-played plays on click).
+- Red first: ordered saves, the recovered flag, the restart announcement, small events, and the Node-down session. The recorder and history unit tests for the recovered flag were written after the code.
+- Screenshots at 1280 and 390 px.
+
+**Not done here:** in #130 — session tracks as rows (24/7 growth), retrying a failed play, two Bot processes on one database, and the spec #88 SWR cache and collapsing header. The admin `activeUsers` stream belongs to #111. Real Discord/Lavalink are untested (#121).
+
 ## #107 Library: playlists, import, Likes (2026-11-08, branch `feat/107-library`)
 
 **Goal:** each signed-in user has their own playlists and Likes, can play them into a Guild, and sees a change live in every tab they have open.

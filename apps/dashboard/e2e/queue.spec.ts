@@ -188,7 +188,8 @@ test("dragging a row by its handle moves it, and a cancelled drag moves nothing"
   await page.mouse.move(box.x + box.width / 2, first.y - 40, { steps: 8 });
   await page.mouse.up();
   await expect(rows(page)).toHaveText(["R3", "P1", "Q2"]);
-  expect(model.queue.map((t) => t.title)).toEqual(["R3", "P1", "Q2"]);
+  // The screen moves at once (optimistic); the Bot's queue follows when the command lands.
+  await expect.poll(() => model.queue.map((t) => t.title)).toEqual(["R3", "P1", "Q2"]);
 
   // A pointer the browser cancels ends the drag in place.
   const before = model.revision;

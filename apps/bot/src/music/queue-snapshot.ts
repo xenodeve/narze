@@ -1,7 +1,8 @@
-import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { readdir, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { parseJson, SnowflakeSchema } from "@narze/shared";
 import { z } from "zod";
+import { writeJsonAtomic } from "../json-file";
 
 /** A Lavalink track as stored: `encoded` is what plays it again without a new search. */
 const StoredTrackSchema = z.object({
@@ -39,7 +40,6 @@ export type QueueSnapshot = z.infer<typeof QueueSnapshotSchema>;
 export function createSnapshotStore(dir: string) {
   // The file name is the Guild id, so only a snowflake may become one.
   const fileOf = (guildId: string) => join(dir, `${SnowflakeSchema.parse(guildId)}.json`);
-  let made: Promise<unknown> | null = null;
   const chains = new Map<string, Promise<void>>();
   function inOrder(guildId: string, task: () => Promise<void>): Promise<void> {
     const run = (chains.get(guildId) ?? Promise.resolve()).then(task, task);
@@ -53,17 +53,7 @@ export function createSnapshotStore(dir: string) {
   return {
     async save(snapshot: QueueSnapshot): Promise<void> {
       const file = fileOf(snapshot.guildId);
-      return inOrder(snapshot.guildId, async () => {
-        made ??= mkdir(dir, { recursive: true });
-        await made;
-        const temp = `${file}.${crypto.randomUUID()}.tmp`;
-        try {
-          await writeFile(temp, JSON.stringify(snapshot));
-          await rename(temp, file);
-        } finally {
-          await rm(temp, { force: true });
-        }
-      });
+      return inOrder(snapshot.guildId, () => writeJsonAtomic(file, snapshot));
     },
     async clear(guildId: string): Promise<void> {
       const file = fileOf(guildId);

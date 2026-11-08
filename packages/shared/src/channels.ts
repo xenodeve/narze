@@ -59,6 +59,10 @@ export const GuildEventTypes = {
   voiceReconnected: "voice:reconnected",
   /** data: `{ error: "player-gone" | "reconnect" }` — reconnecting failed; a fixed code, never the raw error. */
   voiceReconnectFailed: "voice:reconnect-failed",
+  /** data: ListeningSession — a session started or a track started in it (#108, spec #31). Participants only. */
+  sessionUpdate: "session:update",
+  /** data: ListeningSession — the Bot left voice and the session ended (#108). Participants only. */
+  sessionEnd: "session:end",
 } as const;
 
 /** The voice-drop events (spec #28), drawn by the Dashboard and never cached. */
@@ -88,4 +92,8 @@ export const SocketEvents = {
   libraryUpdate: "library:update",
   /** Backend → a Guild's room: the Guild's VoiceChannelList changed. */
   voiceChannels: "voice:channels",
+  /** Backend → each participant's own tabs (never the Guild room): a ListeningSession changed (#108). */
+  sessionUpdate: "session:update",
+  /** Backend → each participant's own tabs: a ListeningSession ended (#108). */
+  sessionEnd: "session:end",
 } as const;

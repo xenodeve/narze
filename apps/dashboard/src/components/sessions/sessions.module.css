@@ -1,0 +1,183 @@
+.page {
+  display: grid;
+  gap: 20px;
+  max-width: 960px;
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  font-weight: 600;
+  /* DESIGN.md rule 4: Thai at zero tracking. */
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Spec #88: the session's header stays in view while its tracks scroll. */
+.detailHead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: grid;
+  gap: 8px;
+  padding: 8px 0 12px;
+  background: var(--bg);
+}
+
+.meta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 0.8125rem;
+}
+
+/* Field (DESIGN.md): 48px pill input on surface. */
+.search {
+  height: 48px;
+  padding: 0 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 1rem;
+}
+
+@media (hover: hover) {
+  .search:hover {
+    border-color: var(--ink-3);
+  }
+}
+
+/* Row (DESIGN.md): history is hairline-ruled rows; enter = row (360 ms, −6px). */
+.rows,
+.tracks {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--line);
+}
+
+.row,
+.track {
+  border-bottom: 1px solid var(--line);
+  animation: row 360ms var(--ease) both;
+}
+
+@keyframes row {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+.rowLink {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 8px 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.rowHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.guild,
+.trackTitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+/* Badge (DESIGN.md): mono 0.6875rem pill, tone via 55 % border / 80 % text. */
+.badge {
+  --tone: var(--ink-3);
+  flex: none;
+  padding: 1px 8px;
+  border: 1px solid color-mix(in srgb, var(--tone) 55%, transparent);
+  border-radius: var(--r-pill);
+  color: color-mix(in srgb, var(--tone) 80%, var(--ink));
+  font-size: 0.6875rem;
+}
+
+.badge[data-tone="live"] {
+  --tone: var(--accent);
+}
+
+.faces {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--ink-2);
+  font-size: 0.8125rem;
+}
+
+.face {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--fill);
+  color: var(--ink-2);
+  font-size: 0.75rem;
+  object-fit: cover;
+}
+
+.track {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+}
+
+.text {
+  display: grid;
+  min-width: 0;
+}
+
+/* Button (DESIGN.md): icon = 36 circle. */
+.icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .icon:hover {
+    background: var(--fill);
+    color: var(--ink);
+  }
+}
+
+@media (max-width: 520px) {
+  .rowLink {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .row,
+  .track {
+    animation: none;
+  }
+}

@@ -61,9 +61,9 @@ Glossary for the whole repo (single-context). When a term appears in **bold**, u
 
 ## History
 
-**Listening Session** — one per **Guild**, from the first track until the Bot leaves voice. Records every started track and every participant. Session events reach only participants.
+**Listening Session** — one per **Guild**, from the first track until the Bot leaves voice (#108). Records every started track with its **Requester**, and every participant: the non-bot members in the Bot's voice channel at each track start plus remote requesters. Only participants can see a session or receive its events (`session:update`, `session:end`). The **Bot** saves a new or ended session to Supabase at once and other changes within 5 minutes, mirrored first to a local file (`listening-sessions.json` in `HISTORY_DIR`); a restart ends the sessions left active, with the restart time.
 
-**Play History** — per-play aggregates keyed by a normalised `title+author` id: per guild-user, per user, per guild. Feeds top-played lists.
+**Play History** — play counts per guild-user, per user and per guild (`play_history`, #108), keyed by `trackKey(title, author)` (v5's base64 id) so one song from two sources counts once, with `isMusic`/`isVideo`. Every track start counts. Feeds the top-played lists shown when nothing plays.
 
 **Like** — a user marking a track (the heart on Now Playing, the **Queue**, the **Catalog** and the **Library**); liked tracks form the user's Liked playlist, newest first (`likes`, #107).
 
@@ -153,9 +153,9 @@ Dashboard ──REST/Socket.io──▶ Backend ──Redis pub/sub──▶ Bot
 
 ## ประวัติ
 
-**Listening Session** — มีหนึ่งตัวต่อ **Guild** เริ่มที่เพลงแรกและจบเมื่อ Bot ออกจากห้องเสียง เก็บทุกเพลงที่เริ่มเล่นและผู้ร่วมฟังทุกคน event ของ session ส่งถึงเฉพาะคนที่ร่วมฟัง
+**Listening Session** — มีหนึ่งตัวต่อ **Guild** เริ่มที่เพลงแรกและจบเมื่อ Bot ออกจากห้องเสียง (#108) เก็บทุกเพลงที่เริ่มเล่นพร้อม **Requester** และผู้ร่วมฟังทุกคน คือสมาชิกที่ไม่ใช่บอทในห้องเสียงของ Bot ตอนแต่ละเพลงเริ่ม รวมกับคนที่ขอเพลงจากระยะไกล เฉพาะผู้ร่วมฟังเท่านั้นที่เห็น session และได้รับ event ของมัน (`session:update`, `session:end`) **Bot** บันทึก session ที่เพิ่งเริ่มหรือเพิ่งจบลง Supabase ทันที ส่วนการเปลี่ยนอื่นบันทึกภายใน 5 นาที โดยเขียนลงไฟล์ในเครื่องก่อนเสมอ (`listening-sessions.json` ใน `HISTORY_DIR`) พอ restart ก็ปิด session ที่ค้างอยู่ด้วยเวลาที่ restart
 
-**Play History** — ยอดรวมการเล่นที่ใช้ id จาก `title+author` ที่ normalise แล้ว แยกเป็นราย guild-user, รายผู้ใช้ และราย guild ใช้ทำรายการเพลงที่เล่นบ่อย
+**Play History** — จำนวนครั้งที่เล่น แยกราย guild-user, รายผู้ใช้ และราย guild (`play_history`, #108) ใช้ `trackKey(title, author)` (id แบบ base64 ของ v5) เป็นกุญแจ เพลงเดียวกันจากสองแหล่งจึงนับรวมกัน มี `isMusic`/`isVideo` ด้วย ทุกครั้งที่เพลงเริ่มนับหนึ่งครั้ง ใช้ทำรายการเพลงที่เล่นบ่อยที่แสดงตอนไม่มีอะไรเล่น
 
 **Like** — การที่ผู้ใช้กดถูกใจเพลง (หัวใจในหน้า Now Playing, **Queue**, **Catalog** และ **Library**) เพลงที่ถูกใจรวมเป็น playlist Liked ของผู้ใช้คนนั้น เรียงจากล่าสุดก่อน (`likes`, #107)
 
