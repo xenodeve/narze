@@ -4,6 +4,9 @@ import { z } from "zod";
 export const AdminRoleSchema = z.enum(["admin", "developer"]);
 export type AdminRole = z.infer<typeof AdminRoleSchema>;
 
+/** A Discord user ID (a snowflake): 17 to 20 digits. */
+export const DiscordIdSchema = z.string().regex(/^\d{17,20}$/);
+
 const RANK: Record<AdminRole, number> = { admin: 1, developer: 2 };
 
 /** Whether `role` (null: not on the whitelist) reaches `needed`. */
@@ -12,7 +15,7 @@ export function isAtLeast(role: AdminRole | null, needed: AdminRole): boolean {
 }
 
 export const WhitelistEntrySchema = z.object({
-  discordId: z.string().regex(/^\d{17,20}$/),
+  discordId: DiscordIdSchema,
   role: AdminRoleSchema,
   /** From NARZE_DEVELOPER_IDS: always a Developer, not removable from the Dashboard. */
   fixed: z.boolean(),
@@ -22,7 +25,7 @@ export const WhitelistEntrySchema = z.object({
 export type WhitelistEntry = z.infer<typeof WhitelistEntrySchema>;
 
 /** A whitelist change; only a Developer may send it. */
-export const WhitelistChangeSchema = z.object({ discordId: z.string().regex(/^\d{17,20}$/), role: AdminRoleSchema });
+export const WhitelistChangeSchema = z.object({ discordId: DiscordIdSchema, role: AdminRoleSchema });
 
 /**
  * One stats sample from the Bot (spec #109, #74), every 5 s. `cpuPercent` is measured over
@@ -43,6 +46,10 @@ export const AdminStatsSchema = z.object({
   ),
 });
 export type AdminStats = z.infer<typeof AdminStatsSchema>;
+
+/** GET /api/admin/me and GET /api/admin/stats. */
+export const AdminMeSchema = z.object({ role: AdminRoleSchema });
+export const AdminStatsListSchema = z.object({ samples: z.array(AdminStatsSchema) });
 
 export const LogLevelSchema = z.enum(["info", "warn", "error"]);
 export type LogLevel = z.infer<typeof LogLevelSchema>;

@@ -1,20 +1,22 @@
 import os from "node:os";
 import { join } from "node:path";
 import {
+  type AdminStats,
   Channels,
   DEFAULT_REDIS_URL,
   GuildEventSchema,
   GuildEventTypes,
   GuildSettingsSchema,
+  LOG_RING,
+  type LogLine,
   parseJson,
   RedisKeys,
   STATS_POINTS,
 } from "@narze/shared";
-import { cacheStats } from "@narze/shared/ttl-cache";
 import { createClient } from "@supabase/supabase-js";
 import { AuditLogEvent, Client, GatewayIntentBits, type Guild } from "discord.js";
-import { captureConsole, createLogSink } from "./admin/logs";
-import { createStatsSampler } from "./admin/stats";
+import { captureConsole, createRingSink } from "./admin/logs";
+import { createCpuMeter } from "./admin/stats";
 import { startCommandBus } from "./command-bus";
 import { announcer, handleInteractions } from "./discord/interactions";
 import { createGuildRegistry, type GuildVoiceSnapshot } from "./guild-registry";
@@ -51,7 +53,10 @@ const STATS_EVERY_MS = 5_000;
 
 const { mode, redis } = await detectRuntimeMode(env.REDIS_URL ?? DEFAULT_REDIS_URL, 1500);
 // #110, spec #120: in Connected Mode the console also feeds the admin log viewer.
-if (redis) captureConsole(createLogSink(redis));
+if (redis)
+  captureConsole(
+    createRingSink<LogLine>(redis, { ring: RedisKeys.botLogRing, channel: Channels.botLogs, cap: LOG_RING }),
+  );
 console.log(`[bot] ${mode} mode`);
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates] });
@@ -83,6 +88,7 @@ const db =
     : null;
 const settings = db ? createGuildSettings(createSupabaseSettingsStore(db)) : null;
 const youtube = createYouTube({ apiKey: env.YOUTUBE_API_KEY });
+const spotify = createSpotify({ clientId: env.SPOTIFY_CLIENT_ID, clientSecret: env.SPOTIFY_CLIENT_SECRET });
 const publisher = redis ? createPlayerPublisher(redis) : null;
 // Listening Sessions and Play History (#108). The local file keeps unsaved sessions across a crash.
 const history = db
@@ -110,7 +116,7 @@ const music = createMusic({
   // Bot classifies from Lavalink's data and falls back to avatars (spec #62–#67).
   artwork: createArtwork({
     youtube,
-    spotify: createSpotify({ clientId: env.SPOTIFY_CLIENT_ID, clientSecret: env.SPOTIFY_CLIENT_SECRET }),
+    spotify,
     modes: iconModesFrom(env),
     botIcon: () => client.user?.displayAvatarURL() ?? null,
   }),
@@ -130,32 +136,49 @@ function scheduleRecovery(): void {
 }
 const snapshotTimer = setInterval(() => void music.flush(), SNAPSHOT_EVERY_MS);
 // #110, spec #109: a stats sample every 5 s for the admin pages (Connected Mode only).
-const sampler = createStatsSampler({
+const cpu = createCpuMeter({
   now: Date.now,
   cpuMicros: () => {
     const { user, system } = process.cpuUsage();
     return user + system;
   },
-  cores: () => os.cpus().length,
-  memory: () => ({ usedBytes: os.totalmem() - os.freemem(), totalBytes: os.totalmem() }),
-  uptimeMs: () => client.uptime ?? 0,
-  online: () => client.isReady(),
-  pingMs: () => (client.ws.ping >= 0 ? client.ws.ping : null),
-  guilds: () => client.guilds.cache.size,
-  activePlayers: () => [...lavalink.players.values()].filter((p) => p.playing).length,
-  caches: cacheStats,
+  cores: os.cpus().length,
 });
-const statsTimer = redis
-  ? setInterval(() => {
-      const raw = JSON.stringify(sampler.sample());
-      void redis
-        .multi()
-        .lpush(RedisKeys.botStatsRing, raw)
-        .ltrim(RedisKeys.botStatsRing, 0, STATS_POINTS - 1)
-        .publish(Channels.botStats, raw)
-        .exec()
-        .catch(logFailure("publish stats"));
-    }, STATS_EVERY_MS)
+// Cache sizes take a JSON pass over every entry, so they are measured once a minute.
+let caches: AdminStats["caches"] = [];
+let samplesTaken = 0;
+const cacheSizes = () => {
+  if (samplesTaken++ % 12 === 0) {
+    const named = {
+      autocomplete: music.suggestionStats,
+      "spotify-artists": spotify.cacheStats,
+      "youtube-facts": youtube.cacheStats,
+    };
+    caches = Object.entries(named).map(([name, stats]) => {
+      const { entries, bytes } = stats();
+      return { name, items: entries, bytes };
+    });
+  }
+  return caches;
+};
+const statsSink = redis
+  ? createRingSink<AdminStats>(redis, { ring: RedisKeys.botStatsRing, channel: Channels.botStats, cap: STATS_POINTS })
+  : null;
+const statsTimer = statsSink
+  ? setInterval(
+      () =>
+        statsSink({
+          ...cpu(),
+          online: client.isReady(),
+          pingMs: client.ws.ping >= 0 ? client.ws.ping : null,
+          uptimeMs: client.uptime ?? 0,
+          guilds: client.guilds.cache.size,
+          activePlayers: [...lavalink.players.values()].filter((p) => p.playing).length,
+          memory: { usedBytes: os.totalmem() - os.freemem(), totalBytes: os.totalmem() },
+          caches: cacheSizes(),
+        }),
+      STATS_EVERY_MS,
+    )
   : null;
 handleInteractions(client, music, () => lavalink.nodeManager.leastUsedNodes().length > 0, {
   settings: settings ?? undefined,

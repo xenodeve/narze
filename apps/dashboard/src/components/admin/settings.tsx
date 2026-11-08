@@ -1,6 +1,6 @@
 "use client";
 
-import type { AdminRole, WhitelistEntry } from "@narze/shared";
+import { type AdminRole, DiscordIdSchema, type WhitelistEntry } from "@narze/shared";
 import { useCallback, useEffect, useState } from "react";
 import { getWhitelist, removeWhitelist, setWhitelist } from "@/lib/admin";
 import styles from "./admin.module.css";
@@ -59,7 +59,11 @@ function Whitelist() {
             <option value="developer">developer</option>
           </select>
         </label>
-        <button type="submit" className={styles.primary} disabled={!/^\d{17,20}$/.test(discordId.trim())}>
+        <button
+          type="submit"
+          className={styles.primary}
+          disabled={!DiscordIdSchema.safeParse(discordId.trim()).success}
+        >
           เพิ่ม
         </button>
       </form>

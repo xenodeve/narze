@@ -136,19 +136,19 @@ describe("the whitelist (#110, AC2)", () => {
 });
 
 describe("stats and logs (#110, AC3, AC4)", () => {
+  const sample = (at: number) => ({
+    at,
+    windowMs: 5000,
+    online: true,
+    pingMs: 40,
+    uptimeMs: at,
+    guilds: 1,
+    activePlayers: 0,
+    cpuPercent: 3,
+    memory: { usedBytes: 1, totalBytes: 2 },
+    caches: [],
+  });
   test("stats come with their window; the samples are oldest first", async () => {
-    const sample = (at: number) => ({
-      at,
-      windowMs: 5000,
-      online: true,
-      pingMs: 40,
-      uptimeMs: at,
-      guilds: 1,
-      activePlayers: 0,
-      cpuPercent: 3,
-      memory: { usedBytes: 1, totalBytes: 2 },
-      caches: [],
-    });
     await redis.del(RedisKeys.botStatsRing);
     await redis.lpush(RedisKeys.botStatsRing, JSON.stringify(sample(1)), JSON.stringify(sample(2)));
     const body = (await (await call(sessions.dev110 as FakeSession, "GET", "/api/admin/stats")).json()) as {
@@ -186,5 +186,26 @@ describe("stats and logs (#110, AC3, AC4)", () => {
     expect(fanGot).toEqual([]);
     devSocket.close();
     fanSocket.close();
+  });
+
+  test("a stats-only tab ({ logs: false }) gets stats samples but no console lines", async () => {
+    const socket = io(url, {
+      transports: ["websocket"],
+      auth: { token: (sessions.dev110 as FakeSession).access_token },
+    });
+    await new Promise((resolve) => socket.once(SocketEvents.sessionReady, resolve));
+    const ack = await new Promise<{ ok: boolean; history?: LogLine[] }>((resolve) =>
+      socket.emit(SocketEvents.adminSubscribe, { logs: false }, resolve),
+    );
+    expect(ack).toEqual({ ok: true, history: [] });
+    const logs: unknown[] = [];
+    socket.on(SocketEvents.adminLog, (l) => logs.push(l));
+    const stats = new Promise<unknown>((resolve) => socket.once(SocketEvents.adminStats, resolve));
+    await redis.publish(Channels.botLogs, JSON.stringify({ at: 1, level: "info", text: "not for this tab" }));
+    await redis.publish(Channels.botStats, JSON.stringify(sample(3)));
+    expect(AdminStatsSchema.parse(await stats).at).toBe(3);
+    await Bun.sleep(100);
+    expect(logs).toEqual([]);
+    socket.close();
   });
 });

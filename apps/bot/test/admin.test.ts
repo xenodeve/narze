@@ -1,8 +1,8 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { DEFAULT_REDIS_URL, LOG_RING, LogLineSchema } from "@narze/shared";
+import { DEFAULT_REDIS_URL, LOG_RING, type LogLine, LogLineSchema } from "@narze/shared";
 import Redis from "ioredis";
-import { captureConsole, createLogSink } from "../src/admin/logs";
-import { createStatsSampler } from "../src/admin/stats";
+import { captureConsole, createRingSink } from "../src/admin/logs";
+import { createCpuMeter } from "../src/admin/stats";
 
 const redis = new Redis(process.env.REDIS_URL ?? DEFAULT_REDIS_URL);
 const RING = "test110:log-ring";
@@ -49,7 +49,7 @@ describe("the Bot's console, captured (#110, spec #120)", () => {
     await sub.subscribe(CHANNEL);
     const heard: string[] = [];
     sub.on("message", (_c, raw) => heard.push(LogLineSchema.parse(JSON.parse(raw)).text));
-    const sink = createLogSink(redis, { ring: RING, channel: CHANNEL });
+    const sink = createRingSink<LogLine>(redis, { ring: RING, channel: CHANNEL, cap: LOG_RING });
     for (let i = 0; i < LOG_RING + 5; i++) sink({ at: i, level: "info", text: `line ${i}` });
     await sink.flushed();
     expect(await redis.llen(RING)).toBe(LOG_RING);
@@ -61,36 +61,13 @@ describe("the Bot's console, captured (#110, spec #120)", () => {
 });
 
 describe("stats samples (#110, spec #109)", () => {
-  test("CPU % is the process's share of every core over the window since the last sample", () => {
+  test("CPU % is the process's share of every core over the window since the last reading", () => {
     let clock = 10_000;
     let cpuMicros = 0;
-    const sampler = createStatsSampler({
-      now: () => clock,
-      cpuMicros: () => cpuMicros,
-      cores: () => 4,
-      memory: () => ({ usedBytes: 6, totalBytes: 8 }),
-      uptimeMs: () => 1234,
-      online: () => true,
-      pingMs: () => 42,
-      guilds: () => 3,
-      activePlayers: () => 1,
-      caches: () => [{ name: "c", items: 1, bytes: 2 }],
-    });
-    sampler.sample();
+    const cpu = createCpuMeter({ now: () => clock, cpuMicros: () => cpuMicros, cores: 4 });
     clock += 5_000;
     // 2 s of CPU across 4 cores in 5 s = 10 %.
     cpuMicros += 2_000_000;
-    expect(sampler.sample()).toEqual({
-      at: 15_000,
-      windowMs: 5_000,
-      online: true,
-      pingMs: 42,
-      uptimeMs: 1234,
-      guilds: 3,
-      activePlayers: 1,
-      cpuPercent: 10,
-      memory: { usedBytes: 6, totalBytes: 8 },
-      caches: [{ name: "c", items: 1, bytes: 2 }],
-    });
+    expect(cpu()).toEqual({ at: 15_000, windowMs: 5_000, cpuPercent: 10 });
   });
 });

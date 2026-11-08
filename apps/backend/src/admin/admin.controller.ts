@@ -1,4 +1,4 @@
-import { AdminStatsSchema, parseJson, RedisKeys, WhitelistChangeSchema } from "@narze/shared";
+import { AdminStatsSchema, DiscordIdSchema, RedisKeys, STATS_POINTS, WhitelistChangeSchema } from "@narze/shared";
 import {
   BadRequestException,
   Body,
@@ -16,6 +16,7 @@ import type Redis from "ioredis";
 import { REDIS } from "../tokens";
 import { AdminGuard, type AdminRequest, DeveloperOnly } from "./admin.guard";
 import { AdminRoles } from "./admin-roles";
+import { readRing } from "./ring";
 
 /** The admin area (#110). AdminGuard covers every route here; some need a Developer. */
 @Controller("api/admin")
@@ -34,12 +35,7 @@ export class AdminController {
   /** Spec #109: the Bot's last samples, oldest first; each carries its own window. */
   @Get("stats")
   async stats() {
-    const raw = await this.redis.lrange(RedisKeys.botStatsRing, 0, -1);
-    const samples = raw.flatMap((line) => {
-      const sample = parseJson(AdminStatsSchema, line);
-      return sample ? [sample] : [];
-    });
-    return { samples: samples.reverse() };
+    return { samples: await readRing(this.redis, RedisKeys.botStatsRing, AdminStatsSchema, STATS_POINTS) };
   }
 
   @Get("whitelist")
@@ -61,7 +57,7 @@ export class AdminController {
   @DeveloperOnly()
   @HttpCode(204)
   async remove(@Param("discordId") discordId: string) {
-    if (!/^\d{17,20}$/.test(discordId)) throw new BadRequestException("invalid id");
+    if (!DiscordIdSchema.safeParse(discordId).success) throw new BadRequestException("invalid id");
     await this.roles.remove(discordId);
   }
 }

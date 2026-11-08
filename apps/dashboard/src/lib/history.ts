@@ -55,7 +55,12 @@ export function useSessionEvents(onSession: (event: SessionEvent) => void): void
 
 /** "15 นาที", "1 ชม. 5 นาที": how long a session has run (or ran). */
 export function sessionLength(session: Pick<SessionSummary, "startTime" | "endTime">, now = Date.now()): string {
-  const minutes = Math.max(0, Math.round(((session.endTime ?? now) - session.startTime) / 60_000));
+  return duration((session.endTime ?? now) - session.startTime);
+}
+
+/** A span of time to the minute: "15 นาที", "1 ชม. 5 นาที", "2 ชม.". */
+export function duration(ms: number): string {
+  const minutes = Math.max(0, Math.round(ms / 60_000));
   if (minutes < 60) return `${minutes} นาที`;
   const hours = Math.floor(minutes / 60);
   return minutes % 60 ? `${hours} ชม. ${minutes % 60} นาที` : `${hours} ชม.`;

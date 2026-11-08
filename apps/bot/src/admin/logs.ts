@@ -1,5 +1,5 @@
 import { format } from "node:util";
-import { Channels, LOG_RING, type LogLine, logLevelOf, RedisKeys } from "@narze/shared";
+import { type LogLine, logLevelOf } from "@narze/shared";
 import type Redis from "ioredis";
 
 type ConsoleLike = Pick<Console, "log" | "info" | "debug" | "warn" | "error">;
@@ -37,28 +37,33 @@ export function captureConsole(
 }
 
 /**
- * The log ring in Redis (spec #120): newest first, capped at LOG_RING lines across restarts, and
- * each line published for admin tabs watching live. Writes go out in order.
+ * A capped ring in Redis, newest first, with each item published for admin tabs watching live:
+ * the log ring (spec #120, LOG_RING lines across restarts) and the stats ring (spec #109). Items
+ * that arrive while a write is in flight go out together in the next one, in order; while Redis is
+ * unreachable at most `cap` items wait.
  */
-export function createLogSink(
+export function createRingSink<T>(
   redis: Redis,
-  { ring = RedisKeys.botLogRing, channel = Channels.botLogs }: { ring?: string; channel?: string } = {},
+  { ring, channel, cap }: { ring: string; channel: string; cap: number },
 ) {
+  let pending: string[] = [];
   let chain: Promise<unknown> = Promise.resolve();
-  const sink = (line: LogLine) => {
-    const raw = JSON.stringify(line);
-    chain = chain
-      .then(() =>
-        redis
-          .multi()
-          .lpush(ring, raw)
-          .ltrim(ring, 0, LOG_RING - 1)
-          .publish(channel, raw)
-          .exec(),
-      )
-      .catch(() => {});
+  const write = async () => {
+    const raws = pending;
+    pending = [];
+    const multi = redis
+      .multi()
+      .lpush(ring, ...raws)
+      .ltrim(ring, 0, cap - 1);
+    for (const raw of raws) multi.publish(channel, raw);
+    await multi.exec();
   };
-  /** Resolves when every line written so far has reached Redis. */
+  const sink = (item: T) => {
+    pending.push(JSON.stringify(item));
+    if (pending.length > cap) pending.splice(0, pending.length - cap);
+    if (pending.length === 1) chain = chain.then(write).catch(() => {});
+  };
+  /** Resolves when every item written so far has reached Redis. */
   sink.flushed = () => chain.then(() => {});
   return sink;
 }

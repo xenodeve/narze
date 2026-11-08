@@ -1,4 +1,4 @@
-import { DEFAULT_REDIS_URL } from "@narze/shared";
+import { DEFAULT_REDIS_URL, DiscordIdSchema } from "@narze/shared";
 import { createApp } from "./app";
 
 const env = process.env;
@@ -32,7 +32,7 @@ const app = await createApp({
   developerIds: (env.NARZE_DEVELOPER_IDS ?? "")
     .split(",")
     .map((id) => id.trim())
-    .filter((id) => /^\d{17,20}$/.test(id)),
+    .filter((id) => DiscordIdSchema.safeParse(id).success),
 });
 await app.listen(Number(env.BACKEND_PORT ?? 4000));
 console.log(`[backend] listening on ${await app.getUrl()}`);

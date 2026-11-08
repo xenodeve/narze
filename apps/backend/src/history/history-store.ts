@@ -1,6 +1,7 @@
 import type { ListeningSession, SessionSummary, TopPlayed } from "@narze/shared";
 import { Inject, Injectable } from "@nestjs/common";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { check } from "../supabase-check";
 import { SUPABASE } from "../tokens";
 
 interface SessionRow {
@@ -41,10 +42,6 @@ const summaryOf = (row: SessionRow): SessionSummary => ({
   participants: row.participants,
   trackCount: row.track_count,
 });
-
-const check = (what: string, error: { message: string } | null) => {
-  if (error) throw new Error(`${what}: ${error.message}`);
-};
 
 /**
  * Listening Sessions and Play History (#108), read for the Dashboard. A session is only ever read

@@ -8,6 +8,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { Thinking } from "@/components/catalog/thinking";
 import { getStats, useAdminRole, useAdminRoom } from "@/lib/admin";
+import { duration } from "@/lib/history";
 import { useSession } from "@/lib/session";
 import styles from "./admin.module.css";
 
@@ -62,10 +63,6 @@ function AdminNav({ role }: { role: AdminRole }) {
 
 const gb = (bytes: number) => `${(bytes / 1024 ** 3).toFixed(1)} GB`;
 const kb = (bytes: number) => `${(bytes / 1024).toFixed(1)} KB`;
-const hours = (ms: number) => {
-  const minutes = Math.floor(ms / 60_000);
-  return minutes < 60 ? `${minutes} นาที` : `${Math.floor(minutes / 60)} ชม. ${minutes % 60} นาที`;
-};
 
 /** A hex colour from a CSS token, for the SloshGauge (it computes its text colour from hex). */
 function useTokenHex(name: string, fallback: string): string {
@@ -126,8 +123,6 @@ function Overview() {
     void getStats().then((s) => setSamples(s?.samples ?? []));
   }, []);
   useAdminRoom({
-    onHistory: useCallback(() => {}, []),
-    onLine: useCallback(() => {}, []),
     onStats: useCallback((sample: AdminStats) => {
       setSamples((all) => [...(all ?? []), sample].slice(-STATS_POINTS));
     }, []),
@@ -153,7 +148,7 @@ function Overview() {
               value={last.online ? "ออนไลน์" : "ออฟไลน์"}
               hint={last.pingMs === null ? undefined : `ping ${last.pingMs} ms`}
             />
-            <Card label="ทำงานมาแล้ว" value={hours(last.uptimeMs)} />
+            <Card label="ทำงานมาแล้ว" value={duration(last.uptimeMs)} />
             <Card label="เซิร์ฟเวอร์" value={last.guilds} />
             <Card label="กำลังเล่น" value={last.activePlayers} />
           </ul>

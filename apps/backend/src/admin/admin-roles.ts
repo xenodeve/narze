@@ -1,11 +1,8 @@
 import type { AdminRole, WhitelistEntry } from "@narze/shared";
 import { ConflictException, Inject, Injectable } from "@nestjs/common";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { check } from "../supabase-check";
 import { DEVELOPER_IDS, SUPABASE } from "../tokens";
-
-const check = (what: string, error: { message: string } | null) => {
-  if (error) throw new Error(`${what}: ${error.message}`);
-};
 
 /**
  * The Admin Whitelist (#110, spec #97, #122), enforced by the Backend. NARZE_DEVELOPER_IDS are always
