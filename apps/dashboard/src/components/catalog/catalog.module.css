@@ -1,0 +1,220 @@
+.search {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.field {
+  position: relative;
+}
+
+/* Field (DESIGN.md): 48px pill input on the surface. */
+.input {
+  width: 100%;
+  height: 48px;
+  padding: 0 44px 0 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+
+@media (hover: hover) {
+  .input:hover {
+    border-color: var(--ink-3);
+  }
+}
+
+.orb {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  display: grid;
+}
+
+.top {
+  display: grid;
+  gap: 8px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--r3);
+  background: var(--surface);
+}
+
+.kicker,
+.note {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 0.8125rem;
+}
+
+.topName {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.topName a {
+  color: inherit;
+}
+
+.primary {
+  justify-self: start;
+  height: 36px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.heading {
+  margin: 8px 0 8px;
+  color: var(--ink-2);
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+/* Row (DESIGN.md): hairline-ruled list rows. */
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--line);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 60px;
+  border-bottom: 1px solid var(--line);
+  animation: row 360ms var(--ease) both;
+}
+
+@keyframes row {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+.art {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r1);
+  background: color-mix(in srgb, var(--ink) 12%, var(--bg));
+  color: var(--ink-2);
+  object-fit: cover;
+}
+
+.text {
+  display: grid;
+  min-width: 0;
+}
+
+.title,
+.cardName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sub,
+.time {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--ink-2);
+  font-size: 0.8125rem;
+}
+
+/* Badge (DESIGN.md): mono pill in the neutral tone. */
+.badge {
+  padding: 1px 8px;
+  border: 1px solid color-mix(in srgb, var(--ink-3) 55%, transparent);
+  border-radius: var(--r-pill);
+  font-size: 0.6875rem;
+  white-space: nowrap;
+}
+
+.play {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .play:hover {
+    background: var(--fill);
+    color: var(--ink);
+  }
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.card {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.round,
+.square {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 1;
+  height: auto;
+  background: color-mix(in srgb, var(--ink) 10%, var(--bg));
+  color: var(--ink-2);
+  font-size: 2rem;
+  object-fit: cover;
+}
+
+.round {
+  border-radius: 50%;
+}
+
+.square {
+  border-radius: var(--r2);
+}
+
+.error {
+  margin: 0;
+  color: var(--danger);
+}
+
+@media (max-width: 520px) {
+  .row {
+    grid-template-columns: 40px minmax(0, 1fr) auto;
+  }
+
+  .time {
+    display: none;
+  }
+}

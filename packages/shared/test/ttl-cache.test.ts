@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createTtlCache } from "../src/music/ttl-cache";
+import { createTtlCache } from "../src/ttl-cache";
 
 describe("TTL cache (#104, spec #69, #73)", () => {
   test("an entry lives until its TTL, then reads as missing", () => {

@@ -32,6 +32,12 @@ export default defineConfig({
       reuseExistingServer: false,
     },
     {
+      // Catalog search's outside world (#105): Fake Lavalink :4610 and a fake Spotify Web API :4611.
+      command: `${BUN} e2e/fake-catalog.ts`,
+      port: 4611,
+      reuseExistingServer: false,
+    },
+    {
       // Run from the backend folder: Bun picks the tsconfig from the working directory, and the
       // backend's legacy-decorator settings (Nest) only apply when started there.
       command: `${BUN} src/main.ts`,
@@ -43,6 +49,13 @@ export default defineConfig({
         SUPABASE_URL: supabase.url,
         SUPABASE_SECRET_KEY: supabase.secretKey,
         DISCORD_API_URL: `http://127.0.0.1:${FAKE_DISCORD_PORT}/api/v10`,
+        LAVALINK_HOST: "127.0.0.1",
+        LAVALINK_PORT: "4610",
+        LAVALINK_PASSWORD: "e2e",
+        SPOTIFY_CLIENT_ID: "e2e",
+        SPOTIFY_CLIENT_SECRET: "e2e",
+        SPOTIFY_API_URL: "http://127.0.0.1:4611/v1",
+        SPOTIFY_ACCOUNTS_URL: "http://127.0.0.1:4611",
       },
       // Never reuse: in no-CI mode the T4 gate runs e2e locally, and a stale server on this port
       // would test old code (#116).

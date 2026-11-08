@@ -1,0 +1,16 @@
+.panel {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+  min-width: 0;
+}
+
+.done {
+  margin: 0 0 12px;
+  color: var(--ok);
+}
+
+.error {
+  margin: 0 0 12px;
+  color: var(--danger);
+}

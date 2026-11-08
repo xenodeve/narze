@@ -52,6 +52,12 @@ export const ERROR_TH: Record<string, string> = {
   failed: "ทำไม่สำเร็จ ลองอีกครั้ง",
 };
 
+/** Adds a track or link to a Guild's queue from a browse page or the Search tab (#105). */
+export async function playInGuild(guildId: string, query: string): Promise<{ ok: boolean; text: string | null }> {
+  const ack = await sendCommand(guildId, { action: "play", query, next: false, voiceChannelId: null });
+  return { ok: ack.ok, text: ack.ok ? null : (explain(ack) ?? ERROR_TH.failed ?? null) };
+}
+
 export function explain(ack: ControlAck): string | null {
   if (ack.ok) return null;
   if (ack.reason) return REASON_TH[ack.reason as ControlReason] ?? ack.reason;

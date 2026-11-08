@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test";
+import { createTtlCache } from "@narze/shared/ttl-cache";
 import { createSuggester, type Loaded } from "../src/music/autocomplete";
-import { createTtlCache } from "../src/music/ttl-cache";
 
 const song = (title: string, author = "YOASOBI", uri = `https://music.youtube.com/watch?v=${title}`) => ({
   info: { title, author, uri },

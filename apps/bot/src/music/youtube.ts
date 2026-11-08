@@ -1,4 +1,4 @@
-import { createTtlCache, WEEK_MS } from "./ttl-cache";
+import { createTtlCache, WEEK_MS } from "@narze/shared/ttl-cache";
 
 /** What the YouTube Data API says about a video, for music-vs-video (spec #48, #62). */
 export interface VideoFacts {

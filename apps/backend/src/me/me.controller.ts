@@ -1,4 +1,4 @@
-import type { GuildSummary } from "@narze/shared";
+import type { GuildSummary, PlayPermission } from "@narze/shared";
 import {
   BadGatewayException,
   BadRequestException,
@@ -49,6 +49,19 @@ export class MeController {
     await this.store.replaceGuilds(
       identity.discordId,
       guilds.map((g) => ({ id: g.id, name: g.name, iconUrl: guildIconUrl(g), isOwner: g.owner })),
+    );
+  }
+
+  /** Spec #91: for the Select Server modal, whether each Mutual Guild lets the user play, and why. */
+  @Get("play-permissions")
+  async playPermissions(@Headers("authorization") authorization: string | undefined): Promise<PlayPermission[]> {
+    const { discordId } = await this.auth.require(authorization);
+    const mutual = await this.directory.mutual(await this.store.guildsOf(discordId));
+    return Promise.all(
+      mutual.map(async (guild) => {
+        const { canControl, reason } = await this.directory.permission(discordId, guild);
+        return { guildId: guild.id, name: guild.name, iconUrl: guild.iconUrl ?? null, canPlay: canControl, reason };
+      }),
     );
   }
 

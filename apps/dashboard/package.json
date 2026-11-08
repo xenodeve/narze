@@ -20,10 +20,12 @@
     "next": "16.4.5",
     "react": "19.3.1",
     "react-dom": "19.3.1",
-    "socket.io-client": "4.8.4"
+    "socket.io-client": "4.8.4",
+    "thinking-orbs": "0.3.2"
   },
   "devDependencies": {
     "@narze/fake-discord": "workspace:*",
+    "@narze/fake-lavalink": "workspace:*",
     "@playwright/test": "1.65.0",
     "@types/node": "24",
     "@types/react": "19.3.0",

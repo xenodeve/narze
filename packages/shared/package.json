@@ -8,7 +8,10 @@
     "./channels": "./src/channels.ts",
     "./progress": "./src/progress.ts",
     "./reconcile": "./src/reconcile.ts",
-    "./queue": "./src/queue.ts"
+    "./queue": "./src/queue.ts",
+    "./ttl-cache": "./src/ttl-cache.ts",
+    "./search": "./src/search.ts",
+    "./spotify-api": "./src/spotify-api.ts"
   },
   "scripts": {
     "test": "bun test",

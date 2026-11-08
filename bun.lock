@@ -29,6 +29,7 @@
       },
       "devDependencies": {
         "@narze/fake-discord": "workspace:*",
+        "@narze/fake-lavalink": "workspace:*",
         "socket.io-client": "4.8.4",
       },
     },
@@ -60,9 +61,11 @@
         "react": "19.3.1",
         "react-dom": "19.3.1",
         "socket.io-client": "4.8.4",
+        "thinking-orbs": "0.3.2",
       },
       "devDependencies": {
         "@narze/fake-discord": "workspace:*",
+        "@narze/fake-lavalink": "workspace:*",
         "@playwright/test": "1.65.0",
         "@types/node": "24",
         "@types/react": "19.3.0",
@@ -513,6 +516,8 @@
     "strtok3": ["strtok3@10.7.0", "", { "dependencies": { "@tokenizer/token": "^0.3.0" } }, "sha512-iAqrCpp7UXD2FZiHWhLXqdJ6CmNeVzRkkHAyyhhKMVtbVm2KtPX3D/bJNonvtcyLTHS4rwqP2pz9fsjK1K4z0Q=="],
 
     "styled-jsx": ["styled-jsx@5.1.6", "", { "dependencies": { "client-only": "0.0.1" }, "peerDependencies": { "@babel/core": "*", "babel-plugin-macros": "*", "react": ">= 16.8.0 || 17.x.x || ^18.0.0-0 || ^19.0.0-0" }, "optionalPeers": ["@babel/core", "babel-plugin-macros"] }, "sha512-qSVyDTeMotdvQYoHWLNGwRFJHC+i+ZvdBRYosOFgC+Wg1vx4frN2/RG/NA7SYqqvKNLf39P2LSRA2pu6n0XYZA=="],
+
+    "thinking-orbs": ["thinking-orbs@0.3.2", "", { "peerDependencies": { "react": ">=18.0.0" } }, "sha512-QZFeBaPEzqhjiZoXy961EvDgaXk2WgXacF3Rbz+Sj5IfzDzBvTC86vdREUHniBffYibJFKSwbfllxLUdI/Xv6g=="],
 
     "toidentifier": ["toidentifier@1.0.1", "", {}, "sha512-o5sSPKEkg/DIQNmH43V0/uerLrpzVedkUh8tGNvaeXpfpuwjKenlSox/2O/BTlZUtEe+JG7s5YhEz608PlAHRA=="],
 

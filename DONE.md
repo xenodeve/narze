@@ -6,6 +6,50 @@
 
 ---
 
+## #105 Catalog search and browse on the Dashboard (2026-11-08, branch `feat/105-search-catalog`)
+
+**Goal:** search four sources from the Dashboard, open artist, album and channel pages, and play into a chosen server, seeing why a server is locked.
+
+**Shipped:**
+- **Shared:**
+  - `search.ts`: the search contract, the catalog page schemas, `topResult()` per v5 §7.2 (exact 1.1, track > artist > album, Dice within 0.1, minimums) and `diceSimilarity`.
+  - `ttl-cache` and the Spotify client-credentials core move here from the Bot.
+- **Backend:**
+  - `SearchService` with four modes. `spotify-api` (the default) keeps v5's own top-result ladder. `spotify` uses `spsearch:` and falls back to `ytmsearch:`.
+  - YouTube channels: `" official artist"` for YT Music, descriptions cut to 200, hidden subscriber counts returned as undefined, searches cached 30 min.
+  - Pages: artist (TH top tracks, albums and singles, 20), album (every track, paged), channel.
+  - `GET /api/me/play-permissions`.
+  - ADR-0009: the Backend calls Lavalink's REST API directly. Every identifier is prefixed, so no URL is ever loaded (SSRF).
+- **Dashboard:**
+  - `/search`: source tabs, 250 ms debounce, ThinkingOrb, top result with match %, songs with source badge and VIDEO chip, artists, albums.
+  - `/artist`, `/album`, `/channel` pages.
+  - Select Server dialog, showing why a guild is locked.
+  - Guild page Queue / Search tabs for quick-add.
+  - One pill-tabs style and one `playInGuild` helper.
+
+**Validation:**
+- `bun run verify` exit 0. `bun run e2e`: 22 passed.
+- Catalog e2e covers: search → artist → play into the chosen server with the locked guild's reason; the YT Music mode; the guild Search tab.
+- Red first: scoring (6), service contracts per mode and pages, HTTP e2e, catalog e2e (3), and the review fixes:
+  - `spsearch` prefix and fallback
+  - `spotify-api` ladder
+  - VIDEO chip
+  - channel-search cache
+  - album paging
+  - SSRF: no bare URL reaches Lavalink
+- Screenshots at 1280 px light and 390 px dark, with no horizontal overflow.
+- **Not run:** real Spotify, YouTube or Lavalink (#121); CI (#116).
+
+**Lessons:**
+- A fake that accepts every input hides a missing prefix. The Lavalink fake answered prefix-less words, so the real node's empty answer and an SSRF path both passed. The review fix now models the node's behaviour in the test.
+- Anything the server passes to Lavalink as an identifier is a URL fetch unless it is prefixed. The Backend needs the same guard the Bot has.
+
+**Deferred:** "top-played when empty" in quick-add (#85) needs play history, which comes with the history slice.
+
+**Next:** #106.
+
+---
+
 ## #104 Track Resolution depth: playlists, pictures, icons, autocomplete, /cache (2026-11-08, branch `feat/104-track-resolution`)
 
 **Goal:** playlists play whole and say where each track came from. Tracks show the right picture, the notice shows the configured icon, and the play commands suggest tracks.
