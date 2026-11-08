@@ -1,0 +1,16 @@
+{
+  "name": "@narze/fake-lavalink",
+  "version": "7.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "devDependencies": {
+    "lavalink-client": "2.11.0"
+  }
+}

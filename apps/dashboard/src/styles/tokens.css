@@ -1,0 +1,94 @@
+/* Strata-xeno tokens for Narze v7 — see DESIGN.md. Five base colours flip with the theme;
+   everything else is mixed from ink. */
+:root {
+  --bg: #f5f5f7;
+  --surface: #ffffff;
+  --ink: #131316;
+  --accent: #0a62d6;
+  --ok: #1a8a4a;
+  --warn: #b26a00;
+  --danger: #c4302b;
+
+  --ink-2: color-mix(in srgb, var(--ink) 66%, var(--bg));
+  --ink-3: color-mix(in srgb, var(--ink) 42%, var(--bg));
+  --line: color-mix(in srgb, var(--ink) 12%, transparent);
+  --fill: color-mix(in srgb, var(--ink) 6%, transparent);
+
+  --ease: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-soft: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-digit: cubic-bezier(0.34, 1.45, 0.64, 1);
+  --t1: 160ms;
+  --t2: 320ms;
+  --t3: 600ms;
+  --t-glide: 420ms;
+  --stagger: 38ms;
+
+  --r1: 8px;
+  --r2: 12px;
+  --r3: 16px;
+  --r-window: 20px;
+  --r-stage: 28px;
+  --r-pill: 999px;
+
+  --gutter: clamp(16px, 3vw, 32px);
+  --nav-h: 60px;
+  --side-w: 240px;
+  --max: 1320px;
+
+  --shadow-menu: 0 18px 40px -16px rgb(0 0 0 / 0.3);
+  --shadow-window: 0 50px 90px -50px rgb(0 0 0 / 0.45);
+
+  --font-sans: var(--font-inter), var(--font-anuphan), -apple-system, "Segoe UI", system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, "Cascadia Mono", Consolas, monospace;
+
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b0b0d;
+    --surface: #151518;
+    --ink: #f1f1f3;
+    --accent: #5aa2ff;
+    --ok: #4cc380;
+    --warn: #f0a640;
+    --danger: #ff6b62;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0b0b0d;
+  --surface: #151518;
+  --ink: #f1f1f3;
+  --accent: #5aa2ff;
+  --ok: #4cc380;
+  --warn: #f0a640;
+  --danger: #ff6b62;
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+/* Always-dark island: derived tokens are computed on :root and do not re-derive here, so they are
+   re-declared as literals (DESIGN.md §3 "Islands"). */
+.deep {
+  --bg: #0b0b0d;
+  --surface: #151518;
+  --ink: #f1f1f3;
+  --accent: #5aa2ff;
+  --ok: #4cc380;
+  --ink-2: #a8a8b2;
+  --ink-3: #6f6f7a;
+  --line: rgb(255 255 255 / 0.14);
+  --fill: rgb(255 255 255 / 0.07);
+  background: var(--bg);
+  color: var(--ink);
+}
+
+@property --mood {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #8a8a96;
+}

@@ -37,9 +37,9 @@ After shipping a unit: add a dated entry on top of `DONE.md`, update the ledger 
 ## Repo layout
 
 ```
-apps/bot          Bot — discord.js + lavalink-client music engine  (planned)
-apps/backend      Backend — NestJS + Socket.io                     (planned)
-apps/dashboard    Dashboard — Next.js                              (planned)
+apps/bot          Bot — discord.js + lavalink-client music engine
+apps/backend      Backend — NestJS + Socket.io
+apps/dashboard    Dashboard — Next.js
 packages/shared   shared types / contracts                   (planned)
 docs/adr/         architecture decisions (index: README.md)
 docs/agents/      workflow, tracker, labels, domain-doc rules
@@ -66,7 +66,7 @@ use the quoted absolute paths `"C:\Users\xenod\.bun\bin\bun.exe"` and `"C:\Progr
 | `bun run e2e` | Playwright end-to-end (in CI normally; run by the T4 gate during no-CI mode, #116) |
 | `git config core.hooksPath .githooks` | enable the pre-push guards — once per clone |
 
-The root scripts are placeholders until the workspaces are scaffolded.
+Infra for local work: `docker compose up -d --wait redis` (tests and e2e), `docker compose --profile audio up -d lavalink` (real audio), `bunx supabase@3 start` (Supabase local, config in `supabase/`).
 
 ## Coding guidelines
 
@@ -125,6 +125,9 @@ GitHub Actions cannot start any job (account billing lock), so **no check ever r
 - `code-review` and `scrutinize` run on every PR before merge and are recorded in `T4-Gates:`. This is
   discipline, not a mechanical block: `check-gate-ledger` refuses silence but accepts `not-run`.
 - **Unverified while this lasts:** `t4-codeql` (CodeQL has no local equivalent here).
+- The gate's `e2e` needs the local Redis (`docker compose up -d --wait redis`); with Docker stopped the
+  gate denies the merge (fails closed). Playwright never reuses a running server, so a stale dev server
+  cannot make old code pass.
 - `requireGreenCI` stays `false` (with no checks it would deny every merge).
 - **Ceiling:** none of this binds a human merging on the GitHub web UI.
 

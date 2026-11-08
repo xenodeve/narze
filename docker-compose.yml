@@ -1,0 +1,21 @@
+# Local development and test infrastructure for Narze v7.
+# Supabase local runs separately via the Supabase CLI (`bunx supabase start`).
+services:
+  redis:
+    image: redis:7.4-alpine
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+
+  lavalink:
+    image: ghcr.io/lavalink-devs/lavalink:4
+    profiles: ["audio"]
+    ports: ["2333:2333"]
+    environment:
+      SERVER_PORT: 2333
+      LAVALINK_SERVER_PASSWORD: ${LAVALINK_PASSWORD:-youshallnotpass}
+    volumes:
+      - ./infra/lavalink/application.yml:/opt/Lavalink/application.yml:ro

@@ -6,14 +6,19 @@ codebase** (unless marked *pending*), so a new maintainer — human or agent —
 *why* without re-deriving it. A decision that overturns an earlier one marks the old ADR **Superseded**.
 
 > 0001–0003 were written during v6 and carried into `v7` as-is. Their paths (`discordjs/`, `nestjs/`)
-> name the v6 layout; in v7 the same roles are `apps/bot` / `apps/api`. The decisions stand until a
-> new ADR supersedes one — **impl pending** in v7 because no v7 code exists yet.
+> name the v6 layout; in v7 the same roles are `apps/bot` / `apps/backend`. 0002 and 0003 are implemented in #98
+> (Redis heartbeat, runtime-mode detection); 0001 is implemented for `bot:status` in #98. 0005 and 0006
+> are reserved for #99 (Supabase Auth) and #100 (Hot Cache) per PRD #97.
 
 | # | Title | Area | Status |
 |---|-------|------|--------|
-| [0001](0001-socketio-over-sse.md) | Socket.io instead of SSE for real-time communication | api · web | Accepted — **impl pending** (v7) |
-| [0002](0002-redis-ipc-bot-backend.md) | Redis Pub/Sub as IPC between Bot and Backend | bot · api · infra | Accepted — **impl pending** (v7) |
-| [0003](0003-bot-two-mode-architecture.md) | Bot two-mode architecture (Connected / Standalone) | bot | Accepted — **impl pending** (v7) |
+| [0001](0001-socketio-over-sse.md) | Socket.io instead of SSE for real-time communication | backend · dashboard | Accepted — implemented (#98, `bot:status`) |
+| [0002](0002-redis-ipc-bot-backend.md) | Redis Pub/Sub as IPC between Bot and Backend | bot · backend · infra | Accepted — implemented (#98, heartbeat) |
+| [0003](0003-bot-two-mode-architecture.md) | Bot two-mode architecture (Connected / Standalone) | bot | Accepted — mode detection implemented (#98) |
+| [0004](0004-lavalink-client.md) | `lavalink-client` as the Bot's Lavalink client (`closeOnError: false` on Bun) | bot | Accepted (#98) |
+| 0005 | _reserved — Supabase Auth (#99)_ | backend | — |
+| 0006 | _reserved — two-tier Hot Cache (#100)_ | backend | — |
+| [0007](0007-realtime-event-contract.md) | Realtime event contract — revision, sequence, one socket per tab | shared · backend · dashboard | Accepted (#98 schemas) |
 
 ## Conventions
 

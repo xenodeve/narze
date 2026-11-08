@@ -63,8 +63,7 @@ T4-Gates: simplify=ran code-review=ran scrutinize=not-run security-review=n-a ve
 - Bot behaviour that needs Discord / Lavalink is verified against a real test guild and stated
   honestly ("not run: <X>") when it could not be.
 
-Both scripts currently echo "no workspace yet" — the workspaces are not scaffolded. Replace them
-when `apps/*` / `packages/*` land.
+Both run real suites since #98: unit/contract tests per workspace (Redis must be up: `docker compose up -d --wait redis`) and Playwright in `apps/dashboard`.
 
 ## Tooling
 

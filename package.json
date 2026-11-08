@@ -1,13 +1,23 @@
 {
   "name": "narze",
   "private": true,
-  "workspaces": ["apps/*", "packages/*"],
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "verify": "bun run lint && bun run typecheck && bun run test && bun run build",
-    "lint": "echo \"lint: no workspace yet\"",
-    "typecheck": "echo \"typecheck: no workspace yet\"",
-    "test": "echo \"test: no workspace yet\"",
-    "build": "echo \"build: no workspace yet\"",
-    "e2e": "echo \"e2e: no workspace yet\""
-  }
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "typecheck": "bun run --filter '*' typecheck",
+    "test": "bun run --filter '*' test",
+    "build": "bun run --filter '@narze/dashboard' build",
+    "e2e": "bun run --filter '@narze/dashboard' e2e"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.6",
+    "@types/bun": "1.4.4",
+    "typescript": "5.9.3"
+  },
+  "packageManager": "bun@1.4.2"
 }

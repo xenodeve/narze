@@ -1,5 +1,5 @@
 # T4 verify — the server-side ship gate for the Narze v7 Bun-workspaces monorepo
-# (apps/bot · apps/api · apps/web · packages/shared). Adapted from the T4
+# (apps/bot · apps/backend · apps/dashboard · packages/*). Adapted from the T4
 # t4-verify-monorepo.yml template: the workspaces share one root lockfile and the
 # root package.json fans each script out across workspaces, so the gate is four
 # root-level jobs (`bun run <x>`), not one job per component.
@@ -41,6 +41,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json # packageManager pins Bun in one place
       - run: bun install --frozen-lockfile
       - run: bun run lint
 
@@ -49,17 +51,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json # packageManager pins Bun in one place
       - run: bun install --frozen-lockfile
       - run: bun run typecheck
 
   test:
     runs-on: ubuntu-latest
-    # When apps/bot or apps/api specs need real Redis, add a `services: redis`
-    # block with a --health-cmd here (see ci-cd-layer.md) and dummy env vars for
-    # import-time config reads. Real secrets never belong to the gate.
+    # Bot and Backend contract tests talk to a real Redis (seam 2 in PRD #97).
+    # Real secrets never belong to the gate.
+    services:
+      redis:
+        image: redis:7.4-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 2s --health-timeout 2s --health-retries 15
+    env:
+      REDIS_URL: redis://127.0.0.1:6379
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json # packageManager pins Bun in one place
       - run: bun install --frozen-lockfile
       - run: bun run test
 
@@ -68,6 +81,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json # packageManager pins Bun in one place
       - run: bun install --frozen-lockfile
       - run: bun run build
 
