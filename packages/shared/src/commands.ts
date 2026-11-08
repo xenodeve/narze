@@ -6,6 +6,9 @@ export const SnowflakeSchema = z.string().regex(/^\d+$/);
 const snowflake = SnowflakeSchema;
 
 /** One playback action from the Dashboard (spec #107) or queue edit (#102). */
+/** The loudest volume a command may ask for (Lavalink's own limit). */
+export const MAX_VOLUME = 1000;
+
 export const PlayerActionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("pause") }),
   z.object({ action: z.literal("resume") }),
@@ -14,7 +17,7 @@ export const PlayerActionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("previous") }),
   z.object({ action: z.literal("shuffle") }),
   z.object({ action: z.literal("seek"), positionMs: z.number().int().nonnegative() }),
-  z.object({ action: z.literal("volume"), volume: z.number().int().min(0).max(1000) }),
+  z.object({ action: z.literal("volume"), volume: z.number().int().min(0).max(MAX_VOLUME) }),
   /** `null` cycles off → track → queue → off (spec #47). */
   z.object({ action: z.literal("loop"), mode: z.enum(["off", "track", "queue"]).nullable() }),
   // Queue editing (#102). Indexes are 0-based positions in the upcoming queue (not the current track).

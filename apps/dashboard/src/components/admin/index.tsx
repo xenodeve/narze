@@ -11,6 +11,7 @@ import { getStats, powerBot, useAdminRole, useAdminRoom } from "@/lib/admin";
 import { kb } from "@/lib/format";
 import { duration } from "@/lib/history";
 import { useSession } from "@/lib/session";
+import { useTokenHex } from "@/lib/tokens";
 import styles from "./admin.module.css";
 
 // The supplied SloshGauge (DESIGN.md): read-only CPU / memory meters here.
@@ -70,16 +71,6 @@ function AdminNav({ role }: { role: AdminRole }) {
 }
 
 const gb = (bytes: number) => `${(bytes / 1024 ** 3).toFixed(1)} GB`;
-
-/** A hex colour from a CSS token, for the SloshGauge (it computes its text colour from hex). */
-function useTokenHex(name: string, fallback: string): string {
-  const [hex, setHex] = useState(fallback);
-  useEffect(() => {
-    const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-    if (/^#[0-9a-f]{3,8}$/i.test(value)) setHex(value);
-  }, [name]);
-  return hex;
-}
 
 function Card({ label, value, hint }: { label: string; value: ReactNode; hint?: string }) {
   return (

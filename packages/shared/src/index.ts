@@ -14,3 +14,4 @@ export * from "./reconcile";
 export * from "./search";
 export * from "./settings";
 export * from "./status";
+export * from "./voice-intent";

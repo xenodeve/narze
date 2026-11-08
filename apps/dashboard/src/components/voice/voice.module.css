@@ -1,0 +1,89 @@
+/* Voice Commands (#113): a sheet under the top bar while listening, on Strata tokens. */
+.sheet {
+  position: fixed;
+  top: calc(var(--nav-h) + 8px);
+  right: var(--gutter);
+  z-index: 20;
+  display: grid;
+  gap: 10px;
+  width: min(380px, calc(100vw - 2 * var(--gutter)));
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-window);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-window);
+}
+
+.stage {
+  position: relative;
+  display: grid;
+  min-height: 140px;
+  place-items: center;
+  overflow: hidden;
+  border-radius: var(--r2);
+}
+
+.strands,
+.wash {
+  position: absolute;
+  inset: 0;
+}
+
+.wash {
+  background: radial-gradient(
+    circle at 50% 60%,
+    color-mix(in srgb, var(--mood, var(--ink-3)) 45%, transparent),
+    transparent 70%
+  );
+}
+
+.heard {
+  position: relative;
+  margin: 0;
+  padding: 0 16px;
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-align: center;
+}
+
+.ok,
+.refused,
+.hint {
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.ok {
+  color: var(--ink);
+}
+
+.refused {
+  color: var(--danger);
+}
+
+.hint {
+  color: var(--ink-2);
+}
+
+.close {
+  justify-self: end;
+  height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.close:active {
+  transform: translateY(1px);
+}
+
+.unsupported {
+  color: var(--ink-2);
+  font-size: 0.8125rem;
+}
