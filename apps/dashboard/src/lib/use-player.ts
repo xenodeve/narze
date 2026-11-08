@@ -2,7 +2,7 @@
 
 import type { ControlPermission, GuildEvent, PlayerState } from "@narze/shared";
 import { GuildEventTypes, SocketEvents } from "@narze/shared/channels";
-import { reconcile } from "@narze/shared/reconcile";
+import { EMPTY_SNAPSHOT, type PlayerSnapshot, reducePlayer } from "@narze/shared/queue";
 import { useEffect, useRef, useState } from "react";
 import { apiGet } from "./api";
 import { onSocketEvents } from "./socket";
@@ -11,8 +11,11 @@ export type PlayerView =
   | { status: "loading" }
   | { status: "forbidden" }
   | { status: "failed" }
-  /** `state.syncedAt` is already on this browser's clock. */
-  | { status: "ready"; state: PlayerState | null; permission: Permission };
+  /**
+   * `state.syncedAt` is already on this browser's clock. `jumping` is the queue index announced by
+   * `queue:jump` (spec #39), shown until the queue update that follows it.
+   */
+  | { status: "ready"; state: PlayerState | null; permission: Permission; jumping: number | null };
 
 /** The caller's Control Permission in this Guild, kept live by `permission:update` (#101). */
 export type Permission = Pick<ControlPermission, "canControl" | "reason">;
@@ -37,16 +40,15 @@ const permissionOf = (view: PlayerView): Permission => (view.status === "ready" 
  */
 export function usePlayer(guildId: string, userId: string): PlayerView {
   const [view, setView] = useState<PlayerView>({ status: "loading" });
-  const revision = useRef<number | null>(null);
-  const epoch = useRef<string | null>(null);
+  /** What the server last said, before clock conversion (the reducer's input). */
+  const snapshot = useRef<PlayerSnapshot>(EMPTY_SNAPSHOT);
   /** Bumped by every applied event, so a load that started earlier cannot overwrite a newer event. */
   const applied = useRef(0);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: a different user must refetch; the token is read at fetch time
   useEffect(() => {
     let cancelled = false;
-    revision.current = null;
-    epoch.current = null;
+    snapshot.current = EMPTY_SNAPSHOT;
 
     const load = async () => {
       const startedAt = applied.current;
@@ -59,12 +61,14 @@ export function usePlayer(guildId: string, userId: string): PlayerView {
         if (!res.ok) throw new Error(String(res.status));
         const body = (await res.json()) as { state: PlayerState | null; now: number; permission: Permission };
         if (cancelled || applied.current !== startedAt) return;
-        revision.current = body.state?.revision ?? null;
-        epoch.current = body.state?.epoch ?? null;
+        snapshot.current = body.state
+          ? { state: body.state, revision: body.state.revision, epoch: body.state.epoch }
+          : EMPTY_SNAPSHOT;
         setView({
           status: "ready",
           state: body.state ? onLocalClock(body.state, body.now, Date.now()) : null,
           permission: body.permission ?? UNKNOWN,
+          jumping: null,
         });
       } catch {
         if (!cancelled) setView({ status: "failed" });
@@ -74,28 +78,25 @@ export function usePlayer(guildId: string, userId: string): PlayerView {
     const onEvent = (raw: unknown) => {
       const event = raw as GuildEvent;
       if (event?.guildId !== guildId) return;
-      if (event.type === GuildEventTypes.playerGone) {
-        applied.current += 1;
-        revision.current = null;
-        epoch.current = null;
-        setView((current) => ({ status: "ready", state: null, permission: permissionOf(current) }));
+      if (event.type === GuildEventTypes.queueJump) {
+        const { fromIndex } = event.data as { fromIndex: number };
+        setView((current) => (current.status === "ready" ? { ...current, jumping: fromIndex } : current));
         return;
       }
-      const state = event.data as PlayerState;
-      const decision = reconcile(revision.current, event.revision, state.epoch !== epoch.current);
+      const { next, decision } = reducePlayer(snapshot.current, event);
       if (decision === "drop") return;
       if (decision === "refetch") {
         void load();
         return;
       }
       applied.current += 1;
-      revision.current = event.revision;
-      epoch.current = state.epoch;
+      snapshot.current = next;
       // The event carries the Bot time it was sent; that is close enough to "now" on arrival.
       setView((current) => ({
         status: "ready",
-        state: onLocalClock(state, event.ts, Date.now()),
+        state: next.state ? onLocalClock(next.state, event.ts, Date.now()) : null,
         permission: permissionOf(current),
+        jumping: null,
       }));
     };
 

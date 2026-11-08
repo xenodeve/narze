@@ -5,11 +5,12 @@ import dynamic from "next/dynamic";
 import { type CSSProperties, useEffect, useState } from "react";
 import { Controls } from "@/components/controls";
 import { MoodAurora } from "@/components/mood-aurora";
+import { QueuePanel } from "@/components/queue-panel";
 import { explain, sendCommand } from "@/lib/control";
 import { moodFromArtwork, moodFromText } from "@/lib/mood";
 import { type Permission, usePlayer } from "@/lib/use-player";
 import styles from "./now-playing.module.css";
-import { formatTime, Progress } from "./progress";
+import { Progress } from "./progress";
 
 const BotAvatar = dynamic(() => import("bot-avatars").then((m) => m.BotAvatar), { ssr: false });
 
@@ -122,34 +123,7 @@ function Stage({ guildId, state, permission }: { guildId: string; state: PlayerS
   );
 }
 
-function UpNext({ queue }: { queue: Track[] }) {
-  return (
-    <section className={styles.next} aria-labelledby="next-title">
-      <h2 id="next-title" className={styles.nextTitle}>
-        ถัดไป
-      </h2>
-      {queue.length === 0 ? (
-        <p className={styles.empty}>คิวว่าง</p>
-      ) : (
-        <ol className={styles.list}>
-          {queue.map((track, i) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: the same track may be queued twice; position disambiguates
-            <li key={`${track.uri}-${i}`} className={styles.row}>
-              <span className={`num ${styles.index}`}>{i + 1}</span>
-              <span className={styles.rowText}>
-                <span className={styles.rowTitle}>{track.title}</span>
-                <span className={styles.rowAuthor}>{track.author}</span>
-              </span>
-              <span className={`num ${styles.rowTime}`}>{formatTime(track.durationMs)}</span>
-            </li>
-          ))}
-        </ol>
-      )}
-    </section>
-  );
-}
-
-/** Read-only Now Playing for one Guild (#100); control arrives in #101. */
+/** Now Playing for one Guild: the stage with controls (#100, #101) and the queue (#102). */
 export function NowPlaying({ guildId, userId }: { guildId: string; userId: string }) {
   const view = usePlayer(guildId, userId);
   if (view.status === "loading") return <div className={`${styles.stage} ${styles.loading}`} aria-busy="true" />;
@@ -190,7 +164,13 @@ export function NowPlaying({ guildId, userId }: { guildId: string; userId: strin
           }
         }
       />
-      <UpNext queue={state?.queue ?? []} />
+      <QueuePanel
+        guildId={guildId}
+        queue={state?.queue ?? []}
+        revision={state?.revision ?? 0}
+        permission={view.permission}
+        jumping={view.jumping}
+      />
     </div>
   );
 }
