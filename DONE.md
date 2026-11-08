@@ -16,8 +16,8 @@ clock); `StatusGateway` + `CorsIoAdapter`; Strata-xeno landing with `BotAvatar`;
 `infra/lavalink/application.yml`; `supabase/config.toml`; repo-wide LF.
 
 **Validation:** `bun run verify` exit 0 (36 unit/contract tests); `bun run e2e` 2 passed ×3 with the
-real Bot process; T4 gate full suite in a fresh worktree before merge; Lavalink 4.2.2 booted with
-both plugins. **Not run:** CI (billing lock, #116), `supabase start`.
+real Bot process; T4 gate full suite in a fresh worktree before merge; Lavalink booted with both
+plugins and reported 4.2.2 on `/version` (the compose tag `:4` floats, so a later pull may differ). **Not run:** CI (billing lock, #116), `supabase start`.
 
 **Lessons recorded:** [[bun-tsconfig-follows-cwd]], [[windows-toolchain-gotchas]], ADR-0004 (closeOnError on Bun).
 

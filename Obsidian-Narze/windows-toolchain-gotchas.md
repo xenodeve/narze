@@ -11,8 +11,9 @@ All measured on the developer's Windows machine on 2026-11-08 (#98, #116).
    `.gitattributes` `* text=auto eol=lf`. A green lint in your own working copy proves nothing about a
    clean checkout.
 2. **Node cannot spawn a POSIX-style path** (`/c/Users/...` → `ENOENT`). Spawn Bun via
-   `process.env.npm_execpath` (set by `bun run`) — see `apps/dashboard/e2e/bun-bin.ts`. A process killed
-   by a signal has `exitCode === null` and `signalCode` set; check both.
+   `process.env.npm_execpath` (set by `bun run`) — see `apps/dashboard/e2e/bun-bin.ts`. Separately, a
+   process killed by a signal has `exitCode === null` and `signalCode` set; check both (`stopBot` in
+   `apps/dashboard/e2e/bot-status.spec.ts`).
 3. **The T4 gate matches text, not intent:** a Bash command whose *content* contains `gh pr merge`
    (e.g. a script writing that phrase into a doc) triggers the ship gate and runs `verify`. Put such
    edits in a script file and run the file.
