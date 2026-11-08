@@ -1,9 +1,9 @@
 import type { Requester, Track } from "@narze/shared";
-import { moveTrack } from "@narze/shared";
+import { GuildEventTypes, moveTrack } from "@narze/shared";
 import type { LavalinkManager, Track as LavalinkTrack, Player, RepeatMode } from "lavalink-client";
 import { type AnnounceFlags, NO_FLAGS, nowPlayingNotice, shouldAnnounce } from "./announce";
 import { COLOR_SUCCESS, formatDuration, type Notice } from "./format";
-import { type PlayerPublisher, toPlayerState } from "./player-state";
+import { type PlayerPublisher, toPlayerState, type VoiceEventType } from "./player-state";
 import { resolveQuery } from "./query";
 import type { QueueSnapshot, SnapshotStore, StoredTrack } from "./queue-snapshot";
 import { toTrack } from "./track";
@@ -38,13 +38,18 @@ export interface MusicOptions {
   epoch?: string;
   /** Title of a Spotify URL from its public oEmbed, for links Lavalink cannot resolve (spec #70). */
   oembedTitle?: (url: string) => Promise<string | null>;
-  publisher: Pick<PlayerPublisher, "publish" | "gone" | "jump">;
+  publisher: Pick<PlayerPublisher, "publish" | "gone" | "jump"> & Partial<Pick<PlayerPublisher, "voice">>;
   /** Posts a Now-Playing Notice in a text channel. */
   announce: (channelId: string, notice: Notice) => Promise<void>;
   now?: () => number;
   /** Queue Snapshots for Queue Recovery (#103); without it nothing is written or restored. */
   snapshots?: SnapshotStore;
+  /** Spec #28: wait before reconnecting after a voice drop, then before seeking back. */
+  voiceRetryMs?: [number, number];
 }
+
+/** Spec #28: Discord voice close codes worth reconnecting on (plus any close from Discord's side). */
+const RECOVERABLE_VOICE_CODES = new Set([4006, 4009, 4014, 4015]);
 
 // Per-player data keys (lavalink-client player.set/get).
 const CYCLE: Record<RepeatMode, RepeatMode> = { off: "track", track: "queue", queue: "off" };
@@ -94,6 +99,7 @@ export function createMusic({
   oembedTitle = spotifyOembedTitle,
   now = Date.now,
   snapshots,
+  voiceRetryMs = [1000, 500],
 }: MusicOptions) {
   const sourceManagers = () => lavalink.nodeManager.leastUsedNodes()[0]?.info?.sourceManagers ?? [];
 
@@ -282,6 +288,38 @@ export function createMusic({
       if (channel) await announce(channel, nowPlayingNotice(shown)).catch(warn("now-playing notice"));
     }
   }
+
+  const voiceEvent = (guildId: string, type: VoiceEventType, data: Record<string, unknown>) =>
+    publisher.voice?.(guildId, type, data).catch(warn("publish voice event"));
+
+  /** Spec #28: a dropped voice connection comes back where it was, unless the code says not to. */
+  async function onVoiceClosed(player: Player, code: number, reason: string, byRemote: boolean): Promise<void> {
+    if (lavalink.getPlayer(player.guildId) !== player) return;
+    const recovering = RECOVERABLE_VOICE_CODES.has(code) || byRemote;
+    await voiceEvent(player.guildId, GuildEventTypes.voiceDisconnect, { code, reason, byRemote, recovering });
+    if (!recovering) return;
+    const positionMs = player.position;
+    const wasPlaying = Boolean(player.queue.current) && !player.paused;
+    try {
+      await Bun.sleep(voiceRetryMs[0]);
+      if (lavalink.getPlayer(player.guildId) !== player) return;
+      await player.connect();
+      await Bun.sleep(voiceRetryMs[1]);
+      const title = player.queue.current?.info.title ?? null;
+      if (wasPlaying) {
+        if (positionMs > 0) await player.seek(positionMs);
+        if (player.paused) await player.resume();
+      }
+      await voiceEvent(player.guildId, GuildEventTypes.voiceReconnected, { resumed: wasPlaying, positionMs, title });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      await voiceEvent(player.guildId, GuildEventTypes.voiceReconnectFailed, { error: message });
+    }
+  }
+
+  lavalink.on("playerSocketClosed", (player, payload) => {
+    onVoiceClosed(player, payload.code, payload.reason, payload.byRemote).catch(warn("voice drop"));
+  });
 
   lavalink.on("trackStart", (player, track) => {
     onTrackStart(player, track as LavalinkTrack | null).catch(warn("track start"));

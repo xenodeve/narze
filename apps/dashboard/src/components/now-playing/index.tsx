@@ -8,7 +8,7 @@ import { MoodAurora } from "@/components/mood-aurora";
 import { QueuePanel } from "@/components/queue-panel";
 import { explain, sendCommand } from "@/lib/control";
 import { moodFromArtwork, moodFromText } from "@/lib/mood";
-import { type Permission, usePlayer } from "@/lib/use-player";
+import { type Permission, usePlayer, type VoiceStatus } from "@/lib/use-player";
 import styles from "./now-playing.module.css";
 import { Progress } from "./progress";
 
@@ -62,7 +62,19 @@ function Artwork({ track }: { track: Track }) {
   );
 }
 
-function Stage({ guildId, state, permission }: { guildId: string; state: PlayerState; permission: Permission }) {
+const VOICE_TEXT = { reconnecting: "เสียงหลุด กำลังต่อใหม่…", failed: "ต่อเสียงใหม่ไม่สำเร็จ ลองใช้ /join" } as const;
+
+function Stage({
+  guildId,
+  state,
+  permission,
+  voice,
+}: {
+  guildId: string;
+  state: PlayerState;
+  permission: Permission;
+  voice: VoiceStatus;
+}) {
   const [seekError, setSeekError] = useState<string | null>(null);
   /** A refused seek says why; the bar itself never moved, since it follows the server's state. */
   const seek = async (positionMs: number) => {
@@ -82,7 +94,13 @@ function Stage({ guildId, state, permission }: { guildId: string; state: PlayerS
             <Artwork track={track} />
             <div className={styles.meta}>
               <p className={styles.label}>{state.paused ? "พักไว้" : "กำลังเล่น"}</p>
-              <h1 id="now-title" key={track.uri} className={styles.title} data-testid="now-title">
+              {voice ? (
+                <p className={styles.label} data-testid="voice-status" role="status">
+                  {VOICE_TEXT[voice]}
+                </p>
+              ) : null}
+              {/* Sibling keys must differ: the title and the progress bar both re-mount per track. */}
+              <h1 id="now-title" key={`title:${track.uri}`} className={styles.title} data-testid="now-title">
                 {track.title}
               </h1>
               <p className={styles.author}>{track.author || "Unknown Artist"}</p>
@@ -94,7 +112,7 @@ function Stage({ guildId, state, permission }: { guildId: string; state: PlayerS
                 <span>ขอโดย {track.requester.name}</span>
               </p>
               <Progress
-                key={track.uri}
+                key={`progress:${track.uri}`}
                 state={state}
                 onSeek={permission.canControl ? (ms) => void seek(ms) : undefined}
               />
@@ -157,6 +175,7 @@ export function NowPlaying({ guildId, userId }: { guildId: string; userId: strin
       <Stage
         guildId={guildId}
         permission={view.permission}
+        voice={view.voice}
         state={
           state ?? {
             guildId,

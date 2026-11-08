@@ -15,7 +15,14 @@ export type PlayerView =
    * `state.syncedAt` is already on this browser's clock. `jumping` is the queue index announced by
    * `queue:jump` (spec #39), shown until the queue update that follows it.
    */
-  | { status: "ready"; state: PlayerState | null; permission: Permission; jumping: number | null };
+  | {
+      status: "ready";
+      state: PlayerState | null;
+      permission: Permission;
+      jumping: number | null;
+      /** A voice drop (spec #28): the Bot is reconnecting, or gave up. */
+      voice: VoiceStatus;
+    };
 
 /** The caller's Control Permission in this Guild, kept live by `permission:update` (#101). */
 export type Permission = Pick<ControlPermission, "canControl" | "reason">;
@@ -39,6 +46,13 @@ const permissionOf = (view: PlayerView): Permission => (view.status === "ready" 
  * room's events, reconciled by revision (ADR-0007) — older events dropped, a gap refetches.
  */
 const JUMP_TIMEOUT_MS = 3_000;
+
+export type VoiceStatus = "reconnecting" | "failed" | null;
+const VOICE_STATUS: Record<string, VoiceStatus> = {
+  [GuildEventTypes.voiceDisconnect]: "reconnecting",
+  [GuildEventTypes.voiceReconnected]: null,
+  [GuildEventTypes.voiceReconnectFailed]: "failed",
+};
 
 export function usePlayer(guildId: string, userId: string): PlayerView {
   const [view, setView] = useState<PlayerView>({ status: "loading" });
@@ -73,6 +87,7 @@ export function usePlayer(guildId: string, userId: string): PlayerView {
           state: body.state ? onLocalClock(body.state, body.now, Date.now()) : null,
           permission: body.permission ?? UNKNOWN,
           jumping: null,
+          voice: null,
         });
       } catch {
         if (!cancelled) setView({ status: "failed" });
@@ -91,6 +106,13 @@ export function usePlayer(guildId: string, userId: string): PlayerView {
         }, JUMP_TIMEOUT_MS);
         return;
       }
+      const voice = VOICE_STATUS[event.type];
+      if (voice !== undefined) {
+        const recovering = (event.data as { recovering?: boolean } | null)?.recovering;
+        const next = event.type === GuildEventTypes.voiceDisconnect && !recovering ? null : voice;
+        setView((current) => (current.status === "ready" ? { ...current, voice: next } : current));
+        return;
+      }
       const { next, decision } = reducePlayer(snapshot.current, event);
       if (decision === "drop") return;
       if (decision === "refetch") {
@@ -105,6 +127,7 @@ export function usePlayer(guildId: string, userId: string): PlayerView {
         state: next.state ? onLocalClock(next.state, event.ts, Date.now()) : null,
         permission: permissionOf(current),
         jumping: null,
+        voice: current.status === "ready" ? current.voice : null,
       }));
     };
 

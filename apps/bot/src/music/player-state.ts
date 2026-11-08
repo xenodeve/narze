@@ -73,6 +73,11 @@ const summaryOf = (state: PlayerState): PlayerSummary => ({
  * Writes the Player State and its summary to Redis, then announces both as Guild events — keys
  * first, so a reader reacting to an event never finds the old value (ADR-0002, ADR-0007).
  */
+export type VoiceEventType =
+  | typeof GuildEventTypes.voiceDisconnect
+  | typeof GuildEventTypes.voiceReconnected
+  | typeof GuildEventTypes.voiceReconnectFailed;
+
 export function createPlayerPublisher(redis: Redis) {
   let sequence = 0;
   const event = (type: string, guildId: string, revision: number, data: unknown): string =>
@@ -88,6 +93,10 @@ export function createPlayerPublisher(redis: Redis) {
         .publish(Channels.guildEvents, event(GuildEventTypes.playerState, state.guildId, state.revision, state))
         .publish(Channels.guildEvents, event(GuildEventTypes.playerSummary, state.guildId, state.revision, summary))
         .exec();
+    },
+    /** A voice drop and how recovering from it went (spec #28); drawn by the Dashboard, not cached. */
+    async voice(guildId: string, type: VoiceEventType, data: Record<string, unknown>): Promise<void> {
+      await redis.publish(Channels.guildEvents, event(type, guildId, 0, data));
     },
     /** Announces that a queued track is about to play now, before the queue update (spec #39). */
     async jump(guildId: string, revision: number, data: { fromIndex: number; title: string }): Promise<void> {

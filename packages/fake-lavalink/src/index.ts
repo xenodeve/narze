@@ -64,6 +64,8 @@ export interface FakeLavalink {
   searches(): string[];
   /** Ends the current track as a real node would (reason "finished"). */
   finishTrack(guildId: string): void;
+  /** Discord closed the voice websocket (a voice drop): the client gets a WebSocketClosedEvent (#103). */
+  closeVoice(guildId: string, code: number, byRemote: boolean): void;
   stop(): void;
 }
 
@@ -217,6 +219,9 @@ export async function startFakeLavalink(options: FakeLavalinkOptions): Promise<F
       const track = current.track;
       current.track = null;
       send({ op: "event", type: "TrackEndEvent", guildId, track, reason: "finished" });
+    },
+    closeVoice: (guildId, code, byRemote) => {
+      send({ op: "event", type: "WebSocketClosedEvent", guildId, code, reason: "fake voice drop", byRemote });
     },
     stop: () => server.stop(true),
   };

@@ -49,6 +49,12 @@ export const GuildEventTypes = {
   queueJump: "queue:jump",
   /** data: VoiceChannelList — someone joined, left or moved voice channels in the Guild. */
   voiceUpdate: "voice:update",
+  /** data: `{ code, reason, byRemote, recovering }` — the Bot's voice connection dropped (spec #28). */
+  voiceDisconnect: "voice:disconnect",
+  /** data: `{ resumed, positionMs, title }` — the voice connection is back after a drop. */
+  voiceReconnected: "voice:reconnected",
+  /** data: `{ error }` — reconnecting after a drop failed. */
+  voiceReconnectFailed: "voice:reconnect-failed",
 } as const;
 
 /** Socket.io event names shared by Backend and Dashboard (ADR-0001). */

@@ -90,3 +90,15 @@ describe("Fake Lavalink playback", () => {
     await nextStarted;
   });
 });
+
+describe("Fake Lavalink voice socket (#103)", () => {
+  test("closeVoice sends the client a WebSocketClosedEvent with the code and who closed it", async () => {
+    const manager = await connected();
+    manager.createPlayer({ guildId: GUILD, voiceChannelId: "5", textChannelId: "6" });
+    const closed = new Promise<{ code: number; byRemote: boolean }>((resolve) =>
+      manager.on("playerSocketClosed", (_p, payload) => resolve({ code: payload.code, byRemote: payload.byRemote })),
+    );
+    fake?.closeVoice(GUILD, 4006, false);
+    expect(await closed).toEqual({ code: 4006, byRemote: false });
+  });
+});

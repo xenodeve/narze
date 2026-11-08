@@ -52,6 +52,17 @@ const report = (what: string) => (error: unknown) =>
  * Signed-in sockets: verified at handshake (`auth.token`), joined to a room per Mutual Guild, and
  * counted for Presence. A socket without a token stays anonymous and only receives Bot status.
  */
+/**
+ * Events the Dashboard only draws, so they are relayed but never cached: the queue jump animation
+ * (spec #39) and a voice drop with its recovery (spec #28).
+ */
+const DRAWN_ONLY = new Set<string>([
+  GuildEventTypes.queueJump,
+  GuildEventTypes.voiceDisconnect,
+  GuildEventTypes.voiceReconnected,
+  GuildEventTypes.voiceReconnectFailed,
+]);
+
 @WebSocketGateway()
 export class UserGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect, OnModuleInit {
   @WebSocketServer() private server!: Server;
@@ -131,8 +142,7 @@ export class UserGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
       this.onPlayerEvent(event);
       return;
     }
-    if (event.type === GuildEventTypes.queueJump) {
-      // Not cached: it only lets the Dashboard animate the jump before the queue update (spec #39).
+    if (DRAWN_ONLY.has(event.type)) {
       this.server.to(guildRoom(event.guildId)).emit(SocketEvents.playerEvent, event);
       return;
     }

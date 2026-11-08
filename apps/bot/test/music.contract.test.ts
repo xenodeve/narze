@@ -3,7 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type FakeLavalink, startFakeLavalink } from "@narze/fake-lavalink";
-import { DEFAULT_REDIS_URL, type PlayerState, PlayerStateSchema, RedisKeys } from "@narze/shared";
+import { DEFAULT_REDIS_URL, GuildEventTypes, type PlayerState, PlayerStateSchema, RedisKeys } from "@narze/shared";
 import Redis from "ioredis";
 import type { LavalinkManager } from "lavalink-client";
 import { createLavalink } from "../src/lavalink";
@@ -511,5 +511,77 @@ describe("Queue Recovery after a restart (#103, spec #21, #35, #123)", () => {
     expect(await music.recover(() => false)).toBe(0);
     expect(await snapshots.all()).toEqual([]);
     expect(lavalink.getPlayer(GUILD)).toBeFalsy();
+  });
+});
+
+describe("voice-drop recovery (#103, spec #28)", () => {
+  let events: Array<{ type: string; data: Record<string, unknown> }>;
+  beforeEach(() => {
+    events = [];
+    music = createMusic({
+      lavalink,
+      publisher: {
+        ...createPlayerPublisher(redis),
+        voice: async (_guildId, type, data) => {
+          events.push({ type, data });
+        },
+      },
+      announce: async () => {},
+      now: () => clock,
+      voiceRetryMs: [0, 0],
+    });
+  });
+  const reconnected = () => eventually(() => events.find((e) => e.type === GuildEventTypes.voiceReconnected), Boolean);
+
+  async function playingAt(positionMs: number) {
+    await play("lemon");
+    await eventually(stored, (s) => s?.current?.title === "Lemon");
+    await music.seek(GUILD, positionMs);
+  }
+
+  for (const code of [4006, 4009, 4014, 4015]) {
+    test(`code ${code} reconnects and resumes where it was`, async () => {
+      await playingAt(40_000);
+      const joins = voicePackets.length;
+      fake.closeVoice(GUILD, code, false);
+      // The stream restarted on Lavalink's side; only the seek back puts it where it was.
+      const lost = fake.player(GUILD);
+      if (lost) lost.position = 0;
+      expect((await reconnected())?.data).toMatchObject({ resumed: true });
+      expect(events[0]).toMatchObject({
+        type: GuildEventTypes.voiceDisconnect,
+        data: { code, byRemote: false, recovering: true },
+      });
+      expect(voicePackets.length).toBeGreaterThan(joins);
+      expect(fake.player(GUILD)?.position).toBeGreaterThanOrEqual(40_000);
+      expect(fake.player(GUILD)?.paused).toBe(false);
+    });
+  }
+
+  test("a close by Discord's side reconnects whatever the code; other codes are left alone", async () => {
+    await playingAt(10_000);
+    fake.closeVoice(GUILD, 4000, true);
+    expect(await reconnected()).toBeTruthy();
+
+    events = [];
+    const joins = voicePackets.length;
+    fake.closeVoice(GUILD, 1000, false);
+    await eventually(
+      () => events.length,
+      (n) => n > 0,
+    );
+    await Bun.sleep(50);
+    expect(events).toEqual([
+      { type: GuildEventTypes.voiceDisconnect, data: expect.objectContaining({ code: 1000, recovering: false }) },
+    ]);
+    expect(voicePackets.length).toBe(joins);
+  });
+
+  test("a paused Player reconnects and stays paused", async () => {
+    await playingAt(20_000);
+    await music.togglePause(GUILD);
+    fake.closeVoice(GUILD, 4006, false);
+    expect((await reconnected())?.data).toMatchObject({ resumed: false });
+    expect(fake.player(GUILD)?.paused).toBe(true);
   });
 });
