@@ -33,6 +33,7 @@ function thaiNumber(text: string): number | null {
   while (rest) {
     const unit = THAI_UNITS.find(([word]) => rest.startsWith(word));
     if (unit) {
+      if (digit !== null) return null;
       digit = unit[1];
       rest = rest.slice(unit[0].length);
     } else if (rest.startsWith("สิบ")) {
@@ -110,17 +111,42 @@ export function parseNumber(text: string): number | null {
 }
 
 /** Politeness and filler around a command: "ข้ามเพลงครับ", "please skip". */
-const TRAILING = /\s*(ครับ|ค่ะ|คะ|นะ|หน่อย|ด้วย|จ้า|please)$/;
-const LEADING = /^(ช่วย|please|ok|okay|hey)\s*/;
+const POLITE = /\s*(ครับ|ค่ะ|คะ|หน่อย|please)$/i;
+/** Endings that also close song titles (คิดถึงนะ): dropped only when matching a command word. */
+const ENDINGS = /\s*(นะ|ด้วย|จ้า|เลย)$/;
+const LEADING = /^(ช่วย|please|okay|ok|hey)\s*/i;
+const PUNCTUATION = /[.!?,。、]+$/;
+
+/** Trimmed, Thai digits as Arabic, single spaces, no trailing punctuation or politeness; case kept. */
 function normalize(text: string): string {
-  let out = toArabic(text.trim().toLowerCase().replace(/\s+/g, " "));
+  let out = toArabic(text.trim().replace(/\s+/g, " "));
   for (let changed = true; changed; ) {
-    const next = out.replace(TRAILING, "").replace(LEADING, "").trim();
+    const next = out.replace(PUNCTUATION, "").replace(POLITE, "").replace(LEADING, "").trim();
     changed = next !== out;
     out = next;
   }
   return out;
 }
+
+/**
+ * The form command words are matched in: lower case, no endings, no "%" or "percent", and no
+ * spaces between Thai letters (recognizers write "ข้าม เพลง" as often as "ข้ามเพลง").
+ */
+function commandForm(text: string): string {
+  let out = text.toLowerCase();
+  for (let changed = true; changed; ) {
+    const next = out.replace(ENDINGS, "").replace(PUNCTUATION, "").trim();
+    changed = next !== out;
+    out = next;
+  }
+  return out.replace(/\s*(%|percent|เปอร์เซ็นต์)$/, "").replace(/([\u0E00-\u0E7F])\s+(?=[\u0E00-\u0E7F])/g, "$1");
+}
+
+/**
+ * Voice never asks for more than the slider allows (100): "สี่ร้อย" is easily heard for "สี่สิบ".
+ * /volume in Discord still goes to MAX_VOLUME.
+ */
+export const VOICE_MAX_VOLUME = 100;
 
 const RULES: Array<[RegExp, (m: RegExpExecArray) => PlayerAction | null]> = [
   [/^(เลิกวน|ปิดวน|ไม่วน|หยุดวน|loop off|stop looping|no loop|repeat off)$/, () => ({ action: "loop", mode: "off" })],
@@ -129,41 +155,40 @@ const RULES: Array<[RegExp, (m: RegExpExecArray) => PlayerAction | null]> = [
   [/^(วน|loop|repeat)$/, () => ({ action: "loop", mode: null })],
   [/^(สุ่ม|สุ่มเพลง|สุ่มคิว|สลับ|สลับเพลง|shuffle( the queue)?)$/, () => ({ action: "shuffle" })],
   [
-    /^(?:ปรับ)?(?:ระดับ)?(?:เสียง|ความดัง)(?:เป็น|ที่)?\s*(.*)$/,
+    /^(?:(?:ปรับ)?(?:ระดับ)?(?:เสียง|ความดัง)(?:เป็น|ที่)?|(?:set )?volume(?: to)?)\s*(.*)$/,
     (m) => {
       const volume = parseNumber(m[1] ?? "");
-      return volume === null ? null : { action: "volume", volume: Math.min(volume, 1000) };
-    },
-  ],
-  [
-    /^(?:set )?volume(?: to)?\s*(.*)$/,
-    (m) => {
-      const volume = parseNumber(m[1] ?? "");
-      return volume === null ? null : { action: "volume", volume: Math.min(volume, 1000) };
+      return volume === null ? null : { action: "volume", volume: Math.min(volume, VOICE_MAX_VOLUME) };
     },
   ],
   [/^(เล่นต่อ|ต่อ|เล่น|resume|continue|unpause|play)$/, () => ({ action: "resume" })],
   [/^(หยุด|หยุดชั่วคราว|หยุดก่อน|หยุดเพลง|พัก|พักเพลง|พักเพลงก่อน|pause|stop)$/, () => ({ action: "pause" })],
   [/^(ข้าม|ข้ามเพลง|เพลงถัดไป|ถัดไป|skip|skip (this )?song|next|next song)$/, () => ({ action: "skip" })],
   [/^(ย้อน|ย้อนกลับ|ย้อนเพลง|เพลงก่อนหน้า|ก่อนหน้า|previous|previous song|back|go back)$/, () => ({ action: "previous" })],
-  [
-    /^(?:เล่นเพลง|เปิดเพลง|เล่น|เปิด)\s*(.+)$/,
-    (m) => ({ action: "play", query: (m[1] ?? "").trim(), next: false, voiceChannelId: null }),
-  ],
-  [
-    /^play(?: the song| song)?\s+(.+)$/,
-    (m) => ({ action: "play", query: (m[1] ?? "").trim(), next: false, voiceChannelId: null }),
-  ],
 ];
+
+/** "เล่นเพลง X", "เปิด X", "play (the song) X" — matched on the case-kept text so a link survives. */
+const PLAY = /^(?:(?:เล่นเพลง|เปิดเพลง|เล่น|เปิด)\s*|play(?: the song| song)?\s+)(.+)$/i;
 
 export function parseIntent(heard: string): VoiceIntent {
   const text = normalize(heard);
+  const words = commandForm(text);
   for (const [pattern, toAction] of RULES) {
-    const match = pattern.exec(text);
+    const match = pattern.exec(words);
     if (!match) continue;
     const action = toAction(match);
     if (action) return { kind: "action", action };
     break;
+  }
+  const play = PLAY.exec(text);
+  if (play) {
+    const query = (play[1] ?? "").trim();
+    // "เล่นเพลง" alone is "play" (the regex would otherwise search for the word เพลง).
+    if (/^เพลง$/.test(commandForm(query))) return { kind: "action", action: { action: "resume" } };
+    // "เปิดวน", "เปิดสุ่ม", "เล่นเพลงต่อ": a command word after เล่น / เปิด is that command.
+    const inner = parseIntent(query);
+    if (inner.kind === "action" && inner.action.action !== "play") return inner;
+    return { kind: "action", action: { action: "play", query, next: false, voiceChannelId: null } };
   }
   return { kind: "unknown", text: heard.trim() };
 }

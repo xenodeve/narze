@@ -47,17 +47,21 @@ const playing: PlayerState = {
 /** A recognizer that "hears" window.__say a moment after start (#113: no microphone in CI). */
 const FAKE_SPEECH = `
   window.__say = "";
+  window.__delay = 50;
   class FakeRecognition {
-    start() {
-      setTimeout(() => {
+    finish(withResult) {
+      clearTimeout(this.timer);
+      if (withResult) {
         const result = [{ transcript: window.__say }];
         result.isFinal = true;
         this.onresult && this.onresult({ resultIndex: 0, results: [result] });
-        this.onend && this.onend();
-      }, 50);
+      }
+      this.onend && this.onend();
     }
-    stop() { this.onend && this.onend(); }
-    abort() {}
+    start() { this.timer = setTimeout(() => this.finish(true), window.__delay); }
+    // Like Chrome: stop() still delivers what was heard; abort() throws it away.
+    stop() { this.finish(true); }
+    abort() { this.finish(false); }
   }
   window.SpeechRecognition = FakeRecognition;
   window.webkitSpeechRecognition = FakeRecognition;
@@ -141,5 +145,24 @@ test("a refused command says why; an allowed one reaches the Bot; the Aurora pau
   await say(vera.page, "ทำกับข้าวให้หน่อย");
   await expect(vera.page.getByTestId("voice-outcome")).toContainText('ไม่เข้าใจ "ทำกับข้าวให้หน่อย"');
   expect(mika.errors).toEqual([]);
+  expect(vera.errors).toEqual([]);
+});
+
+test("closing the sheet mid-sentence sends nothing (#113 scrutinize B1)", async ({ browser }) => {
+  const vera = await pageFor(browser, owner, FAKE_SPEECH);
+  await vera.page.evaluate(() => {
+    (window as unknown as { __delay: number }).__delay = 5000;
+  });
+  const before = commands.length;
+  await say(vera.page, "ข้าม");
+  const sheet = vera.page.getByRole("dialog", { name: "สั่งด้วยเสียง" });
+  await expect(sheet).toBeVisible();
+  await sheet.getByRole("button", { name: "ปิด" }).click();
+  await expect(sheet).toBeHidden();
+  // Escape on the pill cancels too.
+  await say(vera.page, "ข้าม");
+  await vera.page.keyboard.press("Escape");
+  await vera.page.waitForTimeout(500);
+  expect(commands.length).toBe(before);
   expect(vera.errors).toEqual([]);
 });

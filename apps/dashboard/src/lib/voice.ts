@@ -35,10 +35,17 @@ export const speechSupported = () => recognizerClass() !== null;
 const LANGUAGES = ["th-TH", "en-US"] as const;
 
 export type SpeechProblem = "denied" | "no-speech" | "network" | "failed";
+const PROBLEMS: Record<string, SpeechProblem> = {
+  "not-allowed": "denied",
+  "service-not-allowed": "denied",
+  "no-speech": "no-speech",
+  network: "network",
+};
 
 /**
  * One utterance at a time: `start()` listens, the live words arrive as `heard`, and the final
- * words go to `onFinal` once. `stop()` ends it early.
+ * words go to `onFinal` once. `stop()` ends it and still delivers what was heard; `abort()`
+ * throws it away (a cancel must never send a command).
  */
 export function useSpeech(onFinal: (text: string) => void) {
   const [listening, setListening] = useState(false);
@@ -57,8 +64,10 @@ export function useSpeech(onFinal: (text: string) => void) {
     rec.continuous = false;
     rec.maxAlternatives = 1;
     let done = false;
-    let fellBack = false;
+    // A recognizer that was replaced or aborted no longer speaks for this hook.
+    const mine = () => current.current === rec;
     rec.onresult = (event) => {
+      if (!mine()) return;
       let text = "";
       let isFinal = false;
       for (let i = 0; i < event.results.length; i++) {
@@ -67,31 +76,30 @@ export function useSpeech(onFinal: (text: string) => void) {
         if (result?.isFinal) isFinal = true;
       }
       setHeard(text);
-      if (isFinal && !done) {
+      if (isFinal && !done && text.trim()) {
         done = true;
         final.current(text);
       }
     };
     rec.onerror = (event) => {
+      if (!mine()) return;
       if (event.error === "language-not-supported" && lang === "th-TH") {
-        fellBack = true;
-        listen("en-US");
+        // English instead; this recognizer stops speaking for us before its onend arrives.
+        current.current = null;
+        try {
+          listen("en-US");
+        } catch {
+          setProblem("failed");
+          setListening(false);
+        }
         return;
       }
       if (event.error === "aborted") return;
-      setProblem(
-        event.error === "not-allowed" || event.error === "service-not-allowed"
-          ? "denied"
-          : event.error === "no-speech"
-            ? "no-speech"
-            : event.error === "network"
-              ? "network"
-              : "failed",
-      );
+      setProblem(PROBLEMS[event.error] ?? "failed");
     };
     rec.onend = () => {
-      if (fellBack) return;
-      if (current.current === rec) current.current = null;
+      if (!mine()) return;
+      current.current = null;
       setListening(false);
     };
     current.current = rec;
@@ -99,8 +107,15 @@ export function useSpeech(onFinal: (text: string) => void) {
     rec.start();
   }, []);
 
+  /** Throws the utterance away: nothing reaches onFinal. */
+  const abort = useCallback(() => {
+    const rec = current.current;
+    current.current = null;
+    rec?.abort();
+    setListening(false);
+  }, []);
   const start = useCallback(() => {
-    current.current?.abort();
+    abort();
     setHeard("");
     setProblem(null);
     try {
@@ -109,10 +124,10 @@ export function useSpeech(onFinal: (text: string) => void) {
       setProblem("failed");
       setListening(false);
     }
-  }, [listen]);
+  }, [abort, listen]);
   const stop = useCallback(() => current.current?.stop(), []);
-  useEffect(() => () => current.current?.abort(), []);
-  return { listening, heard, problem, start, stop };
+  useEffect(() => abort, [abort]);
+  return { listening, heard, problem, start, stop, abort };
 }
 
 // Whether the voice sheet is open: the player page pauses its Aurora meanwhile, so only one canvas

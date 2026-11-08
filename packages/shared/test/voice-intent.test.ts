@@ -35,7 +35,7 @@ describe("what a spoken command means (#113, the same actions as the buttons)", 
     expect(action("เล่นเพลง ไอดอล")).toEqual(play("ไอดอล"));
     expect(action("เล่นเพลงไอดอล")).toEqual(play("ไอดอล"));
     expect(action("เปิดเพลง yoasobi idol ครับ")).toEqual(play("yoasobi idol"));
-    expect(action("Play Idol by YOASOBI")).toEqual(play("idol by yoasobi"));
+    expect(action("Play Idol by YOASOBI")).toEqual(play("Idol by YOASOBI"));
     expect(action("play the song lemon")).toEqual(play("lemon"));
   });
 
@@ -79,6 +79,44 @@ describe("what a spoken command means (#113, the same actions as the buttons)", 
     expect(action("loop off")).toEqual(loop("off"));
     expect(action("สุ่มเพลง")).toEqual({ action: "shuffle" });
     expect(action("shuffle")).toEqual({ action: "shuffle" });
+  });
+
+  test("a command word after เล่น / เปิด is that command, not a song to play", () => {
+    expect(action("เปิดวน")).toEqual({ action: "loop", mode: null });
+    expect(action("เปิดสุ่ม")).toEqual({ action: "shuffle" });
+    expect(action("เล่นเพลงต่อ")).toEqual({ action: "resume" });
+    expect(action("เปิดเพลงต่อ")).toEqual({ action: "resume" });
+    // A real title still plays.
+    expect(action("เปิดเพลงต่อไป")).toEqual({ action: "play", query: "ต่อไป", next: false, voiceChannelId: null });
+  });
+
+  test("what Thai and browser recognizers really send (scrutinize #113)", () => {
+    // "เล่นเพลง" alone is "play", not a search for the word เพลง.
+    expect(action("เล่นเพลง")).toEqual({ action: "resume" });
+    expect(action("เปิดเพลงครับ")).toEqual({ action: "resume" });
+    // Thai with spaces between words, trailing punctuation, percent.
+    expect(action("ข้าม เพลง")).toEqual({ action: "skip" });
+    expect(action("หยุด ชั่วคราว")).toEqual({ action: "pause" });
+    expect(action("วน ทั้งคิว")).toEqual({ action: "loop", mode: "queue" });
+    expect(action("Skip.")).toEqual({ action: "skip" });
+    expect(action("ข้าม!")).toEqual({ action: "skip" });
+    expect(action("เสียง 40%")).toEqual({ action: "volume", volume: 40 });
+    expect(action("volume 10 percent")).toEqual({ action: "volume", volume: 10 });
+    expect(action("เสียงห้าสิบเปอร์เซ็นต์")).toEqual({ action: "volume", volume: 50 });
+    expect(action("okay skip")).toEqual({ action: "skip" });
+    // Voice never goes louder than the slider (100): "สี่ร้อย" is easily misheard for "สี่สิบ".
+    expect(action("เสียง 400")).toEqual({ action: "volume", volume: 100 });
+    // An ending that belongs to a title stays; a link keeps its case.
+    expect(action("เล่นเพลง คิดถึงนะ")).toEqual({ action: "play", query: "คิดถึงนะ", next: false, voiceChannelId: null });
+    expect(action("play https://youtu.be/AbCdEf")).toEqual({
+      action: "play",
+      query: "https://youtu.be/AbCdEf",
+      next: false,
+      voiceChannelId: null,
+    });
+    // Two digits in a row are not a number.
+    expect(parseNumber("สองสาม")).toBeNull();
+    expect(parseIntent("")).toEqual({ kind: "unknown", text: "" });
   });
 
   test("anything else is unknown, and says what was heard", () => {

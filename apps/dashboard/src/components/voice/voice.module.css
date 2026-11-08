@@ -24,9 +24,18 @@
   border-radius: var(--r2);
 }
 
-.strands {
+.strands,
+.wash {
   position: absolute;
   inset: 0;
+}
+
+.wash {
+  background: radial-gradient(
+    circle at 50% 60%,
+    color-mix(in srgb, var(--mood, var(--ink-3)) 45%, transparent),
+    transparent 70%
+  );
 }
 
 .heard {
