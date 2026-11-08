@@ -16,6 +16,7 @@ import {
 import { createClient } from "@supabase/supabase-js";
 import { AuditLogEvent, Client, GatewayIntentBits, type Guild } from "discord.js";
 import { captureConsole, createRingSink } from "./admin/logs";
+import { startAdminQueries } from "./admin/queries";
 import { createCpuMeter } from "./admin/stats";
 import { startCommandBus } from "./command-bus";
 import { announcer, handleInteractions } from "./discord/interactions";
@@ -229,9 +230,19 @@ if (redis && settings) {
   });
   await listener.subscribe(Channels.guildEvents).catch(logFailure("settings updates"));
 }
+/**
+ * The one way out: SIGINT/SIGTERM exit 0; a Dashboard restart exits RESTART_EXIT_CODE (#111).
+ * Until everything below is running there is nothing to save, so an early restart just exits; the
+ * full shutdown replaces this once it can run (scrutinize m1: no ReferenceError during login).
+ */
+let shutdown = async (code = 0): Promise<void> => process.exit(code);
 if (redis) {
   await startCommandBus({ subscriber: redis.duplicate(), redis, music, textChannelFor }).catch((error: Error) =>
     console.warn(`[bot] command bus: ${error.message}`),
+  );
+  // Admin reads of Discord and restart/shutdown from the Dashboard (#111).
+  await startAdminQueries({ subscriber: redis.duplicate(), redis, client, exit: (code) => void shutdown(code) }).catch(
+    (error: Error) => console.warn(`[bot] admin queries: ${error.message}`),
   );
 }
 
@@ -318,7 +329,12 @@ const stopHeartbeat = redis
 if (env.DISCORD_TOKEN) await client.login(env.DISCORD_TOKEN);
 else console.warn("[bot] DISCORD_TOKEN not set — running without Discord (heartbeat only)");
 
-const shutdown = async () => {
+let stopping = false;
+shutdown = async (code = 0) => {
+  if (stopping) return;
+  stopping = true;
+  // A step that hangs must not keep the Bot alive forever (scrutinize m2).
+  setTimeout(() => process.exit(code), 10_000).unref();
   stopHeartbeat();
   clearInterval(snapshotTimer);
   if (statsTimer) clearInterval(statsTimer);
@@ -329,7 +345,7 @@ const shutdown = async () => {
   // The last lines of the shutdown reach the log ring before the connection closes.
   await logSink?.flushed();
   await redis?.quit();
-  process.exit(0);
+  process.exit(code);
 };
-process.on("SIGINT", shutdown);
-process.on("SIGTERM", shutdown);
+process.on("SIGINT", () => void shutdown());
+process.on("SIGTERM", () => void shutdown());

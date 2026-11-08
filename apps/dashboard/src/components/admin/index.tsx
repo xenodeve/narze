@@ -5,9 +5,10 @@ import { isAtLeast, STATS_POINTS } from "@narze/shared";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { type ReactNode, useCallback, useEffect, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { Thinking } from "@/components/catalog/thinking";
-import { getStats, useAdminRole, useAdminRoom } from "@/lib/admin";
+import { getStats, powerBot, useAdminRole, useAdminRoom } from "@/lib/admin";
+import { kb } from "@/lib/format";
 import { duration } from "@/lib/history";
 import { useSession } from "@/lib/session";
 import styles from "./admin.module.css";
@@ -47,13 +48,20 @@ function AdminNav({ role }: { role: AdminRole }) {
   const path = usePathname();
   const links = [
     { href: "/admin", label: "ภาพรวม" },
+    { href: "/admin/guilds", label: "เซิร์ฟเวอร์" },
+    { href: "/admin/users", label: "ผู้ใช้" },
     { href: "/admin/logs", label: "Log สด" },
     ...(role === "developer" ? [{ href: "/admin/settings", label: "ตั้งค่า" }] : []),
   ];
   return (
     <nav aria-label="แอดมิน" className={styles.subnav}>
       {links.map((l) => (
-        <Link key={l.href} href={l.href} className={styles.subLink} aria-current={path === l.href ? "page" : undefined}>
+        <Link
+          key={l.href}
+          href={l.href}
+          className={styles.subLink}
+          aria-current={path === l.href || (l.href !== "/admin" && path.startsWith(`${l.href}/`)) ? "page" : undefined}
+        >
           {l.label}
         </Link>
       ))}
@@ -62,7 +70,6 @@ function AdminNav({ role }: { role: AdminRole }) {
 }
 
 const gb = (bytes: number) => `${(bytes / 1024 ** 3).toFixed(1)} GB`;
-const kb = (bytes: number) => `${(bytes / 1024).toFixed(1)} KB`;
 
 /** A hex colour from a CSS token, for the SloshGauge (it computes its text colour from hex). */
 function useTokenHex(name: string, fallback: string): string {
@@ -232,6 +239,79 @@ function Overview() {
           </table>
         </>
       )}
+      <BotPower />
     </>
+  );
+}
+
+const POWER = {
+  restart: {
+    label: "รีสตาร์ทบอท",
+    title: "รีสตาร์ทบอทเลยไหม",
+    text: "บอทจะบันทึกคิวกับเซสชันแล้วปิดตัว ถ้าบอทรันผ่าน start:supervised ก็จะเปิดขึ้นมาใหม่เองแล้วกู้คิวกลับมา ถ้าไม่ได้รันแบบนั้น บอทจะปิดไปจนกว่าจะมีคนเปิดที่เครื่อง",
+    done: "สั่งรีสตาร์ทแล้ว ดูสถานะบอทได้ที่การ์ดด้านบน",
+  },
+  shutdown: {
+    label: "ปิดบอท",
+    title: "ปิดบอทเลยไหม",
+    text: "บอทจะบันทึกคิวกับเซสชันแล้วปิดตัว และไม่เปิดเองจนกว่าจะมีคนสั่งเปิดที่เครื่อง ระหว่างนั้นทุกเซิร์ฟเวอร์จะเล่นเพลงไม่ได้",
+    done: "สั่งปิดบอทแล้ว",
+  },
+} as const;
+
+/** Spec #51: restart and shutdown, each behind a confirmation that says what will happen (#111 AC3). */
+export function BotPower() {
+  const [asking, setAsking] = useState<keyof typeof POWER | null>(null);
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const dialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    if (asking) dialog.current?.showModal();
+  }, [asking]);
+  const confirm = async () => {
+    if (!asking) return;
+    const action = asking;
+    dialog.current?.close();
+    const ok = await powerBot(action);
+    setMessage({ ok, text: ok ? POWER[action].done : "สั่งไม่สำเร็จ บอทอาจออฟไลน์อยู่แล้ว" });
+  };
+  return (
+    <section className={styles.section} aria-labelledby="power-title">
+      <h2 id="power-title" className={styles.subtitle}>
+        ควบคุมบอท
+      </h2>
+      <div className={styles.toolbar}>
+        <button type="button" className={styles.ghost} onClick={() => setAsking("restart")}>
+          {POWER.restart.label}
+        </button>
+        <button type="button" className={styles.danger} onClick={() => setAsking("shutdown")}>
+          {POWER.shutdown.label}
+        </button>
+      </div>
+      {message ? (
+        <p role={message.ok ? "status" : "alert"} className={message.ok ? styles.hint : styles.error}>
+          {message.text}
+        </p>
+      ) : null}
+      {asking ? (
+        <dialog ref={dialog} className={styles.dialog} onClose={() => setAsking(null)} aria-labelledby="power-dialog">
+          <h2 id="power-dialog" className={styles.subtitle}>
+            {POWER[asking].title}
+          </h2>
+          <p className={styles.hint}>{POWER[asking].text}</p>
+          <div className={styles.toolbar}>
+            <button type="button" className={styles.ghost} onClick={() => dialog.current?.close()}>
+              ยกเลิก
+            </button>
+            <button
+              type="button"
+              className={asking === "shutdown" ? styles.danger : styles.primary}
+              onClick={() => void confirm()}
+            >
+              {POWER[asking].label}
+            </button>
+          </div>
+        </dialog>
+      ) : null}
+    </section>
   );
 }

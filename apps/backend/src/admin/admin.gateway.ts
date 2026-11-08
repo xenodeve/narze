@@ -13,6 +13,7 @@ import { ConnectedSocket, MessageBody, SubscribeMessage, WebSocketGateway, WebSo
 import type Redis from "ioredis";
 import type { Server, Socket } from "socket.io";
 import { Authenticator, type Identity } from "../auth/authenticator";
+import { Presence } from "../presence/presence";
 import { userRoom } from "../realtime/user.gateway";
 import { REDIS, REDIS_SUBSCRIBER } from "../tokens";
 import { AdminRoles } from "./admin-roles";
@@ -35,6 +36,7 @@ export class AdminGateway implements OnModuleInit {
   constructor(
     @Inject(AdminRoles) private readonly roles: AdminRoles,
     @Inject(Authenticator) private readonly auth: Authenticator,
+    @Inject(Presence) private readonly presence: Presence,
     @Inject(REDIS) private readonly redis: Redis,
     @Inject(REDIS_SUBSCRIBER) private readonly subscriber: Redis,
   ) {}
@@ -51,6 +53,14 @@ export class AdminGateway implements OnModuleInit {
       }
     });
     await this.subscriber.subscribe(Channels.botLogs, Channels.botStats);
+    // Spec #114: the users page's "on Dashboard" dots follow tabs opening and closing.
+    this.presence.onChange(() => {
+      if (!this.server.sockets.adapter.rooms.get(STATS_ROOM)?.size) return;
+      void this.presence
+        .online()
+        .then((online) => this.server.to(STATS_ROOM).emit(SocketEvents.adminPresence, { online }))
+        .catch((error: Error) => this.logger.warn(`admin presence: ${error.message}`));
+    });
   }
 
   /** A user taken off the whitelist leaves both rooms on every open tab at once (security review). */

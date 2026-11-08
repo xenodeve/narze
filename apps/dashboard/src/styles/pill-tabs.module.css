@@ -18,7 +18,8 @@
   cursor: pointer;
 }
 
-.tab[aria-selected="true"] {
+.tab[aria-selected="true"],
+.tab[aria-pressed="true"] {
   border-color: var(--ink);
   background: var(--ink);
   color: var(--bg);

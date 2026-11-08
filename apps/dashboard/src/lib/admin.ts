@@ -1,18 +1,29 @@
 "use client";
 
 import {
+  AdminGuildRowSchema,
+  AdminGuildSchema,
   AdminMeSchema,
+  AdminPresenceSchema,
   type AdminRole,
   type AdminStats,
   AdminStatsListSchema,
   AdminStatsSchema,
+  AdminUserDetailSchema,
+  AdminUserListSchema,
+  type BotPowerAction,
+  ListeningSessionSchema,
   type LogLine,
   LogLineSchema,
+  MessagePageSchema,
+  SessionSummarySchema,
   SocketEvents,
+  TextChannelEntrySchema,
+  TopPlayedSchema,
   type WhitelistEntry,
   WhitelistEntrySchema,
 } from "@narze/shared";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { answer, apiGet, apiSend, parsed } from "./api";
 import { currentAccessToken, useSession } from "./session";
 import { getSocket, onSocketEvents } from "./socket";
@@ -58,6 +69,28 @@ export function useAdminRole(): AdminRole | null | "loading" {
 
 export const getStats = async () => parsed(await answer(apiGet("/api/admin/stats")), AdminStatsListSchema);
 
+const get = <T>(path: string, schema: { safeParse(v: unknown): { success: boolean; data?: T } }) =>
+  answer(apiGet(path)).then((res) => parsed<T>(res, schema));
+
+// #111 Admin II: everything the Backend reads through the Bot or from Supabase for Admins.
+export const getAdminGuilds = () => get("/api/admin/guilds", AdminGuildRowSchema.array());
+export const getAdminGuild = (id: string) => get(`/api/admin/guilds/${id}`, AdminGuildSchema);
+export const getChannels = (guildId: string) =>
+  get(`/api/admin/guilds/${guildId}/channels`, TextChannelEntrySchema.array());
+export const getMessages = (guildId: string, channelId: string) =>
+  get(`/api/admin/guilds/${guildId}/channels/${channelId}/messages`, MessagePageSchema);
+export const getGuildSessions = (guildId: string) =>
+  get(`/api/admin/guilds/${guildId}/sessions`, SessionSummarySchema.array());
+export const getGuildHistory = (guildId: string) =>
+  get(`/api/admin/guilds/${guildId}/history`, TopPlayedSchema.array());
+export const getAdminUsers = () => get("/api/admin/users", AdminUserListSchema);
+export const getAdminUser = (id: string) => get(`/api/admin/users/${id}`, AdminUserDetailSchema);
+export const getAdminSession = (id: string) =>
+  get(`/api/admin/sessions/${encodeURIComponent(id)}`, ListeningSessionSchema);
+/** Restart or shut the Bot down; the body names the action, as the Backend requires (#111 AC3). */
+export const powerBot = async (action: BotPowerAction) =>
+  (await answer(apiSend("POST", `/api/admin/bot/${action}`, { confirm: action })))?.ok ?? false;
+
 export const getWhitelist = async () =>
   parsed<WhitelistEntry[]>(await answer(apiGet("/api/admin/whitelist")), WhitelistEntrySchema.array());
 export const setWhitelist = async (discordId: string, role: AdminRole) =>
@@ -73,8 +106,10 @@ export function useAdminRoom(handlers: {
   onHistory?: (lines: LogLine[]) => void;
   onLine?: (line: LogLine) => void;
   onStats?: (sample: AdminStats) => void;
+  /** Who has a Dashboard tab open, whenever that changes (#111, spec #114). */
+  onPresence?: (online: string[]) => void;
 }): void {
-  const { onHistory, onLine, onStats } = handlers;
+  const { onHistory, onLine, onStats, onPresence } = handlers;
   useEffect(() => {
     let alive = true;
     const join = async () => {
@@ -93,6 +128,10 @@ export function useAdminRoom(handlers: {
         const line = LogLineSchema.safeParse(raw);
         if (line.success) onLine?.(line.data);
       },
+      [SocketEvents.adminPresence]: (raw: unknown) => {
+        const body = AdminPresenceSchema.safeParse(raw);
+        if (body.success) onPresence?.(body.data.online);
+      },
       [SocketEvents.adminStats]: (raw: unknown) => {
         const sample = AdminStatsSchema.safeParse(raw);
         if (sample.success) onStats?.(sample.data);
@@ -104,5 +143,25 @@ export function useAdminRoom(handlers: {
       // Leaving the admin pages leaves the rooms: no console lines for a tab that is elsewhere.
       void getSocket().then((socket) => socket.emit(SocketEvents.adminUnsubscribe));
     };
-  }, [onHistory, onLine, onStats]);
+  }, [onHistory, onLine, onStats, onPresence]);
+}
+
+/**
+ * One admin read: null while loading, "failed" when the Backend did not answer with data. Loads again
+ * when `key` changes (name what `load` reads), and ignores an answer that arrives after that.
+ */
+export function useLoad<T>(load: () => Promise<T | null>, key: string): T | "failed" | null {
+  const [state, setState] = useState<T | "failed" | null>(null);
+  const latest = useRef(load);
+  latest.current = load;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `key` names everything `load` reads
+  useEffect(() => {
+    let current = true;
+    setState(null);
+    void latest.current().then((value) => current && setState(value ?? "failed"));
+    return () => {
+      current = false;
+    };
+  }, [key]);
+  return state;
 }

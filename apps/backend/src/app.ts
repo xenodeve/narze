@@ -9,6 +9,7 @@ import Redis from "ioredis";
 import { AdminController } from "./admin/admin.controller";
 import { AdminGateway } from "./admin/admin.gateway";
 import { AdminGuard } from "./admin/admin.guard";
+import { AdminQueries } from "./admin/admin-queries";
 import { AdminRoles } from "./admin/admin-roles";
 import { Authenticator } from "./auth/authenticator";
 import { ChartService } from "./charts/chart-service";
@@ -34,7 +35,7 @@ import { SettingsController } from "./settings/settings.controller";
 import { SettingsStore } from "./settings/settings-store";
 import { BotStatusTracker } from "./status/bot-status.tracker";
 import { StatusGateway } from "./status/status.gateway";
-import { DEVELOPER_IDS, DISCORD_API_URL, REDIS, REDIS_SUBSCRIBER, SUPABASE } from "./tokens";
+import { ADMIN_QUERY_TIMEOUT_MS, DEVELOPER_IDS, DISCORD_API_URL, REDIS, REDIS_SUBSCRIBER, SUPABASE } from "./tokens";
 import { UserStore } from "./users/user-store";
 
 export interface AppOptions {
@@ -52,6 +53,8 @@ export interface AppOptions {
   youtubeApiKey?: string;
   /** Discord IDs that are always Developers (NARZE_DEVELOPER_IDS, #110): the way into the admin area. */
   developerIds?: string[];
+  /** How long to wait for the Bot to answer an admin query (#111); 5 s unless a test shortens it. */
+  adminQueryTimeoutMs?: number;
   /** Apple Music's RSS for charts (ADR-0010); the real one unless a test points elsewhere. */
   chartsUrl?: string;
 }
@@ -126,6 +129,8 @@ class AppModule implements OnApplicationShutdown {
             new ChartService({ redis, chartsUrl: options.chartsUrl, spotify: createSpotifyApi(options.spotify ?? {}) }),
         },
         { provide: DEVELOPER_IDS, useValue: options.developerIds ?? [] },
+        { provide: ADMIN_QUERY_TIMEOUT_MS, useValue: options.adminQueryTimeoutMs ?? 5000 },
+        AdminQueries,
         AdminRoles,
         AdminGuard,
         AdminGateway,

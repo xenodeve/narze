@@ -16,6 +16,10 @@ export const Channels = {
   botLogs: "bot:logs",
   /** Bot → Backend: an AdminStats sample every 5 s (#110). */
   botStats: "bot:stats",
+  /** Backend → Bot: an AdminQuery (#111); the Bot answers on botAdminResults by id. */
+  botAdminQueries: "bot:admin-queries",
+  /** Bot → Backend: an AdminQueryResult (#111). */
+  botAdminResults: "bot:admin-results",
 } as const;
 
 /** Redis keys the Bot writes and the Backend reads (ADR-0002). Never authoritative: the Bot rebuilds them on ready. */
@@ -118,4 +122,6 @@ export const SocketEvents = {
   adminLog: "admin:log",
   /** Backend → the admin stats room: one AdminStats sample (#110). */
   adminStats: "admin:stats",
+  /** Backend → the admin stats room: the Discord IDs with a Dashboard tab open (#111, spec #114). */
+  adminPresence: "admin:presence",
 } as const;
