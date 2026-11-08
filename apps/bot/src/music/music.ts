@@ -1,5 +1,5 @@
 import type { Requester, Track } from "@narze/shared";
-import type { LavalinkManager, Track as LavalinkTrack, Player } from "lavalink-client";
+import type { LavalinkManager, Track as LavalinkTrack, Player, RepeatMode } from "lavalink-client";
 import { type AnnounceFlags, NO_FLAGS, nowPlayingNotice, shouldAnnounce } from "./announce";
 import type { Notice } from "./format";
 import { type PlayerPublisher, toPlayerState } from "./player-state";
@@ -17,6 +17,8 @@ export interface PlayRequest {
   textChannelId: string;
   query: string;
   requester: Requester;
+  /** Play next: insert at the head of the queue instead of the end (#101). */
+  next?: boolean;
 }
 
 export type PlayResult =
@@ -28,6 +30,8 @@ export interface MusicOptions {
   lavalink: LavalinkManager;
   /** Identifies this Bot process in every Player State (ADR-0007); a restart picks a new one. */
   epoch?: string;
+  /** Title of a Spotify URL from its public oEmbed, for links Lavalink cannot resolve (spec #70). */
+  oembedTitle?: (url: string) => Promise<string | null>;
   publisher: Pick<PlayerPublisher, "publish" | "gone">;
   /** Posts a Now-Playing Notice in a text channel. */
   announce: (channelId: string, notice: Notice) => Promise<void>;
@@ -35,6 +39,7 @@ export interface MusicOptions {
 }
 
 // Per-player data keys (lavalink-client player.set/get).
+const CYCLE: Record<RepeatMode, RepeatMode> = { off: "track", track: "queue", queue: "off" };
 const FLAGS = "narze.flags";
 const REVISION = "narze.revision";
 const TEXT_CHANNEL = "narze.textChannelId";
@@ -56,11 +61,22 @@ const addedAtOf = (track: LavalinkTrack): number | undefined =>
  * The Bot's music engine over lavalink-client: commands call it, and every change it makes is
  * published as a Player State (ADR-0002) and, on track start, maybe announced (spec #23–#25).
  */
+/** v5: GET https://open.spotify.com/oembed?url=<url>, title with " - " replaced by a space (spec #70). */
+async function spotifyOembedTitle(url: string): Promise<string | null> {
+  const res = await fetch(`https://open.spotify.com/oembed?url=${encodeURIComponent(url)}`, {
+    signal: AbortSignal.timeout(5000),
+  }).catch(() => null);
+  if (!res?.ok) return null;
+  const body = (await res.json().catch(() => null)) as { title?: unknown } | null;
+  return typeof body?.title === "string" ? body.title : null;
+}
+
 export function createMusic({
   lavalink,
   publisher,
   announce,
   epoch = crypto.randomUUID(),
+  oembedTitle = spotifyOembedTitle,
   now = Date.now,
 }: MusicOptions) {
   const sourceManagers = () => lavalink.nodeManager.leastUsedNodes()[0]?.info?.sourceManagers ?? [];
@@ -97,10 +113,28 @@ export function createMusic({
   async function search(player: Player, query: string, requester: Requester) {
     const resolved = resolveQuery(query, sourceManagers());
     if (!resolved.ok) return { error: resolved.reason } as const;
-    const result = await player.search(
-      resolved.source ? { query: resolved.query, source: resolved.source } : { query: resolved.query },
-      requester,
-    );
+    const isSpotifyLink = /spotify\.com\//i.test(resolved.query);
+    // lavalink-client refuses a Spotify link outright when the node has no Spotify source.
+    let result = await player
+      .search(
+        resolved.source ? { query: resolved.query, source: resolved.source } : { query: resolved.query },
+        requester,
+      )
+      .catch((error: unknown) => {
+        if (isSpotifyLink) return { tracks: [] as unknown[] };
+        throw error;
+      });
+    // Spec #70: a Spotify link the node cannot resolve is searched again by its oEmbed title.
+    if (result.tracks.length === 0 && isSpotifyLink) {
+      const title = await oembedTitle(resolved.query);
+      const text = title ? resolveQuery(title.replace(" - ", " "), sourceManagers()) : null;
+      if (text?.ok) {
+        result = await player.search(
+          text.source ? { query: text.query, source: text.source } : { query: text.query },
+          requester,
+        );
+      }
+    }
     const tracks = result.tracks as LavalinkTrack[];
     for (const track of tracks) track.userData = { ...track.userData, [ADDED_AT]: now() };
     return { tracks } as const;
@@ -193,10 +227,10 @@ export function createMusic({
     if (!first || !shown) return abandon({ kind: "error", reason: "not-found" });
     if (!player.connected) await player.connect();
     if (player.queue.current) {
-      await player.queue.add(first);
+      await player.queue.add(first, request.next ? 0 : undefined);
       bump(player);
       await publish(player);
-      return { kind: "queued", track: shown, position: player.queue.tracks.length };
+      return { kind: "queued", track: shown, position: request.next ? 1 : player.queue.tracks.length };
     }
     player.set(FLAGS, { ...NO_FLAGS, firstFromCommand: true });
     await player.queue.add(first);
@@ -207,6 +241,35 @@ export function createMusic({
   return {
     play(request: PlayRequest): Promise<PlayResult> {
       return serial(request.guildId, () => startOrQueue(request));
+    },
+
+    /** v5 parity: "previous" restarts the current track; there is no history (spec #107). */
+    async previous(guildId: string): Promise<boolean> {
+      const player = existing(guildId);
+      if (!player?.queue.current) return false;
+      await player.seek(0);
+      player.set(LAST_SEEK, now());
+      await publish(player);
+      return true;
+    },
+
+    /** Sets a loop mode, or with null cycles off → track → queue → off (spec #47). */
+    async setLoop(guildId: string, mode: RepeatMode | null): Promise<RepeatMode | null> {
+      const player = existing(guildId);
+      if (!player) return null;
+      const next = mode ?? CYCLE[player.repeatMode];
+      await player.setRepeatMode(next);
+      await publish(player);
+      return next;
+    },
+
+    async shuffle(guildId: string): Promise<boolean> {
+      const player = existing(guildId);
+      if (!player || player.queue.tracks.length < 2) return false;
+      await player.queue.shuffle();
+      bump(player);
+      await publish(player);
+      return true;
     },
 
     /** Toggles pause; null when nothing is playing. */
