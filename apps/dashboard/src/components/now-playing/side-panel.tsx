@@ -2,7 +2,8 @@
 
 import { type ReactNode, useState } from "react";
 import { CatalogSearch } from "@/components/catalog";
-import { explain, sendCommand } from "@/lib/control";
+import { playInGuild } from "@/lib/control";
+import pill from "@/styles/pill-tabs.module.css";
 import styles from "./side-panel.module.css";
 
 /**
@@ -15,13 +16,15 @@ export function SidePanel({ guildId, queue }: { guildId: string; queue: ReactNod
 
   const add = async (item: { title: string; query: string }) => {
     setStatus(null);
-    const ack = await sendCommand(guildId, { action: "play", query: item.query, next: false, voiceChannelId: null });
-    setStatus(ack.ok ? { ok: true, text: `เพิ่ม ${item.title} แล้ว` } : { ok: false, text: explain(ack) ?? "เพิ่มไม่สำเร็จ" });
+    const result = await playInGuild(guildId, item.query);
+    setStatus(
+      result.ok ? { ok: true, text: `เพิ่ม ${item.title} แล้ว` } : { ok: false, text: result.text ?? "เพิ่มไม่สำเร็จ" },
+    );
   };
 
   return (
     <div className={styles.panel}>
-      <div role="tablist" aria-label="คิวและค้นหา" className={styles.tabs}>
+      <div role="tablist" aria-label="คิวและค้นหา" className={pill.tabs}>
         {(
           [
             ["queue", "คิว"],
@@ -35,7 +38,7 @@ export function SidePanel({ guildId, queue }: { guildId: string; queue: ReactNod
             id={`tab-${value}`}
             aria-selected={tab === value}
             aria-controls={`pane-${value}`}
-            className={styles.tab}
+            className={pill.tab}
             onClick={() => setTab(value)}
           >
             {label}

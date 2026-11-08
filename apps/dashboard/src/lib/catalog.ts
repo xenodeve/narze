@@ -1,10 +1,14 @@
 "use client";
 
 import {
+  type AlbumPage,
+  AlbumPageSchema,
+  type ArtistPage,
+  ArtistPageSchema,
+  type ChannelPage,
+  ChannelPageSchema,
   type PlayPermission,
   PlayPermissionListSchema,
-  type SearchAlbum,
-  type SearchArtist,
   type SearchResponse,
   SearchResponseSchema,
   type SearchSource,
@@ -24,25 +28,17 @@ export async function searchCatalog(
   return parsed.success ? parsed.data : null;
 }
 
-export interface ArtistPage {
-  artist: SearchArtist;
-  topTracks: SearchTrack[];
-  albums: SearchAlbum[];
-}
-export interface AlbumPage {
-  album: SearchAlbum;
-  tracks: SearchTrack[];
-}
-export interface ChannelPage {
-  channel: { id: string; name: string; imageUrl: string | null; subscribers?: number; description: string };
-  tracks: SearchTrack[];
-}
-
 /** One catalog page; "missing" for a 404, null for any other failure. */
-export async function catalogPage<T>(kind: "artist" | "album" | "channel", id: string): Promise<T | "missing" | null> {
+const PAGE_SCHEMAS = { artist: ArtistPageSchema, album: AlbumPageSchema, channel: ChannelPageSchema } as const;
+type Pages = { artist: ArtistPage; album: AlbumPage; channel: ChannelPage };
+
+/** One catalog page, checked against the shared contract; "missing" for a 404, null otherwise. */
+export async function catalogPage<K extends keyof Pages>(kind: K, id: string): Promise<Pages[K] | "missing" | null> {
   const res = await apiGet(`/api/catalog/${kind}/${encodeURIComponent(id)}`).catch(() => null);
   if (res?.status === 404) return "missing";
-  return res?.ok ? ((await res.json().catch(() => null)) as T | null) : null;
+  if (!res?.ok) return null;
+  const parsed = PAGE_SCHEMAS[kind].safeParse(await res.json().catch(() => null));
+  return parsed.success ? (parsed.data as Pages[K]) : null;
 }
 
 /** Spec #91: where the user may start playback, and why not elsewhere. */
@@ -60,3 +56,5 @@ export function sourceBadge(track: SearchTrack): "Spotify" | "YT Music" | "YouTu
   if (/youtu\.?be/.test(track.uri)) return "YouTube";
   return "Audio";
 }
+
+export type { AlbumPage, ArtistPage, ChannelPage };

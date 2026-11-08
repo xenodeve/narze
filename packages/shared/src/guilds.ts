@@ -35,16 +35,18 @@ export interface ControlPermissionInput {
   botVoiceChannelId: string | null;
 }
 
-export type ControlReason =
-  | "server-owner"
-  | "bot-owner"
-  | "in-voice"
-  | "join-voice"
-  | "in-bot-voice"
-  | "not-in-voice"
-  | "other-voice"
-  /** Not part of the ladder: a non-owner picked a channel other than their own to start in (#101). */
-  | "own-voice-only";
+/** "own-voice-only" is not part of the ladder: a non-owner picked another channel to start in (#101). */
+export const ControlReasonSchema = z.enum([
+  "server-owner",
+  "bot-owner",
+  "in-voice",
+  "join-voice",
+  "in-bot-voice",
+  "not-in-voice",
+  "other-voice",
+  "own-voice-only",
+]);
+export type ControlReason = z.infer<typeof ControlReasonSchema>;
 
 /** v5's reason strings (spec #98, C.4). "No active player - can start playback" is a UI contract: it hides the idle banner. */
 export const CONTROL_REASON_TEXT: Record<ControlReason, string> = {
@@ -86,7 +88,7 @@ export const PlayPermissionSchema = z.object({
   name: z.string(),
   iconUrl: z.string().nullable(),
   canPlay: z.boolean(),
-  reason: z.string(),
+  reason: ControlReasonSchema,
 });
 export const PlayPermissionListSchema = z.array(PlayPermissionSchema);
 export type PlayPermission = z.infer<typeof PlayPermissionSchema>;

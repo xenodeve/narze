@@ -1,11 +1,6 @@
-export interface YouTubeChannel {
-  id: string;
-  name: string;
-  imageUrl: string | null;
-  /** Undefined when the channel hides its count (spec #61). */
-  subscribers?: number;
-  description: string;
-}
+import type { YouTubeChannel } from "@narze/shared";
+
+export type { YouTubeChannel };
 
 interface ChannelItem {
   id: string;

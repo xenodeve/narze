@@ -1,9 +1,10 @@
 "use client";
 
-import type { ControlReason, PlayPermission } from "@narze/shared";
+import type { PlayPermission } from "@narze/shared";
 import { useEffect, useRef, useState } from "react";
+import { Thinking } from "@/components/catalog/thinking";
 import { playPermissions } from "@/lib/catalog";
-import { explain, REASON_TH, sendCommand } from "@/lib/control";
+import { playInGuild, REASON_TH } from "@/lib/control";
 import styles from "./select-server.module.css";
 
 /** A track (or link) to play from a browse page. */
@@ -42,17 +43,12 @@ export function SelectServer({ target, onClose }: { target: PlayTarget | null; o
   const play = async (guild: PlayPermission) => {
     if (!target) return;
     setBusy(guild.guildId);
-    const ack = await sendCommand(guild.guildId, {
-      action: "play",
-      query: target.query,
-      next: false,
-      voiceChannelId: null,
-    });
+    const result = await playInGuild(guild.guildId, target.query);
     setBusy(null);
     setStatus(
-      ack.ok
+      result.ok
         ? { ok: true, text: `เพิ่ม ${target.title} ใน ${guild.name} แล้ว` }
-        : { ok: false, text: explain(ack) ?? "เล่นไม่สำเร็จ" },
+        : { ok: false, text: result.text ?? "เล่นไม่สำเร็จ" },
     );
   };
 
@@ -63,7 +59,7 @@ export function SelectServer({ target, onClose }: { target: PlayTarget | null; o
       </h2>
       {target ? <p className={styles.what}>{target.title}</p> : null}
       {guilds === null ? (
-        <p className={styles.note}>กำลังโหลดเซิร์ฟเวอร์…</p>
+        <Thinking label="กำลังโหลดเซิร์ฟเวอร์" />
       ) : guilds === "failed" ? (
         <p role="alert" className={styles.error}>
           โหลดรายชื่อเซิร์ฟเวอร์ไม่ได้ ลองอีกครั้ง
@@ -88,7 +84,7 @@ export function SelectServer({ target, onClose }: { target: PlayTarget | null; o
               </button>
               {g.canPlay ? null : (
                 <p id={`why-${g.guildId}`} className={styles.reason}>
-                  {REASON_TH[g.reason as ControlReason] ?? g.reason}
+                  {REASON_TH[g.reason]}
                 </p>
               )}
             </li>

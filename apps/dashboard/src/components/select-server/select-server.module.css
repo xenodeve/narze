@@ -8,6 +8,24 @@
   box-shadow: var(--shadow-window);
 }
 
+/* Dialog (DESIGN.md): enter 200 ms, y 8 → 0, scale .98 → 1. */
+.dialog[open] {
+  animation: enter 200ms var(--ease) both;
+}
+
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dialog[open] {
+    animation: none;
+  }
+}
+
 .dialog::backdrop {
   background: rgb(0 0 0 / 0.45);
 }

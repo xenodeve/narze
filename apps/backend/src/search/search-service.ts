@@ -1,4 +1,7 @@
 import {
+  type AlbumPage,
+  type ArtistPage,
+  type ChannelPage,
   type SearchAlbum,
   type SearchArtist,
   type SearchResponse,
@@ -9,6 +12,8 @@ import {
 import { largestImage, type SpotifyApi } from "@narze/shared/spotify-api";
 import { createTtlCache, WEEK_MS } from "@narze/shared/ttl-cache";
 import type { YouTubeChannel, YouTubeChannels } from "./youtube-channels";
+
+export type { AlbumPage, ArtistPage, ChannelPage };
 
 /** What Lavalink's `GET /v4/loadtracks` answers (only the parts the catalog reads). */
 export interface LavalinkLoad {
@@ -54,11 +59,15 @@ interface SpotifyAlbum {
 }
 
 const MINUTES = 60_000;
-const PREFIX: Record<SearchSource, string> = {
-  spotify: "",
-  "spotify-api": "",
-  youtube: "ytsearch:",
-  youtubemusic: "ytmsearch:",
+/**
+ * Every Lavalink search carries a search prefix, so a query is never loaded as a URL: the node has
+ * the HTTP source on, and a bare `http://internal/...` would make it fetch that (SSRF). Spotify mode
+ * tries spsearch first (LavaSrc), then YouTube Music, as the Bot does (apps/bot/src/music/query.ts).
+ */
+const LAVALINK_PREFIXES: Record<"spotify" | "youtube" | "youtubemusic", string[]> = {
+  spotify: ["spsearch:", "ytmsearch:"],
+  youtube: ["ytsearch:"],
+  youtubemusic: ["ytmsearch:"],
 };
 
 const fromLavalink = (t: LavalinkTrackData): SearchTrack => {
@@ -72,6 +81,11 @@ const fromLavalink = (t: LavalinkTrackData): SearchTrack => {
     uri,
     ...(uri.includes("spotify") ? { spotifyUrl: uri } : {}),
     ...(uri.includes("youtube") ? { youtubeUrl: uri } : {}),
+    // Spec #85 VIDEO chip: a YouTube upload outside YouTube Music, not from a "- Topic" channel.
+    isVideo:
+      /(^|\.)youtube\.com\/watch|youtu\.be\//.test(uri) &&
+      !uri.includes("music.youtube.com") &&
+      !/- Topic$/.test(t.info.author ?? ""),
   };
 };
 const fromSpotifyTrack = (t: SpotifyTrack): SearchTrack => {
@@ -116,18 +130,18 @@ const fromChannel = (c: YouTubeChannel): SearchArtist => ({
   youtubeUrl: `https://www.youtube.com/channel/${c.id}`,
 });
 
-export interface ArtistPage {
-  artist: SearchArtist;
-  topTracks: SearchTrack[];
-  albums: SearchAlbum[];
-}
-export interface AlbumPage {
-  album: SearchAlbum;
-  tracks: SearchTrack[];
-}
-export interface ChannelPage {
-  channel: YouTubeChannel;
-  tracks: SearchTrack[];
+/** v5 §7.1: spotify-api's own top result — exact artist, exact track, first track 0.9, first artist 0.8. */
+function spotifyApiTop(
+  query: string,
+  found: { tracks: SearchTrack[]; artists: SearchArtist[] },
+): SearchResponse["topResult"] {
+  const wanted = query.trim().toLowerCase();
+  const artist = found.artists.find((a) => a.name.trim().toLowerCase() === wanted);
+  if (artist) return { type: "artist", data: artist, score: 1.1 };
+  const track = found.tracks.find((t) => t.title.trim().toLowerCase() === wanted);
+  if (track) return { type: "track", data: track, score: 1.1 };
+  if (found.tracks[0]) return { type: "track", data: found.tracks[0], score: 0.9 };
+  return found.artists[0] ? { type: "artist", data: found.artists[0], score: 0.8 } : null;
 }
 
 /**
@@ -144,6 +158,8 @@ export class SearchService {
   private readonly artists = createTtlCache<string, ArtistPage>({ ttlMs: WEEK_MS, max: 500 });
   private readonly albums = createTtlCache<string, AlbumPage>({ ttlMs: WEEK_MS, max: 500 });
   private readonly channels = createTtlCache<string, ChannelPage>({ ttlMs: 60 * MINUTES, max: 500 });
+  /** Spec #73: a YouTube channel search is kept 30 minutes (each one costs API quota). */
+  private readonly channelSearches = createTtlCache<string, YouTubeChannel[]>({ ttlMs: 30 * MINUTES, max: 1000 });
 
   constructor(
     private readonly deps: {
@@ -152,6 +168,24 @@ export class SearchService {
       youtube: YouTubeChannels;
     },
   ) {}
+
+  /** The first prefix that finds tracks wins (spsearch, then ytmsearch, in Spotify mode). */
+  private async searchLavalink(query: string, mode: keyof typeof LAVALINK_PREFIXES): Promise<SearchTrack[]> {
+    for (const prefix of LAVALINK_PREFIXES[mode]) {
+      const tracks = await this.lavalinkTracks(`${prefix}${query}`);
+      if (tracks.length > 0) return tracks;
+    }
+    return [];
+  }
+
+  private async channelSearch(query: string, source: "youtube" | "youtubemusic"): Promise<YouTubeChannel[]> {
+    const key = `${source}:${query.toLowerCase()}`;
+    const cached = this.channelSearches.get(key);
+    if (cached) return cached;
+    const found = await this.deps.youtube.search(query, source, 5);
+    if (found.length > 0) this.channelSearches.set(key, found);
+    return found;
+  }
 
   private async lavalinkTracks(identifier: string): Promise<SearchTrack[]> {
     const load = await this.deps.loadTracks(identifier).catch(() => null);
@@ -180,8 +214,8 @@ export class SearchService {
     let top: SearchResponse["topResult"];
     if (source === "youtube" || source === "youtubemusic") {
       const [tracks, channels] = await Promise.all([
-        this.lavalinkTracks(`${PREFIX[source]}${query}`),
-        this.deps.youtube.search(query, source, 5).catch(() => []),
+        this.searchLavalink(query, source),
+        this.channelSearch(query, source),
       ]);
       found = { tracks, artists: channels.map(fromChannel), albums: [] };
       // v5 §7.1: a channel whose name contains the query is the top result.
@@ -202,11 +236,15 @@ export class SearchService {
         this.spotifyArtistsAndAlbums(query),
       ]);
       found = { tracks: (trackBody?.tracks?.items ?? []).map(fromSpotifyTrack), ...rest };
+      top = spotifyApiTop(query, found);
     } else {
-      const [tracks, rest] = await Promise.all([this.lavalinkTracks(query), this.spotifyArtistsAndAlbums(query)]);
+      const [tracks, rest] = await Promise.all([
+        this.searchLavalink(query, "spotify"),
+        this.spotifyArtistsAndAlbums(query),
+      ]);
       found = { tracks, ...rest };
+      top = topResult(query, found);
     }
-    top = topResult(query, found);
     const response = { query, source, topResult: top, ...found };
     // Spec #59: an empty result is retried next time, not remembered.
     if (found.tracks.length > 0) this.searches.set(key, response);
@@ -231,7 +269,8 @@ export class SearchService {
       topTracks: (top?.tracks ?? []).map(fromSpotifyTrack),
       albums: (albums?.items ?? []).map(fromSpotifyAlbum),
     };
-    this.artists.set(id, page);
+    // A part that failed is not remembered for a week: only a complete page is cached.
+    if (top && albums) this.artists.set(id, page);
     return page;
   }
 
@@ -239,16 +278,24 @@ export class SearchService {
   async album(id: string): Promise<AlbumPage | null> {
     const cached = this.albums.get(id);
     if (cached) return cached;
-    const album = await this.deps.spotify.get<SpotifyAlbum & { tracks?: { items?: SpotifyTrack[] } }>(
+    type TrackPage = { items?: SpotifyTrack[]; next?: string | null };
+    const album = await this.deps.spotify.get<SpotifyAlbum & { tracks?: TrackPage }>(
       `/albums/${encodeURIComponent(id)}?market=TH`,
     );
     if (!album?.id) return null;
-    const meta = fromSpotifyAlbum(album);
+    // Spotify embeds the first 50 tracks; follow `next` for the rest (bounded).
+    const items = [...(album.tracks?.items ?? [])];
+    let next = album.tracks?.next ?? null;
+    for (let pages = 0; next && pages < 20; pages++) {
+      const more: TrackPage | null = await this.deps.spotify.get<TrackPage>(next);
+      items.push(...(more?.items ?? []));
+      next = more?.next ?? null;
+    }
     const page = {
-      album: meta,
-      tracks: (album.tracks?.items ?? []).map((t) => ({
-        ...fromSpotifyTrack({ ...t, album: { id: album.id, name: album.name, images: album.images } }),
-      })),
+      album: fromSpotifyAlbum(album),
+      tracks: items.map((t) =>
+        fromSpotifyTrack({ ...t, album: { id: album.id, name: album.name, images: album.images } }),
+      ),
     };
     this.albums.set(id, page);
     return page;

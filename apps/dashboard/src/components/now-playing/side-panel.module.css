@@ -5,29 +5,6 @@
   min-width: 0;
 }
 
-.tabs {
-  display: flex;
-  gap: 6px;
-}
-
-.tab {
-  height: 32px;
-  padding: 0 14px;
-  border: 1px solid var(--line);
-  border-radius: var(--r-pill);
-  background: transparent;
-  color: var(--ink-2);
-  font: inherit;
-  font-size: 0.8125rem;
-  cursor: pointer;
-}
-
-.tab[aria-selected="true"] {
-  border-color: var(--ink);
-  background: var(--ink);
-  color: var(--bg);
-}
-
 .done {
   margin: 0 0 12px;
   color: var(--ok);

@@ -63,6 +63,27 @@ export const SearchResponseSchema = z.object({
 });
 export type SearchResponse = z.infer<typeof SearchResponseSchema>;
 
+/** Spec #60: the catalog pages, one contract for the Backend that serves and the Dashboard that reads. */
+export const ArtistPageSchema = z.object({
+  artist: SearchArtistSchema,
+  topTracks: z.array(SearchTrackSchema),
+  albums: z.array(SearchAlbumSchema),
+});
+export type ArtistPage = z.infer<typeof ArtistPageSchema>;
+export const AlbumPageSchema = z.object({ album: SearchAlbumSchema, tracks: z.array(SearchTrackSchema) });
+export type AlbumPage = z.infer<typeof AlbumPageSchema>;
+export const YouTubeChannelSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  imageUrl: z.string().nullable(),
+  /** Undefined when the channel hides its count (spec #61). */
+  subscribers: z.number().optional(),
+  description: z.string(),
+});
+export type YouTubeChannel = z.infer<typeof YouTubeChannelSchema>;
+export const ChannelPageSchema = z.object({ channel: YouTubeChannelSchema, tracks: z.array(SearchTrackSchema) });
+export type ChannelPage = z.infer<typeof ChannelPageSchema>;
+
 /** Dice's coefficient on character bigrams, spaces ignored — what v5's `string-similarity` computed. */
 export function diceSimilarity(a: string, b: string): number {
   const left = a.replace(/\s+/g, "");

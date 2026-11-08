@@ -58,7 +58,9 @@ export function createSpotifyApi({
     async get<T>(pathOrUrl: string): Promise<T | null> {
       const bearer = await accessToken();
       if (!bearer) return null;
-      const url = pathOrUrl.startsWith("https://") ? pathOrUrl : `${apiUrl}${pathOrUrl}`;
+      // The token only ever goes to the configured API (a `next` page URL included).
+      const url = pathOrUrl.startsWith(apiUrl) ? pathOrUrl : `${apiUrl}${pathOrUrl}`;
+      if (!url.startsWith(`${apiUrl}/`)) return null;
       const res = await fetch(url, {
         headers: { authorization: `Bearer ${bearer}` },
         signal: AbortSignal.timeout(5000),

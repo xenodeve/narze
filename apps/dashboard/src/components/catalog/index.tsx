@@ -1,15 +1,13 @@
 "use client";
 
 import type { SearchAlbum, SearchArtist, SearchResponse, SearchSource, SearchTrack } from "@narze/shared";
-import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { formatTime } from "@/components/now-playing/progress";
 import { searchCatalog, sourceBadge } from "@/lib/catalog";
+import pill from "@/styles/pill-tabs.module.css";
 import styles from "./catalog.module.css";
-
-// Replaces every spinner for an in-flight remote step (DESIGN.md: `searching`). Canvas: client-only.
-const ThinkingOrb = dynamic(() => import("thinking-orbs").then((m) => m.ThinkingOrb), { ssr: false });
+import { Thinking } from "./thinking";
 
 export const SOURCES: Array<{ value: SearchSource; label: string }> = [
   { value: "spotify-api", label: "Spotify" },
@@ -130,19 +128,19 @@ export function CatalogSearch({ onPlay }: { onPlay: (item: { title: string; quer
           aria-label="ค้นหาเพลง ศิลปิน หรืออัลบั้ม"
         />
         {searching ? (
-          <span className={styles.orb} role="status" aria-label="กำลังค้นหา">
-            <ThinkingOrb state="searching" size={20} />
+          <span className={styles.orb}>
+            <Thinking label="กำลังค้นหา" />
           </span>
         ) : null}
       </div>
-      <div role="tablist" aria-label="แหล่งเพลง" className={styles.tabs}>
+      <div role="tablist" aria-label="แหล่งเพลง" className={pill.tabs}>
         {SOURCES.map((s) => (
           <button
             key={s.value}
             type="button"
             role="tab"
             aria-selected={source === s.value}
-            className={styles.tab}
+            className={pill.tab}
             onClick={() => setSource(s.value)}
           >
             {s.label}

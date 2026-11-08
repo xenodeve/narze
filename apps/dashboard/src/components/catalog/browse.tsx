@@ -7,6 +7,7 @@ import { type AlbumPage, type ArtistPage, type ChannelPage, catalogPage } from "
 import { useSession } from "@/lib/session";
 import styles from "./browse.module.css";
 import { CardLink, CatalogSearch, SongRow } from "./index";
+import { Thinking } from "./thinking";
 
 /** Browse pages need a signed-in user: the catalog and the play permissions are per user. */
 function SignedIn({ children }: { children: (play: (target: PlayTarget) => void) => ReactNode }) {
@@ -36,11 +37,12 @@ export function SearchPage() {
 }
 
 /** Loads one catalog page; the states every browse page shares. */
-function useCatalog<T>(kind: "artist" | "album" | "channel", id: string) {
-  const [page, setPage] = useState<T | "missing" | "failed" | null>(null);
+type Pages = { artist: ArtistPage; album: AlbumPage; channel: ChannelPage };
+function useCatalog<K extends keyof Pages>(kind: K, id: string) {
+  const [page, setPage] = useState<Pages[K] | "missing" | "failed" | null>(null);
   useEffect(() => {
     let live = true;
-    void catalogPage<T>(kind, id).then((found) => {
+    void catalogPage(kind, id).then((found) => {
       if (live) setPage(found ?? "failed");
     });
     return () => {
@@ -51,7 +53,8 @@ function useCatalog<T>(kind: "artist" | "album" | "channel", id: string) {
 }
 
 function Pending({ page }: { page: "missing" | "failed" | null }) {
-  if (page === null) return <div className={styles.loading} aria-busy="true" />;
+  // DESIGN.md: an in-flight remote step shows the ThinkingOrb, never a spinner or a bare shimmer.
+  if (page === null) return <Thinking label="กำลังโหลด" />;
   return (
     <p role="alert" className={styles.note}>
       {page === "missing" ? "ไม่พบหน้านี้" : "โหลดไม่สำเร็จ ลองรีเฟรช"}
@@ -77,7 +80,7 @@ export function ArtistView({ id }: { id: string }) {
   return <SignedIn>{(play) => <ArtistBody id={id} play={play} />}</SignedIn>;
 }
 function ArtistBody({ id, play }: { id: string; play: (t: PlayTarget) => void }) {
-  const page = useCatalog<ArtistPage>("artist", id);
+  const page = useCatalog("artist", id);
   if (page === null || page === "missing" || page === "failed") return <Pending page={page} />;
   return (
     <div className={styles.page}>
@@ -104,7 +107,7 @@ export function AlbumView({ id }: { id: string }) {
   return <SignedIn>{(play) => <AlbumBody id={id} play={play} />}</SignedIn>;
 }
 function AlbumBody({ id, play }: { id: string; play: (t: PlayTarget) => void }) {
-  const page = useCatalog<AlbumPage>("album", id);
+  const page = useCatalog("album", id);
   if (page === null || page === "missing" || page === "failed") return <Pending page={page} />;
   return (
     <div className={styles.page}>
@@ -134,7 +137,7 @@ export function ChannelView({ id }: { id: string }) {
   return <SignedIn>{(play) => <ChannelBody id={id} play={play} />}</SignedIn>;
 }
 function ChannelBody({ id, play }: { id: string; play: (t: PlayTarget) => void }) {
-  const page = useCatalog<ChannelPage>("channel", id);
+  const page = useCatalog("channel", id);
   if (page === null || page === "missing" || page === "failed") return <Pending page={page} />;
   return (
     <div className={styles.page}>

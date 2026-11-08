@@ -11,10 +11,11 @@
 
 ## Decision
 
-The Backend calls Lavalink's REST endpoint `GET /v4/loadtracks?identifier=` directly (`apps/backend/src/search/lavalink-rest.ts`).
+The Backend calls Lavalink's REST endpoint `GET /v4/loadtracks?identifier=` directly (`apps/backend/src/search/lavalink-rest.ts:16`).
+- **Every identifier carries a search prefix** (`apps/backend/src/search/search-service.ts:67`): `spsearch:` then `ytmsearch:` in Spotify mode, `ytsearch:` / `ytmsearch:` for the YouTube modes (`:173`). The node has the HTTP source on, so a bare URL would make it fetch that URL on a user's behalf (SSRF). With a prefix, a pasted link is only search text. Links are played through the Bot, whose `resolveQuery` refuses internal addresses.
 - It gets the node's address and password from the environment (`LAVALINK_HOST`, `LAVALINK_PORT`, `LAVALINK_PASSWORD`, the same names the Bot uses).
 - Without them, searches find no tracks; Spotify Web API results still come back.
-- The search service takes `loadTracks` as a dependency (`apps/backend/src/search/search-service.ts`), so the transport can change without touching the catalog.
+- The search service takes `loadTracks` as a dependency (`apps/backend/src/search/search-service.ts`), so the transport can change without touching the catalog (`search-service.ts:166`).
 
 The Bot stays the only owner of Players and sessions (ADR-0003). The Backend never opens Lavalink's websocket and never PATCHes a Player.
 
@@ -28,7 +29,7 @@ The Bot stays the only owner of Players and sessions (ADR-0003). The Backend nev
 - The Backend's environment holds the Lavalink password. Treat it like the other server secrets.
 - Search keeps working while the Bot restarts, as long as the Lavalink node is up.
 - If Lavalink's REST shape changes, both the Bot (through lavalink-client) and `lavalink-rest.ts` must follow.
-- Results are cached in the Backend's process with the spec TTLs (search 30 min, Spotify artist/album 7 d, YouTube channel 1 h). An empty `spotify` search is never cached (#59). This fills the "search results and metadata" slot ADR-0006 left open.
+- Results are cached in the Backend's process with the spec TTLs: Spotify-mode searches 30 min (an empty one never, #59, `search-service.ts:250`), Spotify artist/album pages 7 d, YouTube channel searches 30 min (`:162`) and channel pages 1 h. YouTube track searches are not cached (v5 parity). This covers part of the "search results and metadata" slot ADR-0006 left open; the Redis tier is not used.
 <!-- lang:th -->
 ## บริบท
 
@@ -36,10 +37,11 @@ The Bot stays the only owner of Players and sessions (ADR-0003). The Backend nev
 
 ## การตัดสินใจ
 
-Backend เรียก REST endpoint `GET /v4/loadtracks?identifier=` ของ Lavalink เองโดยตรง (`apps/backend/src/search/lavalink-rest.ts`)
+Backend เรียก REST endpoint `GET /v4/loadtracks?identifier=` ของ Lavalink เองโดยตรง (`apps/backend/src/search/lavalink-rest.ts:16`)
+- **ทุก identifier มีคำนำหน้าการค้นหาเสมอ** (`apps/backend/src/search/search-service.ts:67`): โหมด Spotify ใช้ `spsearch:` ถ้าไม่เจอค่อยใช้ `ytmsearch:` ส่วนโหมด YouTube ใช้ `ytsearch:` / `ytmsearch:` (`:173`) node ของ Lavalink เปิด HTTP source ไว้ ถ้าส่ง URL ไปตรง ๆ node จะไปดึง URL นั้นให้ผู้ใช้ (SSRF) พอมีคำนำหน้า ลิงก์ที่วางมาก็เป็นแค่ข้อความค้นหา การเล่นลิงก์ต้องผ่าน Bot ซึ่ง `resolveQuery` ปฏิเสธที่อยู่ภายในอยู่แล้ว
 - ที่อยู่และรหัสผ่านของ node อ่านจาก env (`LAVALINK_HOST`, `LAVALINK_PORT`, `LAVALINK_PASSWORD` ซึ่งเป็นชื่อเดียวกับที่ Bot ใช้)
 - ถ้าไม่มีค่าเหล่านี้ การค้นหาจะไม่เจอเพลง แต่ผลจาก Spotify Web API ยังได้ตามปกติ
-- search service รับ `loadTracks` เป็น dependency (`apps/backend/src/search/search-service.ts`) จึงเปลี่ยนวิธีส่งได้โดยไม่ต้องแตะตัว catalog
+- search service รับ `loadTracks` เป็น dependency (`apps/backend/src/search/search-service.ts`) จึงเปลี่ยนวิธีส่งได้โดยไม่ต้องแตะตัว catalog (`search-service.ts:166`)
 
 Bot ยังเป็นเจ้าของ Player และ session แต่เพียงผู้เดียว (ADR-0003) Backend ไม่เปิด websocket ของ Lavalink และไม่เคย PATCH Player
 
@@ -53,5 +55,5 @@ Bot ยังเป็นเจ้าของ Player และ session แต�
 - env ของ Backend เก็บรหัสผ่านของ Lavalink ต้องดูแลเหมือน secret ฝั่ง server ตัวอื่น
 - การค้นหายังใช้ได้ระหว่างที่ Bot รีสตาร์ท ตราบใดที่ node ของ Lavalink ยังทำงาน
 - ถ้ารูปแบบ REST ของ Lavalink เปลี่ยน ทั้ง Bot (ผ่าน lavalink-client) และ `lavalink-rest.ts` ต้องตามไปแก้
-- ผลการค้นหา cache ไว้ใน process ของ Backend ตาม TTL ในสเปก (ค้นหา 30 นาที, ศิลปินและอัลบั้มของ Spotify 7 วัน, ช่อง YouTube 1 ชั่วโมง) และผลว่างของโหมด `spotify` ไม่ cache เลย (#59) ช่อง "ผลค้นหาและ metadata" ที่ ADR-0006 เว้นไว้จึงเต็มแล้ว
+- ผลการค้นหา cache ไว้ใน process ของ Backend ตาม TTL ในสเปก ได้แก่ การค้นหาโหมด Spotify 30 นาที (ผลว่างไม่ cache เลย #59, `search-service.ts:250`), หน้าศิลปินและอัลบั้มของ Spotify 7 วัน, การค้นหาช่อง YouTube 30 นาที (`:162`) และหน้าช่อง 1 ชั่วโมง ส่วนการค้นหาเพลงของ YouTube ไม่ cache (เหมือน v5) งานนี้จึงครอบช่อง "ผลค้นหาและ metadata" ที่ ADR-0006 เว้นไว้แค่บางส่วน และยังไม่ได้ใช้ชั้น Redis
 <!-- lang:end -->

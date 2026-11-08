@@ -162,12 +162,13 @@ describe("catalog search, every mode answers the shared schema (#105, spec #49, 
     const found = SearchResponseSchema.parse(await search.search("idol", "spotify"));
     expect(found.tracks[0]).toMatchObject({ title: "Idol", artist: "YOASOBI" });
     expect(found.artists[0]?.name).toBe("YOASOBI");
-    expect(loadTracks.mock.calls[0]?.[0]).toBe("idol");
+    expect(loadTracks.mock.calls[0]?.[0]).toBe("spsearch:idol");
 
     const empty = service({ tracks: [] });
     await empty.search.search("nothing", "spotify");
     await empty.search.search("nothing", "spotify");
-    expect(empty.loadTracks).toHaveBeenCalledTimes(2);
+    // Not cached: each search asks again (spsearch, then ytmsearch).
+    expect(empty.loadTracks).toHaveBeenCalledTimes(4);
   });
 
   test("youtube and youtubemusic: their search prefix, channels as artists, never cached", async () => {
@@ -216,4 +217,87 @@ describe("catalog pages (#105, spec #60, #61)", () => {
     expect(loadTracks.mock.calls.at(-1)?.[0]).toBe("ytsearch:YOASOBI official");
     expect(page?.tracks[0]?.title).toBe("Idol");
   });
+});
+
+describe("#105 review fixes", () => {
+  test("spotify mode asks Lavalink with spsearch:, and falls back to ytmsearch: when Spotify finds nothing", async () => {
+    const { fetch } = fakeFetch([...spotifyRoutes, ...youtubeRoutes]);
+    const asked: string[] = [];
+    const search = new SearchService({
+      loadTracks: async (identifier) => {
+        asked.push(identifier);
+        // A real node treats prefix-less words as an identifier and finds nothing.
+        return identifier.startsWith("ytmsearch:")
+          ? { loadType: "search", data: [lavalinkTrack("Idol", "YOASOBI", "https://music.youtube.com/watch?v=idol")] }
+          : { loadType: "empty", data: {} };
+      },
+      spotify: createSpotifyApi({ clientId: "id", clientSecret: "secret", fetch }),
+      youtube: createYouTubeChannels({ apiKey: "k", fetch }),
+    });
+    const found = await search.search("idol", "spotify");
+    expect(asked).toEqual(["spsearch:idol", "ytmsearch:idol"]);
+    expect(found.tracks[0]?.title).toBe("Idol");
+  });
+
+  test("spotify-api keeps v5's own top result: exact artist, exact track, first track 0.9, first artist 0.8", async () => {
+    const { search } = service();
+    expect((await search.search("idol", "spotify-api")).topResult).toMatchObject({ type: "track", score: 1.1 });
+    expect((await search.search("something else", "spotify-api")).topResult).toMatchObject({
+      type: "track",
+      score: 0.9,
+    });
+  });
+
+  test("a YouTube upload that is not YouTube Music is marked as a video (VIDEO chip)", async () => {
+    const { search } = service({
+      tracks: [
+        lavalinkTrack("Clip", "Some Channel", "https://www.youtube.com/watch?v=clip"),
+        lavalinkTrack("Song", "LiSA - Topic", "https://www.youtube.com/watch?v=song"),
+      ],
+    });
+    const found = await search.search("x", "youtube");
+    expect(found.tracks.map((t) => t.isVideo)).toEqual([true, false]);
+  });
+
+  test("a YouTube channel search is cached for 30 minutes (spec #73: the API quota)", async () => {
+    const { search, calls } = service();
+    await search.search("yoasobi", "youtube");
+    await search.search("yoasobi", "youtube");
+    expect(calls.filter((c) => c.includes("/youtube/v3/search")).length).toBe(1);
+  });
+
+  test("an album longer than one page lists every track", async () => {
+    const page = (ids: string[], next: string | null) => ({
+      items: ids.map((id) => ({ id, name: id, duration_ms: 1, artists: [{ name: "A" }], external_urls: {} })),
+      next,
+    });
+    const { fetch } = fakeFetch([
+      ["https://accounts.spotify.com/api/token", () => ({ access_token: "t", expires_in: 3600 })],
+      ["https://api.spotify.com/v1/albums/long/tracks", () => page(["c"], null)],
+      [
+        "https://api.spotify.com/v1/albums/long",
+        () => ({
+          id: "long",
+          name: "Long",
+          artists: [{ name: "A" }],
+          images: [],
+          tracks: page(["a", "b"], "https://api.spotify.com/v1/albums/long/tracks?offset=2"),
+        }),
+      ],
+    ]);
+    const search = new SearchService({
+      loadTracks: async () => ({ loadType: "empty", data: {} }),
+      spotify: createSpotifyApi({ clientId: "id", clientSecret: "secret", fetch }),
+      youtube: createYouTubeChannels({ fetch }),
+    });
+    expect((await search.album("long"))?.tracks.map((t) => t.title)).toEqual(["a", "b", "c"]);
+  });
+});
+
+test("no Lavalink mode ever hands Lavalink a bare URL: a pasted link is search text (SSRF, #105 review)", async () => {
+  const { search, loadTracks } = service();
+  for (const source of ["spotify", "youtube", "youtubemusic"] as const) {
+    await search.search("http://169.254.169.254/latest/meta-data", source);
+  }
+  for (const [identifier] of loadTracks.mock.calls) expect(identifier).toMatch(/^(spsearch|ytsearch|ytmsearch):/);
 });
