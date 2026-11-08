@@ -5,9 +5,12 @@ import { announcer, handleInteractions } from "./discord/interactions";
 import { createGuildRegistry, type GuildVoiceSnapshot } from "./guild-registry";
 import { startHeartbeat } from "./heartbeat";
 import { createLavalink } from "./lavalink";
+import { createArtwork, iconModesFrom } from "./music/artwork";
 import { createMusic } from "./music/music";
 import { createPlayerPublisher, type PlayerPublisher } from "./music/player-state";
 import { createSnapshotStore } from "./music/queue-snapshot";
+import { createSpotify } from "./music/spotify";
+import { createYouTube } from "./music/youtube";
 import { detectRuntimeMode } from "./runtime-mode";
 import { firstSendableTextChannel, perGuildDebounce, publicVoiceChannels } from "./voice-channels";
 
@@ -49,6 +52,15 @@ const music = createMusic({
   announce: announcer(client),
   // Queue Snapshots are local files, so Queue Recovery works in both Runtime Modes (CONTEXT.md).
   snapshots: createSnapshotStore(env.QUEUE_SNAPSHOT_DIR ?? ".data/queue-snapshots"),
+  // Track Resolution pictures (#104). Credentials only from the environment; without them the
+  // Bot classifies from Lavalink's data and falls back to avatars (spec #62–#67).
+  artwork: createArtwork({
+    youtube: createYouTube({ apiKey: env.YOUTUBE_API_KEY }),
+    spotify: createSpotify({ clientId: env.SPOTIFY_CLIENT_ID, clientSecret: env.SPOTIFY_CLIENT_SECRET }),
+    modes: iconModesFrom(env),
+    botIcon: () => client.user?.displayAvatarURL() ?? null,
+  }),
+  usePlaylistUrl: env.USE_PLAYLIST_URL === "true",
 });
 function scheduleRecovery(): void {
   setTimeout(() => {

@@ -793,3 +793,58 @@ describe("playlists (#104, spec #3, #4, #65, #66)", () => {
     expect(state?.queue.map((t) => t.title)).toEqual(["Lemon", "Idol", "Idol", "Gurenge", "Pretender"]);
   });
 });
+
+describe("artwork and the author icon on the engine (#104, spec #62–#68)", () => {
+  const art = (usePlaylistUrl = false) => {
+    // One engine per Lavalink manager, as in the Bot: the one from beforeEach stops listening.
+    for (const event of ["trackStart", "queueEnd", "playerDestroy", "playerSocketClosed"] as const) {
+      lavalink.removeAllListeners(event);
+    }
+    music = createMusic({
+      lavalink,
+      publisher: createPlayerPublisher(redis),
+      announce: async (channelId, notice) => {
+        notices.push({ channelId, notice });
+      },
+      now: () => clock,
+      artwork: {
+        trackArt: async (t) => `https://art.test/${t.info.title}.jpg`,
+        playlistArt: async () => "https://art.test/list.jpg",
+        icon: async (t) => `https://icon.test/${t?.author ?? "none"}`,
+      },
+      usePlaylistUrl,
+    });
+  };
+
+  test("a played track shows its resolved artwork, and the notice its icon", async () => {
+    art();
+    await play("lemon");
+    await eventually(stored, (s) => s?.current?.title === "Lemon");
+    await play("idol");
+    expect(
+      (await eventually(stored, (s) => s?.queue[0]?.artworkUrl === "https://art.test/Idol.jpg"))?.queue[0]?.artworkUrl,
+    ).toBe("https://art.test/Idol.jpg");
+    fake.finishTrack(GUILD);
+    await eventually(
+      () => notices.length,
+      (n) => n > 0,
+    );
+    expect(notices[0]?.notice).toMatchObject({
+      thumbnailUrl: "https://art.test/Idol.jpg",
+      author: { iconUrl: "https://icon.test/YOASOBI", url: "https://music.youtube.com/watch?v=idol" },
+    });
+  });
+
+  test("a playlist carries its picture; with use_playlist_url its tracks link to the playlist", async () => {
+    art(true);
+    await play("lemon");
+    await eventually(stored, (s) => s?.current?.title === "Lemon");
+    expect(await play(PLAYLIST_URL)).toMatchObject({ playlist: { thumbnail: "https://art.test/list.jpg" } });
+    fake.finishTrack(GUILD);
+    await eventually(
+      () => notices.length,
+      (n) => n > 0,
+    );
+    expect(notices[0]?.notice.author?.url).toBe(PLAYLIST_URL);
+  });
+});

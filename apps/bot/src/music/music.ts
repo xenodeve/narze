@@ -2,6 +2,7 @@ import type { Requester, Track } from "@narze/shared";
 import { GuildEventTypes, moveTrack, type VoiceEventType } from "@narze/shared";
 import type { LavalinkManager, Track as LavalinkTrack, Player, RepeatMode } from "lavalink-client";
 import { type AnnounceFlags, NO_FLAGS, nowPlayingNotice, recoveryNotice, shouldAnnounce } from "./announce";
+import type { Artwork } from "./artwork";
 import type { Notice } from "./format";
 import { type PlayerPublisher, toPlayerState } from "./player-state";
 import { resolveQuery } from "./query";
@@ -54,6 +55,10 @@ export interface MusicOptions {
   now?: () => number;
   /** Queue Snapshots for Queue Recovery (#103); without it nothing is written or restored. */
   snapshots?: SnapshotStore;
+  /** Pictures and the author icon (spec #62–#67); without it Lavalink's artwork and the avatar are used. */
+  artwork?: Pick<Artwork, "trackArt" | "playlistArt" | "icon">;
+  /** Spec #68 `use_playlist_url`: a playlist track's notice links to the playlist, not the track. */
+  usePlaylistUrl?: boolean;
   /** Spec #28: wait before reconnecting after a voice drop, then before seeking back. */
   voiceRetryMs?: [number, number];
 }
@@ -69,6 +74,8 @@ const TEXT_CHANNEL = "narze.textChannelId";
 const ADDED_AT = "addedAt";
 /** Track userData: the playlist a track was added from (spec #66). */
 const PLAYLIST = "playlist";
+/** Track userData: the resolved picture (spec #62/#63), null when none checked out. */
+const ARTWORK = "artworkUrl";
 const LAST_SEEK = "narze.lastSeekAt";
 /** 24/7 (spec #10, #27): the Player stays in voice as an Idle Player when the queue ends. */
 const TWENTY_FOUR_SEVEN = "narze.twentyFourSeven";
@@ -112,7 +119,17 @@ export function createMusic({
   now = Date.now,
   snapshots,
   voiceRetryMs = [1000, 500],
+  artwork,
+  usePlaylistUrl = false,
 }: MusicOptions) {
+  /** Resolves a track's picture once (spec #62/#63); toTrack reads it from userData. */
+  async function resolveArt(track: LavalinkTrack): Promise<void> {
+    const data = (track.userData ?? {}) as Record<string, unknown>;
+    if (!artwork || ARTWORK in data) return;
+    const url = await artwork.trackArt(track).catch(() => track.info.artworkUrl ?? null);
+    track.userData = { ...data, [ARTWORK]: url };
+  }
+
   const sourceManagers = () => lavalink.nodeManager.leastUsedNodes()[0]?.info?.sourceManagers ?? [];
 
   const is247 = (player: Player) => player.get<boolean | undefined>(TWENTY_FOUR_SEVEN) === true;
@@ -300,14 +317,23 @@ export function createMusic({
     // Spec #25: the per-track flags last one track (terminal playback keeps its flag).
     player.set(FLAGS, { ...NO_FLAGS, terminal: flags.terminal });
     player.set(LAST_SEEK, undefined);
-    // Decide on the queue as it was when the track started; a /play during the publish must not count.
+    // Decide on the queue as it was when the track started, before any await: a /play arriving
+    // while the picture resolves or the state publishes must not count.
+    const announceAllowed = shouldAnnounce(flags, player.queue.tracks.length);
+    await resolveArt(track);
     const shown = toTrack(track);
-    const announceIt = shown !== null && shouldAnnounce(flags, player.queue.tracks.length);
+    const announceIt = shown !== null && announceAllowed;
     // The Dashboard first; the Discord notice is a slower round trip.
     await publish(player);
     if (shown && announceIt) {
       const channel = player.get<string | undefined>(TEXT_CHANNEL) ?? player.textChannelId;
-      if (channel) await announce(channel, nowPlayingNotice(shown)).catch(warn("now-playing notice"));
+      if (channel) {
+        const from = (track.userData as { playlist?: { url?: string; thumbnail?: string | null } } | undefined)
+          ?.playlist;
+        const iconUrl = artwork ? await artwork.icon(shown, from?.thumbnail ?? null).catch(() => undefined) : undefined;
+        const authorUrl = usePlaylistUrl && from?.url ? from.url : undefined;
+        await announce(channel, nowPlayingNotice(shown, { iconUrl, authorUrl })).catch(warn("now-playing notice"));
+      }
     }
   }
 
@@ -417,6 +443,17 @@ export function createMusic({
       durationMs: tracks.reduce((sum, t) => sum + (t.info.duration ?? 0), 0),
       thumbnail: tracks[0]?.info.artworkUrl ?? null,
     };
+    const first = tracks[0];
+    if (first) await resolveArt(first);
+    if (artwork) {
+      const firstArt = (first?.userData as Record<string, unknown> | undefined)?.[ARTWORK] as string | null | undefined;
+      playlist.thumbnail = await artwork.playlistArt(from.url, firstArt ?? null).catch(() => playlist.thumbnail);
+    }
+    // The playlist's picture travels with its tracks, for the playlist_thumbnail icon (spec #67).
+    for (const t of tracks) {
+      const data = t.userData as Record<string, unknown>;
+      t.userData = { ...data, [PLAYLIST]: { ...(data[PLAYLIST] as object), thumbnail: playlist.thumbnail } };
+    }
     const at = request.next || request.skipplay ? 0 : request.position;
     if (player.queue.current) {
       const index = at === undefined ? player.queue.tracks.length : Math.min(at, player.queue.tracks.length);
@@ -452,6 +489,7 @@ export function createMusic({
     }
     if ("error" in found) return abandon({ kind: "error", reason: found.error ?? "failed" });
     const first = found.tracks[0];
+    if (first && !found.playlist) await resolveArt(first);
     const shown = first ? toTrack(first) : null;
     if (!first || !shown) return abandon({ kind: "error", reason: "not-found" });
     if (!player.connected) await player.connect();
