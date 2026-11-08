@@ -1,0 +1,13 @@
+{
+  "name": "narze",
+  "private": true,
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "verify": "bun run lint && bun run typecheck && bun run test && bun run build",
+    "lint": "echo \"lint: no workspace yet\"",
+    "typecheck": "echo \"typecheck: no workspace yet\"",
+    "test": "echo \"test: no workspace yet\"",
+    "build": "echo \"build: no workspace yet\"",
+    "e2e": "echo \"e2e: no workspace yet\""
+  }
+}

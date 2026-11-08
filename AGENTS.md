@@ -1,3 +1,73 @@
+# Narze v7 — Agent Operating Manual
+
+Narze v7 is a Discord music bot with a realtime web dashboard, rewritten from scratch on branch
+`v7` (`v6` is reference only; `v5.0.2` is the feature-parity target). The coding agent is the
+primary developer here — this file and the docs it points at are the agent's working memory.
+
+**North star:** reach feature parity with v5.0.2 on a codebase where the bot works fully on its own
+(ADR-0003), the dashboard stays in realtime sync (ADR-0001, ADR-0002), and every change arrives
+through an issue, a test, and a green gate.
+
+## Standing default: `using-t4`
+
+**`using-t4` is the standing default for every task in this repo — not a pointer read once.** Invoke
+it at task start, and **re-route through it at every phase boundary**:
+
+- after writing code → `/simplify`
+- before merge → `/code-review` + `/scrutinize`
+- touched auth / secrets / tokens / any trust boundary → `/security-review`
+- done → `/verify`
+
+**A check at task start does not discharge a later trigger.** Each boundary is its own trigger.
+
+The `.claude/` hooks inject a directive at session start and a per-turn reminder, and gate
+`gh pr create` / `gh pr merge` / dangerous git — see "Enforcement" below.
+
+## Session-start read protocol
+
+In order, and stop pulling detail once you have enough for the task (`t4-agent-memory`):
+
+1. **`Obsidian-Narze/Home.md`** — team memory index; open only the linked notes the task touches.
+2. **`docs/OPEN-WORK-LEDGER.md`** — open work; the 🔴 UNTRACKED rows are the highest miss-risk.
+3. **The relevant GitHub issue(s)** — `gh issue view <n> --comments`.
+4. `DONE.md` / `docs/reports/survey-manifest/` — only when the task needs history or prior-scan provenance.
+
+After shipping a unit: add a dated entry on top of `DONE.md`, update the ledger row and the issue.
+
+## Repo layout
+
+```
+apps/bot          Bot — discord.js + lavalink-client music engine  (planned)
+apps/backend      Backend — NestJS + Socket.io                     (planned)
+apps/dashboard    Dashboard — Next.js                              (planned)
+packages/shared   shared types / contracts                   (planned)
+docs/adr/         architecture decisions (index: README.md)
+docs/agents/      workflow, tracker, labels, domain-doc rules
+docs/reports/     post-mortems, impact register, bug catalog, survey manifest
+docs/research/    research + specs (v5 feature inventory, Strata-xeno brief)
+docs/superpowers/ plans/ and specs/
+Obsidian-Narze/   team memory vault
+CONTEXT.md · PRODUCT.md · DESIGN.md   glossary · product brief · Strata-xeno design system
+```
+
+Infra: Supabase (Postgres + Auth) is the source of truth; Redis is cache + pub/sub IPC between Bot and Backend (see CONTEXT.md).
+
+## Commands
+
+Bun workspaces (`apps/*`, `packages/*`). **`bun` and `gh` are not on PATH** on the developer's machine —
+use the quoted absolute paths `"C:\Users\xenod\.bun\bin\bun.exe"` and `"C:\Program Files\GitHub CLI\gh.exe"`.
+"Not on PATH" is not "not installed".
+
+| Command | What |
+|---|---|
+| `bun install` | install (commit `bun.lock`; use `bunx`, not `npx`) |
+| `bun run verify` | fast gate: lint + typecheck + test + build (the local ship gate runs this) |
+| `bun run lint` / `typecheck` / `test` / `build` | the four CI required checks |
+| `bun run e2e` | Playwright end-to-end (CI only, not in `verify`) |
+| `git config core.hooksPath .githooks` | enable the pre-push guards — once per clone |
+
+The root scripts are placeholders until the workspaces are scaffolded.
+
 ## Coding guidelines
 
 Derived from [Andrej Karpathy's observations](https://x.com/karpathy/status/2015883857489522876) on LLM coding pitfalls.
@@ -7,39 +77,65 @@ Derived from [Andrej Karpathy's observations](https://x.com/karpathy/status/2015
 3. **Surgical Changes** — Touch only what's needed. Don't refactor adjacent code. Match existing style.
 4. **Goal-Driven Execution** — Define verifiable success criteria before starting. Loop until verified.
 
+Plus the team rules: **TDD is mandatory** for features and bugfixes; **root cause before fix**
+(`/debug-mantra`); **non-standard framework version → read the vendored docs** (`node_modules/<pkg>/…`)
+before prior knowledge; **verify every frontend change end-to-end**.
+
 ## Development workflow
 
-เมื่อต้องวางแผนหรือ implement feature ให้ทำตามลำดับนี้:
+Full pipeline, auto-triggered skills, gate trailer and verification mandate: **`docs/agents/workflow.md`**.
+Summary: `/grill-me` → `/grill-with-docs` → survey the change sites → `/to-prd` → `/to-issues` → `/tdd`.
+**PRD → issues → PR** — never a PR without a referenced issue.
 
-1. **`/grill-me`** — ถ้าต้องการวางแผน: interview เพื่อ stress-test แนวคิดก่อน
-2. **`/grill-with-docs`** — ถ้าต้องการรายละเอียดมากขึ้น: challenge plan กับ domain model และ ADR ที่มีอยู่
-3. **`/to-prd`** — สร้าง PRD จากแผนที่ผ่านการ grill แล้ว
-4. **`/to-issues`** — แตก PRD เป็น GitHub Issues พร้อม triage labels
-5. **`/tdd`** — implement โดยเขียน test ก่อน แล้วทำให้ผ่าน
+`/grill-me`, `/grill-with-docs`, `/to-prd`, `/to-issues`, `/triage` are user-invocation-only: ask the
+developer to run them; do not improvise their output.
 
-## Auto-triggered skills
+## Writing conventions
 
-Skills ที่ควร invoke อัตโนมัติตาม context โดยไม่ต้องรอให้ user สั่ง:
+- **Chat, reports, status updates:** Thai, `t4-bro` register (plain working-developer Thai; English only for identifiers and precision).
+- **GitHub tracker (issue / PRD / PR bodies):** bilingual — English, then a **full Thai mirror** (same depth, not a summary). Titles English, conventional-commit style. Identifiers stay English. Review replies may be English-only. Details: `docs/agents/issue-tracker.md`.
+- **Governed agent docs** (`CONTEXT.md`, `PRODUCT.md`, `DESIGN.md`, `docs/agents/*`): bilingual sections use `<!-- lang:en -->` / `<!-- lang:th -->` … `<!-- lang:end -->` markers, full mirror.
+- **Code, commit messages, inline comments:** English.
 
-| Trigger | Skill | เงื่อนไข |
+## Dev notifications
+
+On a long or AFK run, notify the developer when a TDD cycle / long task completes, when a confirm is
+needed (before closing issues or merging), or when an AFK batch is done — not for routine progress.
+
+## Enforcement (what actually blocks)
+
+- **`.claude/` hooks** (marker `.claude/t4.json`): `t4-gate` **denies** `gh pr create` with no issue
+  reference and dangerous git (`reset --hard`, force-push, `clean -f`, `branch -D`); before
+  `gh pr merge` it **runs `bun run verify`** and denies on failure, then asks you to confirm
+  `/code-review` + `/scrutinize` ran. The GitHub MCP tools meet the same gate.
+- **`.githooks/pre-push`** (opt-in per clone): issue reference, tree budget / no build artifacts,
+  and a `T4-Gates:` trailer stating every judgment gate.
+- **CI** (`.github/workflows/`): `t4-verify` (lint · typecheck · test · build · guards), `t4-e2e`
+  (advisory), `t4-codeql`. **Not yet required checks** — the ruleset is pending the first push of `v7`
+  (`docs/agents/workflow.md` → "Pending"). Until then a merge means "the author ran `verify`".
+
+## Delegation and companion skills
+
+- **clink: not used — developer decision 2026-11-08.** No `clink-subagents` / `clink-masteragent`
+  delegation default. Native subagents may take mechanical, low-blast-radius work; verify everything
+  one returns and never delegate final verification or a security-boundary change.
+- **superpowers** and **9arm** (`debug-mantra`, `scrutinize`, `post-mortem`) are available in session.
+- **matt pocock** skills (`setup-matt-pocock-skills`, `to-prd`, `to-issues`, `triage`, …) are installed
+  at `~/.agents/skills/` — **outside `~/.claude/skills`, so Claude Code does not list them.** Read their
+  `SKILL.md` directly when a step names one.
+
+## Skill libraries
+
+| Library | Install | Skills หลัก |
 |---|---|---|
-| มี bug / error / stack trace | `/debug-mantra` | เริ่ม debug session ทุกครั้ง |
-| debug ซับซ้อน / performance regression | `/diagnose` | reproduce → minimise → hypothesise → fix |
-| แก้ bug เสร็จแล้ว | `/post-mortem` | บันทึก root cause + fix + validation |
-| เขียนหรือแก้ code เสร็จ | `/simplify` | ก่อน commit — ตรวจ over-engineering |
-| แก้ไข UI / frontend | `/impeccable` | ทุกครั้งที่แตะ component หรือ CSS — ดู command reference ด้านล่าง |
-| UI ใหม่ต้องการ design brief | `/impeccable shape` | วาง UX ก่อน implement |
-| UI พร้อม ship | `/impeccable audit` + `/impeccable harden` | ตรวจ a11y/perf/responsive + edge cases |
-| ก่อน merge / ship | `/code-review` + `/scrutinize` | ตรวจ correctness และ outsider perspective |
-| แตะ auth, token, payment, secret | `/security-review` | ทุกครั้งที่ code กระทบ security boundary |
-| implement เสร็จ | `/verify` | ยืนยันว่า feature ทำงานจริงใน app |
-| explore code ที่ไม่คุ้นเคย | `/zoom-out` | ขอ high-level context ก่อนแก้ |
-| codebase ซับซ้อนขึ้นเรื่อยๆ | `/improve-codebase-architecture` | รันทุก 2-3 วัน หรือหลัง feature ใหญ่ |
-| user ถามว่า "มี skill ไหนทำ X ได้บ้าง" | `/find-skills` | ค้นหา skill ก่อนเขียน code เอง |
+| **[mattpocock/skills](https://github.com/mattpocock/skills)** | `npx skills@latest add mattpocock/skills` (installed at `~/.agents/skills/`) | grill-me, grill-with-docs, tdd, to-prd, to-issues, triage, diagnose, improve-codebase-architecture, zoom-out, prototype |
+| **[thananon/9arm-skills](https://github.com/thananon/9arm-skills)** | `npx skills add thananon/9arm-skills` | debug-mantra, post-mortem, scrutinize, management-talk |
+| **[pbakaus/impeccable](https://github.com/pbakaus/impeccable)** ([docs](https://impeccable.style/docs/)) | `npx impeccable skills install` | 23 commands — below |
 
 ### impeccable — 23 commands
 
 All commands via `/impeccable <command>`. Use `/impeccable pin <command>` to create standalone shortcuts.
+UI work follows `DESIGN.md` (Strata-xeno; brief at `docs/research/strata-xeno-brief.md`).
 
 **Build**
 
@@ -81,24 +177,22 @@ All commands via `/impeccable <command>`. Use `/impeccable pin <command>` to cre
 
 **7 domain references** loaded on every command: `typography`, `color-and-contrast`, `spatial-design`, `motion-design`, `interaction-design`, `responsive-design`, `ux-writing`
 
-## Skill libraries
-
-| Library | Install | Skills หลัก |
-|---|---|---|
-| **[mattpocock/skills](https://github.com/mattpocock/skills)** | `npx skills@latest add mattpocock/skills` | grill-me, grill-with-docs, tdd, to-prd, to-issues, diagnose, improve-codebase-architecture, zoom-out, prototype |
-| **[thananon/9arm-skills](https://github.com/thananon/9arm-skills)** | `npx skills add thananon/9arm-skills` | debug-mantra, post-mortem, scrutinize, management-talk |
-| **[pbakaus/impeccable](https://github.com/pbakaus/impeccable)** ([docs](https://impeccable.style/docs/)) | `npx impeccable skills install` | 23 commands — ดู Auto-triggered skills |
-
 ## Agent skills
 
 ### Issue tracker
 
-Issues live in GitHub Issues at `github.com/xenodeve/narze`. Use GitHub MCP tools for all operations. See `docs/agents/issue-tracker.md`.
+Issues live in GitHub Issues at `github.com/xenodeve/narze`, managed with the `gh` CLI (quoted absolute path; authenticated as `xenodeve`). See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
-Default five-label vocabulary (needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix). See `docs/agents/triage-labels.md`.
+Default five-label vocabulary (needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix) plus the T4 Component / Type / Severity groups. See `docs/agents/triage-labels.md`.
 
 ### Domain docs
 
 Single-context: one `CONTEXT.md` at the repo root plus `docs/adr/`. See `docs/agents/domain.md`.
+
+## Session end
+
+Report every `xeno-skills` rule that did not hold as a `skill-feedback` issue on
+`xenodeve/xeno-skills` — one issue per rule, a comment per session, `--repo` always (`t4-agent-memory`).
+If none failed, say so in one line. Reaching `/handoff` does not discharge this.

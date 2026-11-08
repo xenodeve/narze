@@ -1,0 +1,4 @@
+# Hook scripts run under bash/sh and are byte-identical copies of the xeno-skills
+# originals (LF). Pin LF so core.autocrlf=true cannot rewrite them on checkout.
+.githooks/* text eol=lf
+.claude/hooks/* text eol=lf

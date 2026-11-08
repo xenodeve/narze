@@ -1,0 +1,16 @@
+node_modules/
+dist/
+build/
+.next/
+out/
+coverage/
+playwright-report/
+test-results/
+.turbo/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+
+# local hook telemetry (written by .claude/hooks/t4-skill-log)
+Obsidian-Narze/skill-usage/.invocations.log

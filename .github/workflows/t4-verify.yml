@@ -1,0 +1,93 @@
+# T4 verify — the server-side ship gate for the Narze v7 Bun-workspaces monorepo
+# (apps/bot · apps/api · apps/web · packages/shared). Adapted from the T4
+# t4-verify-monorepo.yml template: the workspaces share one root lockfile and the
+# root package.json fans each script out across workspaces, so the gate is four
+# root-level jobs (`bun run <x>`), not one job per component.
+#
+# Never add a workflow-level `paths:` filter: a workflow that does not run creates
+# no check run, so a required check sits on "Expected — waiting for status"
+# forever. The check must ALWAYS run; only expensive work inside it may be
+# conditional (step-level `if:`), if per-workspace skipping is ever needed.
+#
+# Required check names = the job keys (no job-level `name:`): `lint`,
+# `typecheck`, `test`, `build`, `guards`. Add a `name:` and the ruleset must
+# change with it.
+#
+# Keep the fast subset in sync with `.claude/t4.json` "verify" (`bun run verify`
+# = lint && typecheck && test && build) — the local gate must fail for the same
+# reasons this does, just sooner. E2E lives in t4-e2e.yml, never in "verify".
+#
+# Branch: v7 is the active rewrite line (repo default is still v6). When v7
+# becomes the default branch / is merged to main, update `branches:` below.
+name: T4 verify
+
+on:
+  pull_request:
+    branches: [v7]
+  push:
+    branches: [v7]
+
+concurrency:
+  group: t4-verify-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least privilege: the gate only reads the code.
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run lint
+
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+
+  test:
+    runs-on: ubuntu-latest
+    # When apps/bot or apps/api specs need real Redis, add a `services: redis`
+    # block with a --health-cmd here (see ci-cd-layer.md) and dummy env vars for
+    # import-time config reads. Real secrets never belong to the gate.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run test
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+
+  # The agent-agnostic guards (.githooks/), run here where --no-verify cannot
+  # skip them. Same scripts as the local pre-push hook, so the two cannot drift.
+  guards:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: sh .githooks/check-tree-budget
+      - run: sh .githooks/check-gate-ledger
+        env:
+          BASE_REF: origin/${{ github.base_ref }}
+      - run: PR_BODY="$(gh pr view "${{ github.event.number }}" --json body -q .body)" sh .githooks/check-issue-ref
+        env:
+          BASE_REF: origin/${{ github.base_ref }}
+          GH_TOKEN: ${{ github.token }}

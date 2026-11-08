@@ -1,218 +1,278 @@
-<!-- SEED: re-run /impeccable document once there's code to capture actual component tokens and generate the .impeccable/design.json sidecar. Palette and typography are locked design decisions, not extracted values. -->
+<!-- lang:en -->
+# Design System — Narze v7
 
----
-name: Narze V6
-description: Real-time Discord Music Bot dashboard — control music, manage queues, and monitor your bot through a purpose-built dark interface
-colors:
-  bg: "oklch(0.08 0.000 0)"
-  panel: "oklch(0.13 0.000 0)"
-  card: "oklch(0.18 0.000 0)"
-  elevated: "oklch(0.24 0.000 0)"
-  ink: "oklch(0.95 0.000 0)"
-  muted: "oklch(0.58 0.000 0)"
-  border: "oklch(0.22 0.000 0)"
-  accent: "oklch(0.66 0.180 195)"
-typography:
-  title:
-    fontFamily: "Inter, system-ui, sans-serif"
-    fontSize: "1.375rem"
-    fontWeight: 600
-    lineHeight: 1.3
-    letterSpacing: "-0.01em"
-  body:
-    fontFamily: "Inter, system-ui, sans-serif"
-    fontSize: "0.875rem"
-    fontWeight: 400
-    lineHeight: 1.5
-  label:
-    fontFamily: "Inter, system-ui, sans-serif"
-    fontSize: "0.8125rem"
-    fontWeight: 500
-    lineHeight: 1.2
-    letterSpacing: "0.005em"
-  caption:
-    fontFamily: "Inter, system-ui, sans-serif"
-    fontSize: "0.6875rem"
-    fontWeight: 400
-    lineHeight: 1.4
-rounded:
-  sm: "6px"
-  md: "10px"
-  lg: "16px"
-  full: "9999px"
-spacing:
-  xs: "4px"
-  sm: "8px"
-  md: "16px"
-  lg: "24px"
-  xl: "32px"
-components:
-  button-primary:
-    backgroundColor: "{colors.accent}"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.full}"
-    padding: "10px 20px"
-  button-primary-hover:
-    backgroundColor: "oklch(0.72 0.180 195)"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.full}"
-    padding: "10px 20px"
-  button-ghost:
-    backgroundColor: "transparent"
-    textColor: "{colors.muted}"
-    rounded: "{rounded.md}"
-    padding: "8px 12px"
-  button-ghost-hover:
-    backgroundColor: "{colors.card}"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.md}"
-    padding: "8px 12px"
-  queue-item:
-    backgroundColor: "transparent"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.sm}"
-    padding: "8px 12px"
-  queue-item-active:
-    backgroundColor: "oklch(0.66 0.180 195 / 0.12)"
-    textColor: "{colors.accent}"
-    rounded: "{rounded.sm}"
-    padding: "8px 12px"
-  sidebar-guild:
-    backgroundColor: "transparent"
-    textColor: "{colors.muted}"
-    rounded: "{rounded.md}"
-    padding: "8px"
-  sidebar-guild-active:
-    backgroundColor: "{colors.card}"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.md}"
-    padding: "8px"
----
+Narze v7 speaks the **Strata-xeno** design language (source: `D:\Github\Strata-xeno-System-Design`, condensed in `docs/research/strata-xeno-brief.md`). This file is the *how*; `PRODUCT.md` is the *why*. Where v6's "Live Desk" system (cyan accent, no mono) disagrees with Strata-xeno, **Strata-xeno wins** — developer decision, 2026-11-08.
 
-# Design System: Narze V6
+## 1. North star
 
-## 1. Overview
+**"A quiet instrument that comes alive."** The dashboard is a Swiss-editorial control surface: ink on paper, hairlines instead of boxes, one blue signal. Life comes from two places only — the music itself (artwork, live progress, the Aurora mood glow) and the **bot avatar**, a small plush character that reacts to what the player is doing. Everything else stays still until the user or the player changes something.
 
-**Creative North Star: "The Live Desk"**
+## 2. Rules
 
-Narze V6 is a control surface, not a content platform. The visual language borrows from live sound mixing desks and broadcast monitoring rooms: dark, purposeful, every readout visible at a glance, nothing decorative. The interface disappears into the music. Album art fills the hero zone. Status pulses where it matters. Controls are immediately reachable without navigation.
+1. **One ink, many opacities.** Five base colours flip with the theme (`--bg --surface --ink --accent --ok`, plus Narze's `--warn --danger`). Secondary text, tertiary text, hairlines and fills are ink mixed at 66 / 42 / 12 / 6 %.
+2. **Accent is a signal.** Blue marks focus, links, slider/progress fill, an active switch, and live state. Primary buttons are **ink-filled**, not blue. Accent never fills a section.
+3. **Pills and hairlines.** Controls are 999px pills with a 1px `--line` border. Selected = ink fill with `--bg` text. Lists are hairline-ruled rows, not cards. Cards have no shadow; only floating layers (menu, dialog, framed window) cast one, and it sits *below* the object.
+4. **Swiss type.** Inter Variable 600 with negative tracking for headings; JetBrains Mono 0.75rem for labels, timestamps, ids and counts; Anuphan for Thai with zero tracking and taller leading. Every figure is `.num` (tabular, no wrap).
+5. **One motion language.** `--ease` = `cubic-bezier(0.23, 1, 0.32, 1)`; durations 160 / 320 / 600 ms; stagger 38 ms; height glide 420 ms on `--ease-soft`. Our own code uses bezier curves only; overshoot uses `--ease-digit`. The vendored interaction components (`components/vendor/*`) keep their tuned springs.
+6. **Content first.** Hidden start states exist only under `html.js`; reduced motion shows final states; the dashboard reads correctly with WebGL off and with the API down (it says so, plainly).
+7. **Music is the hero; the avatar is the guide.** Artwork gets the biggest box on the page and nothing tinted next to it. The avatar appears where a person would otherwise face an empty, waiting, or failed screen.
+8. **Permission shapes the interface.** Controls a user cannot use are not rendered greyed out; the space says why and what would grant control ("Join #Lounge to control playback").
+9. **Every number carries its conditions.** Stats say the window ("last 7 days"), charts start at zero and state which direction is better.
+10. **Never forbidden-by-default:** scroll hijacking, autoplaying sound, page-load entrance choreography on app routes, glass on anything but sticky chrome, gradient text, accent stripes wider than 1px.
 
-The palette is near-black with a single cyan-teal accent (`oklch(0.66 0.180 195)`) that communicates state and action. Restrained in the Spotify sense: darkness is the canvas, album art provides supplementary color, and the accent earns attention through rarity. Motion is alive but disciplined — state changes respond immediately, track transitions feel cinematic, queue reorders have weight. Nothing animates without a reason the user will feel.
+## 3. Tokens
 
-This system explicitly rejects: glassmorphism stacked on glassmorphism (v5.0.2's own anti-pattern, forbidden here), the generic dark SaaS palette where every gray is just dark enough, cluttered gaming-dashboard chrome, and the legacy bot dashboard aesthetic of Hydra and MEE6 where UI density hides the music. If this could be mistaken for a 2020 Discord bot panel, something went wrong.
+The full `:root` block is in the appendix and lives in code at `apps/dashboard/src/styles/tokens.css`. Summary:
 
-**Key Characteristics:**
-- Album art is architecturally primary — the only true hero element on the Now Playing surface
-- Sidebar (240px fixed) + two-column main content (Now Playing ~55% / Queue+Search ~45%), Spotify-style
-- Real-time state expressed through motion and live indicators, not static badges
-- Permission tiers shape what's visible, not what's grayed out
-- One accent, used sparingly: cyan-teal marks action and live state only
-- Depth through four tonal steps: bg → panel → card → elevated
+| Group | Values |
+|---|---|
+| Light | bg `#f5f5f7` · surface `#ffffff` · ink `#131316` · accent `#0a62d6` · ok `#1a8a4a` · warn `#b26a00` · danger `#c4302b` |
+| Dark | bg `#0b0b0d` · surface `#151518` · ink `#f1f1f3` · accent `#5aa2ff` · ok `#4cc380` · warn `#f0a640` · danger `#ff6b62` |
+| Radius | r1 8 · r2 12 · r3 16 · window 20 · stage 28 · pill 999 |
+| Motion | t1 160 · t2 320 · t3 600 · glide 420 · stagger 38 (ms) |
+| Layout | gutter `clamp(16px,3vw,32px)` · nav 60px · sidebar 240px · max 1320px |
+| Breakpoints | 520 · 700 · 900 · 1020 |
 
-## 2. Colors: The Live Desk Palette
+`--warn` and `--danger` are Narze additions; their text contrast must be measured ≥ 4.5:1 before use as text.
 
-A Restrained palette anchored in near-black, with one cyan-teal signal color and four tonal steps for depth. Album art provides all supplementary color.
+**Styling technology:** plain CSS — global `tokens.css` + CSS Modules per component. No Tailwind (Strata-xeno ships none, and every vendored component is plain CSS).
 
-### Primary
-- **Cyan-Teal Signal** (`oklch(0.66 0.180 195)`): The sole brand color. Used on: primary action buttons, progress bar fill, seek bar thumb, active queue item highlight, live status indicator, focus rings. White text on all filled uses. Present on ≤10% of any screen.
+**Islands:** derived tokens (`--ink-2 --ink-3 --line --fill`) are computed on `:root` and do not re-derive when a descendant redefines `--ink`. Any always-dark surface must re-declare them as literals (see `.deep` in `tokens.css`).
 
-### Neutral
-- **Near-Black Body** (`oklch(0.08 0.000 0)`): Application background. Pure architectural darkness, zero hue tint. Album art luminance depends on this being genuinely near-black.
-- **Panel Surface** (`oklch(0.13 0.000 0)`): Sidebar, toolbar backgrounds, secondary panels.
-- **Card Surface** (`oklch(0.18 0.000 0)`): Now Playing container, queue item backgrounds, input fields, active sidebar guild.
-- **Elevated Surface** (`oklch(0.24 0.000 0)`): Hover states, dropdown backgrounds, modal surfaces.
-- **Primary Ink** (`oklch(0.95 0.000 0)`): Track titles, primary labels, active text. ≥7:1 contrast vs bg.
-- **Muted Ink** (`oklch(0.58 0.000 0)`): Queue position numbers, timestamps, metadata, placeholder text. ≥4.5:1 contrast vs bg.
-- **Subtle Border** (`oklch(0.22 0.000 0)`): Zone separators. Used only to separate content areas, never to decorate.
+Theme: system / light / dark, stored under `narze.theme`, applied by a pre-paint script. **`--mood`** is a registered `<color>` property set from the current track's artwork; it is used only inside the Aurora glow and the avatar's `color`, transitioned over 800 ms.
 
-**The One Accent Rule.** Cyan-teal appears on ≤10% of any screen. It signals: interactive and live. On a resting, non-interactive element, it is forbidden. Its absence communicates "not primary action, not live state."
+## 4. Layout
 
-**The Album Art Rule.** Never place colored backgrounds, tinted surfaces, borders, or glows near album art. The art carries its own color. The system makes space — near-black behind it, nothing competing.
+- **App shell:** 60px sticky glass top bar (guild switcher, voice-command pill, bot status, theme, account) + 240px sticky sidebar (`BranchedMenu`) + content. At ≤ 900px the sidebar becomes a sticky `<details>` accordion; at ≤ 700px the **mini player** docks to the bottom edge.
+- **Guild player page:** two columns `minmax(0,7fr) minmax(0,5fr)` — left: Now Playing stage (radius 28, artwork ≥ 240px, Aurora behind); right: Queue / Search / History tabs. Playback controls never sit inside a scroll container.
+- Grids always use `minmax(0, …)` tracks; children get `min-width: 0`. Overflow next to sticky elements is `clip`, never `hidden`.
 
-**The Tonal Step Rule.** The full depth range is exactly four steps: bg (0.08), panel (0.13), card (0.18), elevated (0.24). Each step is ~5–6 L points at chroma 0. Adding a fifth step collapses the range's legibility on a dark palette.
+## 5. Component map
 
-## 3. Typography
+House components (built here, Strata-styled):
 
-**Body Font:** Inter (system-ui, sans-serif as fallback)
+| Component | Treatment |
+|---|---|
+| `Button` | pill, 44px (ghost 40, large 56, icon 36 circle); primary = ink fill; press `translateY(1px)` |
+| `Pill` | one implementation for tabs, chips, segmented, filters; sizes sm/md; selected via `aria-selected`/`aria-pressed` → ink fill |
+| `Field` | 48px pill input, surface bg, hover `--ink-3` border |
+| `Slider` | native range, 4px track, accent fill via `--p`, 24px knob (seek, volume) |
+| `Row` | hairline-ruled list row; queue, history, search results; enter = `row` (360 ms, −6px) |
+| `Badge` | mono 0.6875rem pill; status tint via 55 % border / 80 % text; closed set: `live idle offline ok warn danger` |
+| `Card` | r3, surface, 1px line, no shadow |
+| `Dialog` / `Sheet` | `<dialog>`; enter 200 ms y 8→0, scale .98→1; veil black 45 %; sheet from right 300 ms, `min(92vw, 380px)` |
+| `Toast` | 240 ms y 8, scale .98; surface, r2, menu shadow, `aria-live="polite"` |
+| `Chart` | HTML/CSS bars, zero-based, written values, hidden `<table>` |
 
-**Character:** One geometric sans family carries the entire interface — headings, controls, labels, metadata, data. Four weights (400/500/600/700) create all hierarchy. No display font in a dashboard. A decorative typeface in buttons or labels looks wrong and breaks the "control surface that disappears" principle.
+Vendored components (`apps/dashboard/src/components/vendor/`, kept as supplied, re-tokenised to Strata colours through their CSS variables):
 
-**Scale:** Fixed rem, ratio 1.125 between steps. No fluid clamp — users view at consistent DPI, and a fluid heading that collapses in a sidebar reads as broken.
+| Component | Where it lives in Narze |
+|---|---|
+| `BotAvatar` (`bot-avatars`) | Bot identity everywhere: sidebar status, now-playing corner, empty/error/offline screens, login, admin node roster. State map: playing → `working`; paused/idle/24-7 hold → `default`; offline/disconnected → `sleeping`. Each guild can dress its avatar (type, hat, glasses, headphones, bow tie, accessory colour) in Guild Settings. |
+| `ThinkingOrb` (`thinking-orbs`) | Replaces every spinner for an in-flight AI-ish/remote step: `searching` (search), `connecting` (joining voice / resolving a URL), `weaving` (importing a playlist), `listening` (voice command capture), `composing` (building autoplay suggestions). 20px inline, 64px in sheets. |
+| `LatticeLoader` | Timed operations with an outcome: playlist import, queue restore, reconnect — shows elapsed time then done/error mark. |
+| `BranchedMenu` | Sidebar navigation (Player · Library · History · Settings · Admin sections). |
+| `BellToggle` | "Notify me" for now-playing announcements per guild (browser notifications). |
+| `PulseHeart` | Like a track (feeds the Liked playlist); count shows server-wide likes. |
+| `SquishSwitch` | Guild setting toggles (24/7, autoplay, announce), sized 38×22 to match Strata. |
+| `SwipeRow` | Queue rows on touch: swipe left → Remove (commit) / Play next. Keyboard path stays (row menu). |
+| `VoicePill` | Voice commands in the top bar ("เล่นเพลง …", "ข้าม", "หยุด", "เสียง 40"). |
+| `SloshGauge` | Expanded-player volume (interactive) and admin CPU / memory meters (read-only). |
+| `Aurora` | The one ambient canvas on the player page, coloured from `--mood`. |
+| `Strands` | Inside the voice-command sheet while listening (Aurora pauses). |
+| `CursorGrid` | Login / landing background only. |
+| `HalftoneReveal` | Artist and album headers (hover to reveal the photo). |
 
-### Hierarchy
-- **Title** (600, 22px / 1.375rem, lh 1.3, ls −0.01em): Track title in Now Playing, section headings, dialog titles
-- **Body** (400, 14px / 0.875rem, lh 1.5, max 65ch): Queue item titles, search results, descriptions
-- **Label** (500, 13px / 0.8125rem, lh 1.2, ls 0.005em): Button text, badge labels, status chips, column headers, source badges
-- **Caption** (400, 11px / 0.6875rem, lh 1.4): Timestamps, duration, uptime, queue position numbers, secondary metadata
+## 6. Effects budget
 
-**The No-Display-Font Rule.** No decorative typefaces anywhere in the dashboard. Inter at 4 weights is the full vocabulary. Personality comes from weight contrast, spacing, and color — not from a headline face.
+- **At most one continuously animating canvas per view.** Opening the voice sheet pauses Aurora; leaving the viewport pauses everything (all vendored canvases already observe visibility).
+- Canvases mount client-only via `next/dynamic({ ssr: false })` after a WebGL2 probe; `?fx=0`, `prefers-reduced-motion`, `deviceMemory ≤ 2` and Save-Data render the static fallback (a flat `--mood` wash).
+- DPR capped at 2 for orbs/avatars and 1.5 for full-bleed canvases.
+- BotAvatar instances: at most 6 animating at once; roster views pass `seed` so blinks never sync, and off-screen ones pause themselves.
 
-## 4. Elevation
+## 7. Motion recipes
 
-Tonal layering only. Depth is communicated by surface lightness stepping from bg → panel → card → elevated. Four discrete steps, no more.
+| Moment | Recipe |
+|---|---|
+| Route change | `page`: 260 ms, blur 6px → 0, scale .985 → 1 |
+| Track title changes | `swap`: 280 ms, blur sharpen |
+| Artwork changes | crossfade 420 ms |
+| Track added to queue | `row`: 360 ms from −6px |
+| Queue reorder | layout move 320 ms `--ease` |
+| Counter changes (queue length, listeners) | digits pop 320 ms on `--ease-digit`, 38 ms apart |
+| Collapse / expand | `grid-template-rows 0fr → 1fr`, 420 ms `--ease-soft` |
+| Status indicator swap | `orb`: 450 ms, blur 3px, scale .82 → 1 |
 
-Shadows serve state responses only: a focused control gains a teal glow (`0 0 0 2px oklch(0.66 0.180 195 / 0.5)`), a modal lifts with a directional shadow, a tooltip reads clearly above content. No shadows on resting, non-interactive surfaces.
+## 8. Craft checklist (per PR touching UI)
 
-### Shadow Vocabulary
-- **Focus ring**: `0 0 0 2px oklch(0.66 0.180 195 / 0.5)` — keyboard focus on any interactive element
-- **Modal lift**: `0 24px 48px oklch(0 0 0 / 0.6)` — dialog/modal above backdrop
-- **Tooltip**: `0 4px 12px oklch(0 0 0 / 0.4)` — tooltip above content
+- [ ] `:focus-visible` ring 2px accent, offset 3px; range inputs ring the thumb.
+- [ ] Hit targets ≥ 44px (negative-inset `::after` on small controls).
+- [ ] `.num` on every duration, count, percentage; mono for metadata.
+- [ ] Hover effects guarded by `@media (hover: hover)`.
+- [ ] Late-loading boxes (artwork, avatars) reserve size — CLS 0.
+- [ ] 390 / 1024 / 1440px × light / dark × th / en: no horizontal overflow.
+- [ ] Reduced motion and WebGL-off both render a complete page.
+- [ ] Thai copy reviewed with the `kien-thai` rules; English copy plain.
 
-**The Flat-By-Default Rule.** Surfaces are flat at rest. Shadows and glows emerge only as responses to state: focus, hover (glow, not shadow), or elevated layer. A shadow on a resting card is decoration — forbidden.
+## 9. Performance targets (Narze additions — measure, don't claim)
 
-## 5. Components
+LCP < 2.5 s · INP < 200 ms · CLS < 0.05 · player route initial JS < 180 KB gz · 60 fps on transitions. Vendored WebGL components load lazily and never on the critical path.
+<!-- lang:end -->
 
-### Playback Controls (Now Playing)
-- **Layout:** Centered row — previous, play/pause (primary), skip, with volume and loop/shuffle flanking
-- **Play/Pause:** Circular, `oklch(0.66 0.180 195)` fill, white icon, 48px diameter, `rounded-full`. Hover: L +0.06. Focus: teal ring.
-- **Skip/Previous:** Ghost icon buttons, 36px, muted ink at rest, primary ink on hover. `rounded-md`.
-- **Progress bar:** Full-width, 3px track at `oklch(0.22 0.000 0)`, fill in accent. Thumb: 12px circle, accent. Hover reveals thumb. Drag supported.
-- **Volume:** Compact slider (80px), same pattern as progress bar.
+<!-- lang:th -->
+# Design System — Narze v7
 
-### Queue Items
-- **Default:** Transparent bg, track number (caption/muted), thumbnail (32px rounded-sm), title (body), duration (caption/muted). Hover: card surface bg.
-- **Active (now playing):** `oklch(0.66 0.180 195 / 0.12)` bg tint, title in accent color, small animated bars icon instead of track number.
-- **Drag handle:** Appears on hover, left edge, muted. Drag to reorder.
-- **Actions:** Trash icon appears on row hover, right edge.
+Narze v7 ใช้ภาษาดีไซน์แบบ **Strata-xeno** (ต้นทางอยู่ที่ `D:\Github\Strata-xeno-System-Design` สรุปไว้ใน `docs/research/strata-xeno-brief.md`) ไฟล์นี้ตอบว่า *ทำยังไง* ส่วน `PRODUCT.md` ตอบว่า *ทำไปทำไม* ตรงไหนที่ระบบ "Live Desk" ของ v6 (สีเน้น cyan, ไม่ใช้ mono) ขัดกับ Strata-xeno ให้ **ยึด Strata-xeno** ตามที่ developer ตัดสินใจเมื่อ 2026-11-08
 
-### Search Bar (inside Queue zone)
-- **Style:** Full-width input, card surface bg, subtle border, rounded-md, label size text.
-- **Focus:** Border shifts to accent, teal focus ring.
-- **Results:** Overlay dropdown below input, elevated surface bg, max-height scrollable. Each result: thumbnail + title + artist + source badge + duration. Click: add to queue. Hold/secondary: view album/artist.
+## 1. ทิศหลัก
 
-### Sidebar Guild List
-- **Guild items:** 40px avatar (rounded-md), guild name truncated, arranged vertically with 4px gaps.
-- **Active guild:** card surface bg, primary ink name.
-- **Offline bot indicator:** Small red dot on avatar corner.
-- **Bot status footer:** Pinned to sidebar bottom — green/red dot, "Online" / "Offline", uptime caption.
+**"เครื่องดนตรีเงียบ ๆ ที่มีชีวิตขึ้นมาเมื่อเล่น"** dashboard คือแผงควบคุมแนว Swiss-editorial หมึกบนกระดาษ ใช้เส้นบางแทนกล่อง มีสีน้ำเงินเป็นสัญญาณอยู่สีเดียว ความมีชีวิตมาจากสองที่เท่านั้น คือตัวเพลงเอง (ปกอัลบั้ม, progress ที่วิ่งจริง, แสง Aurora ตามอารมณ์เพลง) กับ **bot avatar** ตัวละครขนนุ่มตัวเล็กที่ตอบสนองตามสิ่งที่ player กำลังทำ ที่เหลือทั้งหมดอยู่นิ่ง จนกว่าผู้ใช้หรือ player จะเปลี่ยนอะไรบางอย่าง
 
-### Source Badges
-- **Style:** Pill shape (rounded-full), label size, 11px. Colored bg at 15% opacity with matching text — YouTube: red, Spotify: green, SoundCloud: orange.
-- **Placement:** Trailing inline in queue items and search results.
+## 2. กติกา
 
-### Navigation (Sidebar)
-- **Width:** 240px fixed, panel surface bg, right border at subtle border color.
-- **Logo/brand:** Top of sidebar, 48px height zone.
-- **Guild list:** Scrollable middle zone.
-- **Footer:** Bot status + Settings icon + Admin link (if admin) + Dev Control link (if developer). Fixed at sidebar bottom.
+1. **หมึกเดียว หลายความเข้ม** สีฐานห้าสีสลับตามธีม (`--bg --surface --ink --accent --ok` บวก `--warn --danger` ที่ Narze เพิ่ม) ส่วนตัวอักษรรอง, ตัวอักษรระดับสาม, เส้นบาง และพื้นจาง ได้จากการผสมหมึกที่ 66 / 42 / 12 / 6 %
+2. **สีเน้นคือสัญญาณ** น้ำเงินใช้กับ focus, ลิงก์, แถบเติมของ slider/progress, switch ที่เปิดอยู่ และสถานะ live ปุ่มหลัก **เติมสีหมึก** ไม่ใช่น้ำเงิน และห้ามใช้สีเน้นเป็นพื้นทั้ง section
+3. **pill กับเส้นบาง** ตัวควบคุมเป็น pill รัศมี 999px ขอบ 1px สี `--line` สถานะที่ถูกเลือกคือเติมหมึกแล้วตัวอักษรเป็นสี `--bg` รายการใช้แถวคั่นเส้นบาง ไม่ใช่การ์ด การ์ดไม่มีเงา มีแต่ชั้นที่ลอยอยู่ (เมนู, dialog, หน้าต่างแอป) ที่มีเงา และเงาอยู่ *ใต้* วัตถุ
+4. **ตัวอักษรแบบ Swiss** หัวเรื่องใช้ Inter Variable น้ำหนัก 600 ระยะตัวอักษรติดลบ ใช้ JetBrains Mono 0.75rem กับ label, เวลา, id และตัวนับ ภาษาไทยใช้ Anuphan ระยะตัวอักษรเป็นศูนย์และบรรทัดสูงขึ้น ตัวเลขทุกตัวใส่ `.num` (ความกว้างเท่ากัน, ไม่ตัดบรรทัด)
+5. **ภาษาการเคลื่อนไหวเดียว** `--ease` = `cubic-bezier(0.23, 1, 0.32, 1)` ระยะเวลา 160 / 320 / 600 ms ห่างกันทีละ 38 ms การยืดความสูงใช้ 420 ms บน `--ease-soft` โค้ดที่เราเขียนเองใช้ bezier อย่างเดียว ถ้าอยากให้เด้งเกินใช้ `--ease-digit` ส่วน component ที่รับมา (`components/vendor/*`) คงค่า spring เดิมที่จูนไว้แล้ว
+6. **เนื้อหามาก่อน** สถานะซ่อนก่อนเข้าฉากมีได้เฉพาะใต้ `html.js` ถ้าเปิดลดการเคลื่อนไหวก็แสดงสถานะสุดท้ายเลย ปิด WebGL หรือ API ล่ม dashboard ก็ยังอ่านได้ถูกต้อง และบอกตรง ๆ ว่าเกิดอะไรขึ้น
+7. **เพลงคือพระเอก avatar คือคนนำทาง** ปกอัลบั้มได้กล่องใหญ่ที่สุดในหน้า และห้ามมีอะไรติดสีวางข้าง ๆ avatar โผล่ในจุดที่ปกติผู้ใช้จะเจอหน้าจอว่าง, หน้ารอ หรือหน้าที่พัง
+8. **สิทธิ์เป็นตัวกำหนดหน้าตา** ปุ่มที่ผู้ใช้กดไม่ได้จะไม่ถูกแสดงเป็นสีเทา ตรงนั้นจะบอกแทนว่าทำไม และต้องทำอะไรถึงจะได้สิทธิ์ ("เข้าห้อง #Lounge เพื่อควบคุมเพลง")
+9. **ตัวเลขทุกตัวต้องบอกเงื่อนไข** สถิติบอกช่วงเวลา ("7 วันล่าสุด") กราฟเริ่มที่ศูนย์ และบอกว่าทิศไหนดีกว่า
+10. **ห้ามเด็ดขาด** ยึดการ scroll, เสียงที่เล่นเอง, ท่าเปิดตัวตอนโหลดหน้าในหน้าแอป, glass บนอะไรก็ตามที่ไม่ใช่แถบ sticky, ตัวอักษรไล่สี และแถบสีเน้นที่กว้างเกิน 1px
 
-## 6. Do's and Don'ts
+## 3. Token
 
-### Do:
-- **Do** let album art dominate the Now Playing zone — size it generously (min 200px), give it zero visual competition from colored surfaces or borders
-- **Do** use `oklch(0.66 0.180 195)` for primary actions, active queue items, progress fill, live indicators, and focus rings — nowhere else
-- **Do** use the four tonal steps (bg → panel → card → elevated) as the sole depth mechanism at rest
-- **Do** animate track changes with a crossfade on the album art zone; animate queue reorders with per-item stagger (150ms stagger, 200ms duration); use `@media (prefers-reduced-motion: reduce)` fallbacks on both
-- **Do** keep playback controls always visible — never inside a scroll container, never hidden behind interaction
-- **Do** show/hide UI zones by permission level rather than rendering disabled states for unpermissioned actions
-- **Do** use `position: fixed` or the Popover API for dropdowns (voice channel picker, search results) — never `position: absolute` inside an `overflow: hidden` container
+บล็อก `:root` เต็มอยู่ในภาคผนวก และอยู่ในโค้ดที่ `apps/dashboard/src/styles/tokens.css` สรุป:
 
-### Don't:
-- **Don't** use `backdrop-filter: blur` as a default surface treatment — v5.0.2's core anti-pattern, explicitly rejected. One purposeful blur maximum per screen, never stacked.
-- **Don't** use gradient fills on text (`background-clip: text` with a gradient background) — accent is a single solid `oklch(0.66 0.180 195)`
-- **Don't** use `border-left` wider than 1px as a colored accent stripe on queue items, cards, or callouts
-- **Don't** put the accent on decorative, inactive, or non-interactive elements — rarity is what makes it signal
-- **Don't** use legacy bot dashboard patterns (Hydra/MEE6): busy icon rows, neon-tinted borders, identical card grids
-- **Don't** add page-load entrance sequences — the dashboard loads into a live task, not an editorial experience
-- **Don't** use display or decorative fonts anywhere — Inter at 4 weights is the complete type vocabulary
-- **Don't** add a fifth tonal step between the four defined ones — it collapses depth legibility on a dark palette
+| กลุ่ม | ค่า |
+|---|---|
+| สว่าง | bg `#f5f5f7` · surface `#ffffff` · ink `#131316` · accent `#0a62d6` · ok `#1a8a4a` · warn `#b26a00` · danger `#c4302b` |
+| มืด | bg `#0b0b0d` · surface `#151518` · ink `#f1f1f3` · accent `#5aa2ff` · ok `#4cc380` · warn `#f0a640` · danger `#ff6b62` |
+| รัศมี | r1 8 · r2 12 · r3 16 · window 20 · stage 28 · pill 999 |
+| การเคลื่อนไหว | t1 160 · t2 320 · t3 600 · glide 420 · stagger 38 (ms) |
+| เลย์เอาต์ | gutter `clamp(16px,3vw,32px)` · nav 60px · sidebar 240px · max 1320px |
+| จุดเปลี่ยนจอ | 520 · 700 · 900 · 1020 |
+
+`--warn` กับ `--danger` เป็นของที่ Narze เพิ่มเอง ก่อนเอาไปใช้เป็นสีตัวอักษรต้องวัด contrast ให้ได้ ≥ 4.5:1 ก่อน
+
+**เทคโนโลยีที่ใช้จัดสไตล์:** CSS ธรรมดา มี `tokens.css` กลางหนึ่งไฟล์ และ CSS Modules แยกตาม component ไม่ใช้ Tailwind (Strata-xeno ไม่มี และ component ที่รับมาทุกตัวก็เป็น CSS ธรรมดา)
+
+**เกาะสีมืด:** token ที่คำนวณจากหมึก (`--ink-2 --ink-3 --line --fill`) ถูกคำนวณที่ `:root` ครั้งเดียว ลูกที่ประกาศ `--ink` ใหม่จะไม่ได้ค่าใหม่ตาม พื้นผิวไหนที่มืดตลอดต้องประกาศค่าพวกนี้ใหม่เป็นค่าตายตัว (ดู `.deep` ใน `tokens.css`)
+
+ธีมมีสามแบบ คือตามระบบ / สว่าง / มืด เก็บไว้ใต้คีย์ `narze.theme` แล้วมีสคริปต์รันก่อนวาดหน้าจอเป็นตัวตั้งค่า **`--mood`** เป็น property ชนิด `<color>` ที่ลงทะเบียนไว้ ค่ามาจากปกอัลบั้มของเพลงที่เล่นอยู่ ใช้ได้แค่ในแสง Aurora กับ `color` ของ avatar และเปลี่ยนค่าแบบค่อย ๆ ไล่ใน 800 ms
+
+## 4. เลย์เอาต์
+
+- **โครงแอป:** แถบบนแบบ glass สูง 60px ติดขอบบน (ตัวสลับ guild, pill สั่งงานด้วยเสียง, สถานะบอท, ธีม, บัญชี) + sidebar กว้าง 240px ติดขอบ (`BranchedMenu`) + พื้นที่เนื้อหา พอจอ ≤ 900px sidebar จะกลายเป็น `<details>` แบบพับได้ที่ติดขอบ และพอจอ ≤ 700px **mini player** จะไปเกาะขอบล่าง
+- **หน้า player ของ guild:** สองคอลัมน์ `minmax(0,7fr) minmax(0,5fr)` ฝั่งซ้ายเป็นเวที Now Playing (รัศมี 28, ปก ≥ 240px, มี Aurora อยู่ข้างหลัง) ฝั่งขวาเป็นแท็บ Queue / Search / History ปุ่มควบคุมการเล่นห้ามอยู่ในกล่องที่ scroll ได้
+- grid ใช้ track แบบ `minmax(0, …)` ทุกครั้ง และลูกของ grid ใส่ `min-width: 0` overflow ที่อยู่ติดกับของ sticky ใช้ `clip` ห้ามใช้ `hidden`
+
+## 5. แผนที่ component
+
+component ที่เราสร้างเอง (สไตล์ Strata):
+
+| Component | รูปแบบ |
+|---|---|
+| `Button` | pill สูง 44px (ghost 40, ใหญ่ 56, ไอคอนวงกลม 36) ปุ่มหลักเติมหมึก กดแล้ว `translateY(1px)` |
+| `Pill` | ตัวเดียวใช้ทั้งแท็บ, chip, segmented, ตัวกรอง มีขนาด sm/md สถานะเลือกดูจาก `aria-selected`/`aria-pressed` แล้วเติมหมึก |
+| `Field` | ช่องกรอกแบบ pill สูง 48px พื้น surface ชี้แล้วขอบเป็น `--ink-3` |
+| `Slider` | range ของเบราว์เซอร์ ราง 4px แถบเติมสีเน้นผ่าน `--p` ปุ่มจับ 24px (เลื่อนเวลา, เสียง) |
+| `Row` | แถวคั่นเส้นบาง ใช้กับคิว, ประวัติ, ผลค้นหา เข้าฉากแบบ `row` (360 ms, จาก −6px) |
+| `Badge` | pill ตัว mono 0.6875rem สีสถานะได้จากขอบ 55 % / ตัวอักษร 80 % ชุดสถานะปิดตายไว้ที่ `live idle offline ok warn danger` |
+| `Card` | r3, พื้น surface, เส้น 1px, ไม่มีเงา |
+| `Dialog` / `Sheet` | ใช้ `<dialog>` เข้าฉาก 200 ms y 8→0, scale .98→1 ม่านดำ 45 % sheet เลื่อนจากขวา 300 ms กว้าง `min(92vw, 380px)` |
+| `Toast` | 240 ms y 8, scale .98 พื้น surface, r2, เงาแบบเมนู, `aria-live="polite"` |
+| `Chart` | แท่ง HTML/CSS เริ่มที่ศูนย์ เขียนค่ากำกับ มี `<table>` ซ่อนไว้ให้ screen reader |
+
+component ที่รับมา (`apps/dashboard/src/components/vendor/` คงไว้ตามที่ได้มา แต่ map สีเข้า token ของ Strata ผ่านตัวแปร CSS ของมันเอง):
+
+| Component | ใช้ตรงไหนใน Narze |
+|---|---|
+| `BotAvatar` (`bot-avatars`) | ตัวตนของบอททุกที่ ทั้งสถานะใน sidebar, มุมของ Now Playing, หน้าว่าง/หน้าพัง/หน้าออฟไลน์, หน้า login และรายชื่อ node ในหน้า admin สถานะ: กำลังเล่น → `working`; หยุด/ว่าง/ค้างห้องแบบ 24/7 → `default`; ออฟไลน์/หลุด → `sleeping` แต่ละ guild แต่งตัว avatar ได้เอง (รูปทรง, หมวก, แว่น, หูฟัง, โบว์, สีเครื่องประดับ) ในหน้า Guild Settings |
+| `ThinkingOrb` (`thinking-orbs`) | ใช้แทน spinner ทุกตัวตอนรอขั้นตอนที่ไปคุยกับข้างนอก `searching` (ค้นหา), `connecting` (เข้าห้องเสียง / แปลง URL), `weaving` (นำเข้า playlist), `listening` (กำลังฟังคำสั่งเสียง), `composing` (สร้างเพลงแนะนำ autoplay) ขนาด 20px ในบรรทัด และ 64px ใน sheet |
+| `LatticeLoader` | งานที่จับเวลาและมีผลลัพธ์ เช่น นำเข้า playlist, กู้คิว, ต่อใหม่ แสดงเวลาที่ผ่านไปแล้วจบด้วยเครื่องหมายสำเร็จหรือพลาด |
+| `BranchedMenu` | เมนูใน sidebar (Player · Library · History · Settings · หมวด Admin) |
+| `BellToggle` | ปุ่ม "แจ้งเตือนฉัน" สำหรับประกาศเพลงที่เล่นอยู่ แยกตาม guild (ใช้การแจ้งเตือนของเบราว์เซอร์) |
+| `PulseHeart` | กดถูกใจเพลง (ไหลเข้า playlist Liked) ตัวเลขคือยอดถูกใจทั้งเซิร์ฟเวอร์ |
+| `SquishSwitch` | สวิตช์ตั้งค่า guild (24/7, autoplay, ประกาศเพลง) ปรับขนาดเป็น 38×22 ให้ตรงกับ Strata |
+| `SwipeRow` | แถวคิวบนจอสัมผัส ปัดซ้ายเพื่อลบ / เล่นถัดไป ส่วนทางคีย์บอร์ดยังมีเมนูของแถวให้ใช้ |
+| `VoicePill` | สั่งงานด้วยเสียงจากแถบบน ("เล่นเพลง …", "ข้าม", "หยุด", "เสียง 40") |
+| `SloshGauge` | ปรับเสียงตอนขยาย player (กดเลื่อนได้) และมาตรวัด CPU / memory ในหน้า admin (ดูอย่างเดียว) |
+| `Aurora` | canvas พื้นหลังตัวเดียวของหน้า player สีมาจาก `--mood` |
+| `Strands` | อยู่ใน sheet สั่งงานด้วยเสียงตอนกำลังฟัง (Aurora หยุดก่อน) |
+| `CursorGrid` | พื้นหลังหน้า login / หน้าแรกเท่านั้น |
+| `HalftoneReveal` | ส่วนหัวหน้าศิลปินและอัลบั้ม (ชี้เมาส์เพื่อเผยรูปจริง) |
+
+## 6. งบเอฟเฟกต์
+
+- **หนึ่งหน้าจอมี canvas ที่ขยับต่อเนื่องได้ไม่เกินหนึ่งตัว** เปิด sheet เสียงแล้ว Aurora หยุด เลื่อนพ้นจอแล้วทุกตัวหยุด (component ที่รับมาทุกตัวคอยดูการมองเห็นของตัวเองอยู่แล้ว)
+- canvas โหลดฝั่ง client เท่านั้นผ่าน `next/dynamic({ ssr: false })` หลังตรวจว่ามี WebGL2 ถ้าเจอ `?fx=0`, `prefers-reduced-motion`, `deviceMemory ≤ 2` หรือ Save-Data จะแสดงภาพนิ่งแทน (พื้นสี `--mood` เรียบ ๆ)
+- จำกัด DPR ไว้ที่ 2 สำหรับ orb/avatar และ 1.5 สำหรับ canvas เต็มจอ
+- BotAvatar ขยับพร้อมกันได้ไม่เกิน 6 ตัว หน้ารายชื่อส่ง `seed` ให้กะพริบตาไม่พร้อมกัน ตัวที่พ้นจอหยุดเอง
+
+## 7. สูตรการเคลื่อนไหว
+
+| จังหวะ | สูตร |
+|---|---|
+| เปลี่ยนหน้า | `page`: 260 ms, เบลอ 6px → 0, scale .985 → 1 |
+| ชื่อเพลงเปลี่ยน | `swap`: 280 ms, เบลอแล้วคมขึ้น |
+| ปกเปลี่ยน | crossfade 420 ms |
+| เพิ่มเพลงเข้าคิว | `row`: 360 ms จาก −6px |
+| สลับลำดับคิว | ย้ายตำแหน่ง 320 ms `--ease` |
+| ตัวนับเปลี่ยน (ความยาวคิว, คนฟัง) | ตัวเลขเด้ง 320 ms บน `--ease-digit` ห่างกันหลักละ 38 ms |
+| พับ / กาง | `grid-template-rows 0fr → 1fr`, 420 ms `--ease-soft` |
+| สลับไฟสถานะ | `orb`: 450 ms, เบลอ 3px, scale .82 → 1 |
+
+## 8. Checklist ความประณีต (ทุก PR ที่แตะ UI)
+
+- [ ] วง `:focus-visible` สีเน้น 2px เว้นระยะ 3px ช่อง range ให้วงอยู่ที่ปุ่มจับ
+- [ ] พื้นที่กด ≥ 44px (ตัวควบคุมเล็กใช้ `::after` ขยายออกด้วยค่าติดลบ)
+- [ ] ใส่ `.num` ทุกระยะเวลา, ตัวนับ, เปอร์เซ็นต์ และใช้ mono กับ metadata
+- [ ] เอฟเฟกต์ตอนชี้เมาส์ครอบด้วย `@media (hover: hover)`
+- [ ] กล่องที่โหลดทีหลัง (ปก, avatar) จองขนาดไว้ก่อน ให้ CLS เป็น 0
+- [ ] 390 / 1024 / 1440px × สว่าง / มืด × th / en ต้องไม่มี scroll แนวนอน
+- [ ] ลดการเคลื่อนไหว และปิด WebGL ต้องได้หน้าที่ครบทั้งคู่
+- [ ] ข้อความภาษาไทยตรวจตามกฎ `kien-thai` ภาษาอังกฤษให้เรียบง่าย
+
+## 9. เป้า performance (Narze เพิ่มเอง วัดจริง ห้ามเคลมลอย ๆ)
+
+LCP < 2.5 s · INP < 200 ms · CLS < 0.05 · JS เริ่มต้นของหน้า player < 180 KB gz · 60 fps ตอนเปลี่ยนฉาก component WebGL ที่รับมาโหลดทีหลังเสมอ และไม่อยู่บนเส้นทางวาดหน้าแรก
+<!-- lang:end -->
+
+## Appendix — token source (shared, identifiers only)
+
+<!-- Deliberately outside the lang markers: this block is code identifiers only, so it is shared by both mirrors rather than duplicated. -->
+
+```css
+:root {
+  --bg: #f5f5f7; --surface: #ffffff; --ink: #131316; --accent: #0a62d6; --ok: #1a8a4a;
+  --warn: #b26a00; --danger: #c4302b;
+  --ink-2: color-mix(in srgb, var(--ink) 66%, var(--bg));
+  --ink-3: color-mix(in srgb, var(--ink) 42%, var(--bg));
+  --line: color-mix(in srgb, var(--ink) 12%, transparent);
+  --fill: color-mix(in srgb, var(--ink) 6%, transparent);
+  --ease: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-soft: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-digit: cubic-bezier(0.34, 1.45, 0.64, 1);
+  --t1: 160ms; --t2: 320ms; --t3: 600ms; --t-glide: 420ms; --stagger: 38ms;
+  --r1: 8px; --r2: 12px; --r3: 16px; --r-window: 20px; --r-stage: 28px; --r-pill: 999px;
+  --gutter: clamp(16px, 3vw, 32px); --nav-h: 60px; --side-w: 240px; --max: 1320px;
+  --shadow-menu: 0 18px 40px -16px rgb(0 0 0 / 0.3);
+  --shadow-window: 0 50px 90px -50px rgb(0 0 0 / 0.45);
+  --font-sans: "Inter Variable", "Anuphan Variable", -apple-system, "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b0b0d; --surface: #151518; --ink: #f1f1f3; --accent: #5aa2ff; --ok: #4cc380;
+    --warn: #f0a640; --danger: #ff6b62;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0b0b0d; --surface: #151518; --ink: #f1f1f3; --accent: #5aa2ff; --ok: #4cc380;
+  --warn: #f0a640; --danger: #ff6b62; color-scheme: dark;
+}
+@property --mood { syntax: "<color>"; inherits: true; initial-value: #8a8a96; }
+```

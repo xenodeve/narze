@@ -1,67 +1,107 @@
-# Product
+<!-- lang:en -->
+# Product — Narze v7
 
-## Register
+## Purpose
 
-product
+Narze is a self-hosted Discord music bot with a realtime web **Dashboard**. Anything you can do with a slash command you can do from the browser, and every change — from Discord or from any open tab — shows up everywhere within a moment. v7 is a full rewrite that keeps **every capability of v5.0.2** (acceptance list: `docs/research/v5-feature-inventory.md` §11, 123 items) and fixes its known defects (§10), on three separable processes (**Bot**, **Backend**, **Dashboard** — see `CONTEXT.md`).
+
+Success means: a listener can run a whole session from the Dashboard without typing a command; two people in different tabs never see different queues; the Bot keeps playing when the Backend or Dashboard is down.
 
 ## Users
 
-ผู้ใช้งานแบ่งตาม permission 4 ระดับ:
+- **Listener** — a Guild member. Views any Guild's player; controls it when in the Bot's voice channel (or when nothing is playing and they are in any voice channel).
+- **Server Owner / Bot Owner** — control from anywhere; set the Music Channel, 24/7, and the Bot Avatar's outfit.
+- **Admin** — system stats, live logs, guilds, read-only channel viewer, users, sessions.
+- **Developer** — everything Admin has, plus the Admin Whitelist.
 
-- **User ทั่วไป** — สมาชิก Discord server ที่อยู่ใน Voice Channel เดียวกับบอท สามารถค้นหา, เพิ่มเพลง, จัดการคิว, และดูสถานะการเล่นได้
-- **Server Owner** — ตั้งค่า Guild-level settings, กำหนด music channel
-- **Admin** — เข้าถึง System Stats, Real-time Logs, ประวัติ, Chat History ผ่าน Admin Panel
-- **Developer** — สิทธิ์ทุกอย่าง + จัดการระบบระดับสูง
+Context of use: listening with friends in Discord, Dashboard open on a second monitor or a phone. Relaxed and social; the tool should never demand attention it hasn't earned.
 
-Context: ใช้งานระหว่างฟังเพลงกับเพื่อนใน Discord, มักเปิดควบคู่ไปกับ Discord บน second monitor หรือแท็บเดียวกัน บรรยากาศ relaxed และ social
+## What v7 adds beyond v5
 
-## Bot Behavior
+Developer-approved on 2026-11-08:
 
-- **Queue Recovery**: ก่อน shutdown bot เขียน queue snapshot ลง local JSON file → restart อ่านไฟล์ restore queue → ลบไฟล์
-- **Recovery notification**: bot publish `bot:{guildId}:player:recovering` ให้ Dashboard แสดง state → ส่ง message ใน Discord music channel ที่ guild ตั้งค่าไว้ว่ากำลัง recover → publish state ปกติหลัง restore เสร็จ
-- **Bot responsibility**: Pure music engine — ทำงานได้สมบูรณ์ทั้งสอง mode
-- **Connected mode** (Redis พร้อม): bot รับ settings จาก NestJS ผ่าน Redis, publish events ให้ dashboard sync
-- **Standalone mode** (ไม่มี Redis/NestJS): bot ดึง settings จาก Supabase โดยตรง, ทำงานปกติไม่มี dashboard
-- **Local cache**: queue snapshot เก็บ local JSON เสมอ ทั้งสอง mode
-- **Backend sync**: เมื่อ backend เริ่มรัน ส่ง `backend:request:state:{guildId}` → bot ตอบกลับ state ปัจจุบัน
+1. **Voice Commands** — speak to the Dashboard ("เล่นเพลง …", "ข้าม", "หยุด", "เสียง 40") through the browser's speech recognition (Chrome/Edge; others see a plain "not supported" state).
+2. **Bot Avatar** — a plush character per Guild that mirrors the Player and can be dressed (hat, glasses, headphones, bow tie, colour) in Guild Settings.
+3. **Likes** — heart any track; liked tracks become a Liked playlist.
+4. **Now-playing notifications** — per-Guild opt-in browser notification when the track changes while the tab is open.
+5. **Loop, shuffle, play-next on the web** — the Dashboard reaches parity with the slash commands.
+6. **Working charts** — v5's chart block was hardcoded; v7 sources real chart data (provider to be verified before build).
+7. **Real security** — server-side identity, Control Permission and admin roles (v5 trusted the browser).
 
-## Product Purpose
+## Brand personality
 
-Narze V6 คือ Web Dashboard สำหรับควบคุม Discord Music Bot ที่ self-host ได้ ผู้ใช้สั่งเล่น ค้นหา และจัดการคิวเพลงจาก YouTube, Spotify, SoundCloud ผ่าน UI แทนการพิมพ์คำสั่ง ทุกการเปลี่ยนแปลงจาก Discord หรือ Dashboard ซิงก์กลับแบบ real-time ผ่าน WebSocket
-
-V6 เป็นการ rewrite ใหม่ทั้งหมด โดยแยก 3 layer ออกจากกันอย่างชัดเจน (บทเรียนจาก v5.0.2 ที่รวม bot+backend ทำให้ debug และ maintain ยาก — V6 ออกแบบให้ backend เป็น optional extension ไม่ใช่ส่วนหลักของ bot):
-- **Frontend**: Next.js (React + TypeScript + Tailwind)
-- **Backend API**: NestJS (Socket.io — commands + state sync, REST — Supabase Auth callbacks only, Redis — bot↔backend IPC + temporary state, Supabase — persistent storage)
-- **Bot**: Discord.js + Lavalink
-
-เป้าหมายความสำเร็จ: ผู้ใช้ควบคุมเพลงได้ทั้งหมดผ่าน Dashboard โดยไม่ต้องพิมพ์คำสั่งใน Discord และทุก session ซิงก์กันแบบ real-time
-
-## Brand Personality
-
-**Premium, Alive, Direct**
-
-Tone: มั่นใจ, ไม่ verbose, มีชีวิตชีวาในแบบ Discord culture — ไม่ formal แต่ไม่ childish ดีไซน์รู้สึก dark และ premium เหมือน Spotify แต่มีความ expressive กว่า และ responsive กว่า Linear
-
-อารมณ์ที่ต้องการ: ความรู้สึกว่า "มันทำงานได้เร็ว มันดูดี และฉันอยากใช้มันอยู่" — confidence + delight + clarity
+**Calm, precise, alive.** Swiss-editorial restraint (Strata-xeno) with one warm exception: the Bot Avatar, which gives the product a face. Confident, plain copy — Thai first, English available. Never noisy, never "gamer".
 
 ## Anti-references
 
-- **Cluttered gaming dashboards** — สีสันหนัก, ไอคอนทุกที่, ไม่มี hierarchy ชัดเจน
-- **Glassmorphism overload** (เช่น v5.0.2 เอง) — blur ทุก surface, border ทุกอย่าง, สูญเสีย focus
-- **Generic SaaS dark mode** — dark gray ล้วน, ไม่มี character, รู้สึกเหมือน admin panel ธรรมดา
-- **Bot dashboards ยุคเก่า** เช่น Hydra, MEE6 — ดีไซน์ตก, ไม่ real-time, รู้สึกเก่า
+- Cluttered gaming dashboards and legacy bot panels (Hydra/MEE6): icon rows, neon borders, identical card grids.
+- Glassmorphism everywhere (v5's own look).
+- Generic dark SaaS with no character.
+- Mascots that perform constantly — the avatar reacts to real state, it doesn't dance for attention.
 
-## Design Principles
+## Design principles
 
-1. **Music is the hero** — Album art, track title, และ playback controls ต้องเห็นได้ชัดและเข้าถึงได้ทันที ไม่มีอะไรมาบดบัง
-2. **Real-time หมายถึงมีชีวิต** — UI ต้องสื่อสารว่ากำลัง live อยู่ด้วย motion ที่มีความหมาย ไม่ใช่ static
-3. **Permission shapes the interface** — แต่ละ role เห็น UI ที่เหมาะกับสิทธิ์ของตัวเอง ไม่ใช่ซ่อน feature แบบ grey-out
-4. **Clarity over decoration** — ทุก element มีหน้าที่ชัดเจน ตัดสิ่งที่ไม่ช่วย decision-making ออก
-5. **Dark as a canvas, not a constraint** — darkness ทำให้ album art โดดเด่น, ไม่ใช่แค่ทำให้ดู gamer
+1. **Music is the hero; the avatar is the guide.**
+2. **Live means accurate, then animated** — never show a state the server hasn't confirmed for longer than one optimistic beat; motion explains change, it doesn't decorate.
+3. **Permission shapes the interface** — say why a control is absent and how to get it.
+4. **Fast on a cheap phone** — performance targets in `DESIGN.md` §9 are product requirements.
+5. **Works when parts are down** — Bot without Backend, Dashboard read-only when the Bot is offline, page usable without WebGL.
 
-## Accessibility & Inclusion
+## Accessibility & inclusion
 
-- WCAG AA minimum
-- Reduced motion support (animations ต้องมี fallback)
-- Keyboard navigation สำหรับ playback controls และ queue management
-- Color contrast ≥4.5:1 สำหรับ body text บน dark backgrounds
+WCAG 2.2 AA; full keyboard control of playback and queue; reduced-motion parity; Thai and English UI with correct Thai typography; voice commands are an addition, never the only path.
+<!-- lang:end -->
+
+<!-- lang:th -->
+# Product — Narze v7
+
+## จุดประสงค์
+
+Narze คือบอทเพลง Discord ที่ self-host ได้ พร้อม **Dashboard** บนเว็บที่อัปเดตแบบ realtime ทุกอย่างที่ทำได้ด้วย slash command ทำจากเบราว์เซอร์ได้เหมือนกัน และทุกการเปลี่ยนแปลง ไม่ว่าจะมาจาก Discord หรือแท็บไหนที่เปิดอยู่ จะขึ้นทุกที่ภายในไม่กี่อึดใจ v7 คือการเขียนใหม่ทั้งหมด โดยเก็บ **ความสามารถทุกข้อของ v5.0.2** ไว้ (รายการรับงานอยู่ที่ `docs/research/v5-feature-inventory.md` หมวด 11 จำนวน 123 ข้อ) และแก้ข้อบกพร่องที่รู้แล้ว (หมวด 10) บน process สามตัวที่แยกจากกันได้ (**Bot**, **Backend**, **Dashboard** — ดู `CONTEXT.md`)
+
+ความสำเร็จคือ ผู้ฟังคุมทั้ง session จาก Dashboard ได้โดยไม่ต้องพิมพ์คำสั่งเลย คนสองคนที่เปิดคนละแท็บไม่มีวันเห็นคิวไม่ตรงกัน และ Bot ยังเล่นเพลงต่อได้ตอนที่ Backend หรือ Dashboard ล่ม
+
+## ผู้ใช้
+
+- **ผู้ฟัง** — สมาชิกของ Guild ดู player ของ Guild ไหนก็ได้ และควบคุมได้เมื่ออยู่ห้องเสียงเดียวกับ Bot (หรือตอนที่ไม่มีอะไรเล่นอยู่และตัวเองอยู่ในห้องเสียงห้องไหนก็ได้)
+- **Server Owner / Bot Owner** — ควบคุมได้จากทุกที่ ตั้ง Music Channel, 24/7 และชุดของ Bot Avatar ได้
+- **Admin** — ดูสถิติระบบ, log สด, รายชื่อ guild, ดูข้อความในช่องแบบอ่านอย่างเดียว, ผู้ใช้ และ session
+- **Developer** — ทำได้ทุกอย่างที่ Admin ทำได้ บวกการจัดการ Admin Whitelist
+
+บริบทการใช้งาน: ฟังเพลงกับเพื่อนใน Discord เปิด Dashboard ไว้บนจอที่สองหรือบนมือถือ บรรยากาศสบาย ๆ เป็นกันเอง เครื่องมือไม่ควรเรียกร้องความสนใจเกินกว่าที่มันสมควรได้
+
+## สิ่งที่ v7 เพิ่มจาก v5
+
+developer อนุมัติเมื่อ 2026-11-08:
+
+1. **สั่งงานด้วยเสียง** — พูดกับ Dashboard ("เล่นเพลง …", "ข้าม", "หยุด", "เสียง 40") ผ่านระบบรู้จำเสียงของเบราว์เซอร์ (Chrome/Edge ส่วนเบราว์เซอร์อื่นจะเห็นข้อความเรียบ ๆ ว่ายังไม่รองรับ)
+2. **Bot Avatar** — ตัวละครขนนุ่มประจำแต่ละ Guild ที่ขยับตามสถานะ Player และแต่งตัวได้ (หมวก, แว่น, หูฟัง, โบว์, สี) ในหน้า Guild Settings
+3. **กดถูกใจ** — กดหัวใจให้เพลงไหนก็ได้ เพลงที่ถูกใจรวมเป็น playlist Liked
+4. **แจ้งเตือนเพลงที่กำลังเล่น** — เปิดได้ราย Guild เบราว์เซอร์เด้งแจ้งตอนเปลี่ยนเพลงขณะที่แท็บยังเปิดอยู่
+5. **วน, สุ่ม, เล่นถัดไปบนเว็บ** — ให้ Dashboard ทำได้ครบเท่ากับ slash command
+6. **ชาร์ตที่ใช้ได้จริง** — ชาร์ตของ v5 เป็นข้อมูล hardcode ส่วน v7 ดึงข้อมูลชาร์ตจริง (ต้องตรวจแหล่งข้อมูลก่อนลงมือ)
+7. **ความปลอดภัยจริง** — ยืนยันตัวตน, Control Permission และสิทธิ์ admin ที่ฝั่ง server (v5 เชื่อเบราว์เซอร์)
+
+## บุคลิกแบรนด์
+
+**สงบ, แม่นยำ, มีชีวิต** ความเรียบแบบ Swiss-editorial (Strata-xeno) มีข้อยกเว้นอบอุ่นอยู่หนึ่งเดียว คือ Bot Avatar ที่ทำให้ผลิตภัณฑ์มีหน้าตา ข้อความมั่นใจและเรียบง่าย ภาษาไทยเป็นหลัก มีภาษาอังกฤษให้เลือก ไม่หนวกหู และไม่ "เกมเมอร์"
+
+## สิ่งที่ไม่อยากเป็น
+
+- dashboard เกมที่รก และแผงบอทยุคเก่า (Hydra/MEE6): ไอคอนเรียงแถว, ขอบนีออน, การ์ดหน้าตาเหมือนกันเต็มจอ
+- glassmorphism ทุกที่ (หน้าตาของ v5 เอง)
+- SaaS โทนมืดทั่วไปที่ไม่มีตัวตน
+- มาสคอตที่แสดงตลอดเวลา avatar ตอบสนองต่อ state จริง ไม่ได้เต้นเรียกร้องความสนใจ
+
+## หลักการออกแบบ
+
+1. **เพลงคือพระเอก avatar คือคนนำทาง**
+2. **live แปลว่าถูกต้องก่อน แล้วค่อยมีการเคลื่อนไหว** ห้ามโชว์ state ที่ server ยังไม่ยืนยันนานเกินหนึ่งจังหวะของการอัปเดตล่วงหน้า การเคลื่อนไหวมีไว้อธิบายการเปลี่ยนแปลง ไม่ได้มีไว้ตกแต่ง
+3. **สิทธิ์เป็นตัวกำหนดหน้าตา** บอกว่าทำไมปุ่มนั้นไม่อยู่ และต้องทำยังไงถึงจะได้
+4. **เร็วบนมือถือราคาถูก** เป้า performance ใน `DESIGN.md` หมวด 9 คือ requirement ของผลิตภัณฑ์
+5. **ใช้ได้แม้บางส่วนล่ม** Bot ทำงานได้โดยไม่มี Backend, Dashboard อ่านได้อย่างเดียวตอน Bot ออฟไลน์ และหน้าเว็บใช้ได้โดยไม่มี WebGL
+
+## การเข้าถึงและความครอบคลุม
+
+WCAG 2.2 AA คุมการเล่นและคิวด้วยคีย์บอร์ดได้ทั้งหมด โหมดลดการเคลื่อนไหวต้องได้ประสบการณ์เท่ากัน UI มีทั้งไทยและอังกฤษพร้อมการจัดตัวอักษรไทยที่ถูกต้อง สั่งงานด้วยเสียงเป็นทางเสริม ไม่ใช่ทางเดียว
+<!-- lang:end -->
