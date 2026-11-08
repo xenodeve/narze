@@ -5,13 +5,14 @@
 > Note format: see [[note-format]].
 
 ## feedback — how agents should work here
-- (none yet)
+- [[windows-toolchain-gotchas]] — CRLF checkouts, spawn paths, the gate's text matching, and over-strict PATH simulation on Windows
 
 ## project — ongoing goals / constraints not derivable from the code
 - [[v7-bootstrap-decisions]] — developer decisions fixed at the v7 bootstrap (tier, stack, tooling, clink, language, design system)
 
 ## reference — pointers to external resources (URLs, dashboards, tickets)
 - [[note-format]] — the frontmatter + body format every note in this vault follows
+- [[bun-tsconfig-follows-cwd]] — Bun reads tsconfig from the cwd; start the NestJS Backend from apps/backend
 
 ## user — who the developer is (role, preferences)
 - (none yet)

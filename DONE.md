@@ -6,6 +6,35 @@
 
 ---
 
+## #98 walking skeleton (2026-11-08, PR #115 → `v7` 9bf09367)
+
+**Goal:** prove the whole Bot → Redis → Backend → Socket.io → Dashboard path once, on the v7 monorepo.
+
+**Shipped:** Bun workspaces (`apps/bot`, `apps/backend`, `apps/dashboard`, `packages/shared`,
+`packages/fake-lavalink`); Runtime Mode detection; heartbeat (2 s, TTL 4 s, expiry on the Backend's
+clock); `StatusGateway` + `CorsIoAdapter`; Strata-xeno landing with `BotAvatar`; ADR-0004, ADR-0007;
+`infra/lavalink/application.yml`; `supabase/config.toml`; repo-wide LF.
+
+**Validation:** `bun run verify` exit 0 (36 unit/contract tests); `bun run e2e` 2 passed ×3 with the
+real Bot process; T4 gate full suite in a fresh worktree before merge; Lavalink 4.2.2 booted with
+both plugins. **Not run:** CI (billing lock, #116), `supabase start`.
+
+**Lessons recorded:** [[bun-tsconfig-follows-cwd]], [[windows-toolchain-gotchas]], ADR-0004 (closeOnError on Bun).
+
+**Next:** #99 (Discord login, server list, presence; ADR-0005).
+
+---
+
+## No-CI mode (2026-11-08, PR #117 → `v7` 46b8f37e, issue #116 open)
+
+**Goal:** keep merges verifiable while GitHub Actions cannot start jobs (billing lock).
+
+**Shipped:** gate `verify` = install + verify + e2e; `pre-push` message corrected; AGENTS.md / workflow.md
+no-CI rules; impact-register entry. **Validation:** gate simulated in a fresh worktree without Bun on
+PATH, exit 0. **Next:** developer fixes billing → restore per #116.
+
+---
+
 ## T4 bootstrap of the v7 rewrite (2026-11-08, /t4-project-bootstrap, branch `v7`)
 
 **Goal:** install the T4 operating layer (memory, workflow, hooks, CI, guards, records) on the fresh

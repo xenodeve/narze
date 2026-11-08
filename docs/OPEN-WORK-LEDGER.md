@@ -16,7 +16,7 @@ decision) · 🔴 **UNTRACKED** (MD-only, no GitHub issue — highest miss-risk)
 
 | Item | Status | Gate | Next action |
 |---|---|---|---|
-| v7 rewrite — PRD #97 (17 slices #98–#114, sub-issues of #97); plan `docs/superpowers/plans/2026-11-08-narze-v7-rewrite.md` | 🟢 | — | Start #98 (walking skeleton); order and blockers are in each issue |
+| v7 rewrite — PRD #97 (17 slices #98–#114, sub-issues of #97); plan `docs/superpowers/plans/2026-11-08-narze-v7-rewrite.md`. **#98 done** (PR #115) | 🟢 | — | Next: #99 (login, server list, presence; ADR-0005), then #100 |
 
 | Local Redis in `docker-compose.yml` has no password and publishes 6379: anyone on the network can publish fake heartbeats (status display only). Bind to 127.0.0.1 or set `requirepass` before any deployment | 🟡 | #114 hardening | Fold into #114's security review |
 | Backend e2e `beforeAll` once timed out at ~5.4 s on the first full-suite run; not reproduced in 7 runs (mitigated with a 30 s hook timeout) | 🟡 | recurrence | If it recurs, time `createApp` vs `listen` |
