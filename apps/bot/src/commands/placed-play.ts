@@ -35,9 +35,32 @@ export async function placedPlay(ctx: CommandContext, music: Music, place: Place
   const result = await playAt(ctx, music, place);
   if ("notice" in result) return result;
   if (result.kind === "error") return fail(REASON[result.reason]);
+  if (result.kind === "playlist") return playlistReply(ctx, music, result, place);
   const line = `**${result.track.title}** \` ${formatDuration(result.track.durationMs)} \``;
   if (result.kind === "started") return ok(`\`▶️\`┃${line}`);
   return ok(`\`${place.next ? "⏭️" : "📝"}\`┃${line} \n > ลำดับ: \` ${result.position} \``);
+}
+
+/** Spec #4: what a playlist added, in v5's lines; from idle it is 📙 and has no queue line. */
+function playlistReply(
+  ctx: CommandContext,
+  music: Music,
+  result: Extract<PlayResult, { kind: "playlist" }>,
+  place: Place,
+): Reply {
+  const { playlist } = result;
+  const lines = [
+    `> \`${result.started ? "📙" : "📝"}\` **Playlist:** ${playlist.name}`,
+    `> \`⌛\` **เวลา:** \` ${formatDuration(playlist.durationMs)} \` `,
+    `> \`📊\` **มี:** \` ${playlist.count} \` เพลง `,
+  ];
+  if (!result.started && place.next) lines.push(`> **ลำดับ:** \` 1 ถึง ${playlist.count} \` `);
+  if (!result.started) lines.push(`> **คิวทั้งหมด:** \` ${music.status(ctx.guildId)?.queue.length ?? 0} \` เพลง `);
+  lines.push(`> **ห้อง:** <#${ctx.memberVoiceChannelId}>`);
+  return ok(lines.join("\n"), {
+    author: { name: "Go to Playlist", url: playlist.url },
+    thumbnailUrl: playlist.thumbnail,
+  });
 }
 
 const withQuery = (b: SlashCommandBuilder) =>
@@ -81,6 +104,7 @@ export const skipplay: Command = {
     const result = await playAt(ctx, music, { skipplay: true });
     if ("notice" in result) return result;
     if (result.kind === "error") return fail(REASON[result.reason]);
-    return ok(`\`⏭️\`┃**Skipped** ไปยังเพลง **${result.track.title}** โดย: <@${ctx.user.id}>`);
+    const title = result.kind === "playlist" ? result.playlist.name : result.track.title;
+    return ok(`\`⏭️\`┃**Skipped** ไปยังเพลง **${title}** โดย: <@${ctx.user.id}>`);
   },
 };

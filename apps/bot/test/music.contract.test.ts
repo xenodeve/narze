@@ -29,6 +29,17 @@ const CATALOG = [
   },
 ];
 
+const MIX_URL = "https://www.youtube.com/watch?v=lemon&list=RDlemon";
+const PLAYLIST_URL = "https://music.youtube.com/playlist?list=PLanime";
+const PLAYLISTS = [
+  {
+    name: "Anime Hits",
+    url: PLAYLIST_URL,
+    tracks: [CATALOG[1], CATALOG[2], CATALOG[3]].filter((t) => t !== undefined),
+  },
+  { name: "Mix - Lemon", url: MIX_URL, tracks: [CATALOG[0], CATALOG[1]].filter((t) => t !== undefined) },
+];
+
 const redis = new Redis(process.env.REDIS_URL ?? DEFAULT_REDIS_URL);
 let fake: FakeLavalink;
 let lavalink: LavalinkManager;
@@ -86,7 +97,7 @@ async function connect(): Promise<LavalinkManager> {
 
 beforeEach(async () => {
   await redis.del(RedisKeys.playerState(GUILD), RedisKeys.playerSummary(GUILD));
-  fake = await startFakeLavalink({ password: "pw", catalog: CATALOG });
+  fake = await startFakeLavalink({ password: "pw", catalog: CATALOG, playlists: PLAYLISTS });
   voicePackets = [];
   notices = [];
   clock = 1_000_000;
@@ -742,5 +753,43 @@ describe("voice-drop recovery (#103, spec #28)", () => {
     fake.closeVoice(GUILD, 4006, false);
     expect((await reconnected())?.data).toMatchObject({ resumed: false });
     expect(fake.player(GUILD)?.paused).toBe(true);
+  });
+});
+
+describe("playlists (#104, spec #3, #4, #65, #66)", () => {
+  test("a playlist from idle plays its first track and queues the rest, each carrying the playlist", async () => {
+    const result = await play(PLAYLIST_URL);
+    expect(result).toMatchObject({
+      kind: "playlist",
+      started: true,
+      playlist: { name: "Anime Hits", url: PLAYLIST_URL, count: 3, durationMs: 213_000 + 239_000 + 326_000 },
+    });
+    const state = await eventually(stored, (s) => s?.current?.title === "Idol" && s.queue.length === 2);
+    expect(state?.current?.playlist).toEqual({ name: "Anime Hits", url: PLAYLIST_URL, index: 1, total: 3 });
+    expect(state?.queue.map((t) => [t.title, t.playlist?.index])).toEqual([
+      ["Gurenge", 2],
+      ["Pretender", 3],
+    ]);
+  });
+
+  test("a YouTube Mix is a radio station, and its link is kept as given (spec #65)", async () => {
+    const result = await play(MIX_URL);
+    expect(result).toMatchObject({ kind: "playlist", playlist: { name: "สถานีวิทยุLemon", url: MIX_URL } });
+  });
+
+  test("while playing, a playlist goes to the end, or to the head with play-next", async () => {
+    await play("pretender");
+    await eventually(stored, (s) => s?.current?.title === "Pretender");
+    expect(await play(PLAYLIST_URL)).toMatchObject({ kind: "playlist", started: false, firstPosition: 1 });
+    await music.play({
+      guildId: GUILD,
+      voiceChannelId: VOICE,
+      textChannelId: TEXT,
+      query: MIX_URL,
+      requester: dee,
+      next: true,
+    });
+    const state = await eventually(stored, (s) => s?.queue.length === 5);
+    expect(state?.queue.map((t) => t.title)).toEqual(["Lemon", "Idol", "Idol", "Gurenge", "Pretender"]);
   });
 });

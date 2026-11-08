@@ -24,6 +24,7 @@ export function toTrack(track: LavalinkTrack): Track | null {
     durationMs: Math.max(0, Math.round(info.duration ?? 0)),
     artworkUrl: info.artworkUrl ?? null,
     requester: track.requester,
+    playlist: (track.userData as { playlist?: unknown } | undefined)?.playlist,
   };
   const parsed = TrackSchema.safeParse(candidate);
   return parsed.success ? parsed.data : null;

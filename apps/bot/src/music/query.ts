@@ -23,8 +23,10 @@ export function resolveQuery(input: string, sourceManagers: readonly string[]): 
       return { ok: false, reason: "unsupported" };
     }
     if (isInternalUrl(url)) return { ok: false, reason: "unsupported" };
-    // Spec #3: a YouTube list= link plays as the YouTube Music playlist (everything after list= kept).
+    // Spec #3: a YouTube list= link plays as the YouTube Music playlist (everything after list= kept),
+    // except a Mix (radio, list=RD…), which only loads from its own link (spec #65).
     const list = /youtu\.?be/i.test(text) ? text.split("list=").slice(1).join("list=") : "";
+    if (list.startsWith("RD")) return { ok: true, query: text };
     return { ok: true, query: list ? `https://music.youtube.com/playlist?list=${list}` : text };
   }
   return { ok: true, query: text, source: sourceManagers.includes("spotify") ? "spsearch" : "ytmsearch" };

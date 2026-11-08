@@ -27,9 +27,19 @@ export interface PlayRequest {
   skipplay?: boolean;
 }
 
+/** A playlist added by one play request (spec #4): what the reply shows. */
+export interface AddedPlaylist {
+  name: string;
+  url: string;
+  count: number;
+  durationMs: number;
+  thumbnail: string | null;
+}
+
 export type PlayResult =
   | { kind: "started"; track: Track }
   | { kind: "queued"; track: Track; position: number }
+  | { kind: "playlist"; playlist: AddedPlaylist; started: boolean; firstPosition: number }
   | { kind: "error"; reason: "empty" | "unsupported" | "not-found" | "failed" };
 
 export interface MusicOptions {
@@ -57,6 +67,8 @@ const FLAGS = "narze.flags";
 const REVISION = "narze.revision";
 const TEXT_CHANNEL = "narze.textChannelId";
 const ADDED_AT = "addedAt";
+/** Track userData: the playlist a track was added from (spec #66). */
+const PLAYLIST = "playlist";
 const LAST_SEEK = "narze.lastSeekAt";
 /** 24/7 (spec #10, #27): the Player stays in voice as an Idle Player when the queue ends. */
 const TWENTY_FOUR_SEVEN = "narze.twentyFourSeven";
@@ -238,8 +250,19 @@ export function createMusic({
       }
     }
     const tracks = result.tracks as LavalinkTrack[];
-    for (const track of tracks) track.userData = { ...track.userData, [ADDED_AT]: now() };
-    return { tracks } as const;
+    const listed = (result as { loadType?: string; playlist?: { name?: string } | null }).loadType === "playlist";
+    // Spec #65: a YouTube Mix is a radio station.
+    const name = (result as { playlist?: { name?: string } | null }).playlist?.name?.replace("Mix - ", "สถานีวิทยุ");
+    const playlist = listed ? { name: name ?? resolved.query, url: resolved.query } : null;
+    tracks.forEach((track, i) => {
+      track.userData = {
+        ...track.userData,
+        [ADDED_AT]: now(),
+        // Spec #66: every playlist track knows where it came from, 1-based.
+        ...(playlist ? { [PLAYLIST]: { ...playlist, index: i + 1, total: tracks.length } } : {}),
+      };
+    });
+    return { tracks, playlist } as const;
   }
 
   function playerFor(request: { guildId: string; voiceChannelId: string; textChannelId: string | null }): Player {
@@ -381,6 +404,38 @@ export function createMusic({
     return run;
   }
 
+  /** Spec #4: every track of a playlist, at the requested place, or played from idle. */
+  async function addPlaylist(
+    player: Player,
+    request: PlayRequest,
+    tracks: LavalinkTrack[],
+    from: { name: string; url: string },
+  ): Promise<PlayResult> {
+    const playlist: AddedPlaylist = {
+      ...from,
+      count: tracks.length,
+      durationMs: tracks.reduce((sum, t) => sum + (t.info.duration ?? 0), 0),
+      thumbnail: tracks[0]?.info.artworkUrl ?? null,
+    };
+    const at = request.next || request.skipplay ? 0 : request.position;
+    if (player.queue.current) {
+      const index = at === undefined ? player.queue.tracks.length : Math.min(at, player.queue.tracks.length);
+      await player.queue.add(tracks, index);
+      if (request.skipplay) {
+        player.set(FLAGS, { ...flagsOf(player), skipplay: true });
+        await player.skip();
+        return { kind: "playlist", playlist, started: true, firstPosition: 1 };
+      }
+      await commit(player);
+      return { kind: "playlist", playlist, started: false, firstPosition: index + 1 };
+    }
+    const placed = at !== undefined || request.skipplay;
+    player.set(FLAGS, { ...NO_FLAGS, firstFromCommand: !placed, dontShow: Boolean(placed) });
+    await player.queue.add(tracks);
+    await player.play();
+    return { kind: "playlist", playlist, started: true, firstPosition: 1 };
+  }
+
   async function startOrQueue(request: PlayRequest): Promise<PlayResult> {
     const fresh = !existing(request.guildId);
     const player = playerFor(request);
@@ -400,6 +455,7 @@ export function createMusic({
     const shown = first ? toTrack(first) : null;
     if (!first || !shown) return abandon({ kind: "error", reason: "not-found" });
     if (!player.connected) await player.connect();
+    if (found.playlist) return addPlaylist(player, request, found.tracks, found.playlist);
     // Where in the upcoming queue: /playnext and play-next at the head, /playat at its 0-based index
     // (clamped to the end, as v5 did), otherwise the end.
     const at = request.next ? 0 : request.position;

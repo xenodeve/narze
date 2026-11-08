@@ -12,6 +12,11 @@ describe("what the Bot asks Lavalink for (spec #3, #55)", () => {
     expect(resolveQuery(url, ["youtube"])).toEqual({ ok: true, query: url });
   });
 
+  test("a YouTube Mix (list=RD…) keeps its link: radio playlists do not load as YouTube Music playlists (spec #65)", () => {
+    const mix = "https://www.youtube.com/watch?v=lemon&list=RDlemon";
+    expect(resolveQuery(mix, [])).toEqual({ ok: true, query: mix });
+  });
+
   test("a YouTube playlist link becomes the YouTube Music playlist, keeping everything after list=", () => {
     expect(resolveQuery("https://www.youtube.com/watch?v=x&list=PL123&index=4", [])).toEqual({
       ok: true,

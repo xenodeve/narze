@@ -20,6 +20,15 @@ export const TrackSchema = z.object({
   durationMs: z.number().int().nonnegative(),
   artworkUrl: z.string().url().nullable(),
   requester: RequesterSchema,
+  /** The playlist it was added from (spec #66), shown as `จาก: <name> (index/total)`. */
+  playlist: z
+    .object({
+      name: z.string(),
+      url: z.string(),
+      index: z.number().int().positive(),
+      total: z.number().int().positive(),
+    })
+    .optional(),
 });
 export type Track = z.infer<typeof TrackSchema>;
 

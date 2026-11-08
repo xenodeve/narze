@@ -192,3 +192,41 @@ describe("/247 (spec #10)", () => {
     expect(text(await command("247").run(elsewhere, music([])))).toBe("> `❌` คุณต้องอยู่ในห้องเดียวกับบอท");
   });
 });
+
+describe("playlist replies (#104, spec #4)", () => {
+  const added = (started: boolean, firstPosition = 1) => ({
+    kind: "playlist" as const,
+    playlist: {
+      name: "Anime Hits",
+      url: "https://x.test/p",
+      count: 3,
+      durationMs: 600_000,
+      thumbnail: "https://i.test/p.jpg",
+    },
+    started,
+    firstPosition,
+  });
+
+  test("/play of a playlist while playing lists name, time, count, queue size and room", async () => {
+    const m = music([track("a"), track("b"), track("c"), track("d")], {
+      play: mock(async () => added(false, 2)) as never,
+    });
+    const reply = await command("play").run(ctx({ query: "https://x.test/p" }), m);
+    expect(text(reply)).toBe(
+      "> `📝` **Playlist:** Anime Hits\n> `⌛` **เวลา:** ` 10:00 ` \n> `📊` **มี:** ` 3 ` เพลง \n> **คิวทั้งหมด:** ` 4 ` เพลง \n> **ห้อง:** <#70>",
+    );
+    expect(reply.notice.author).toMatchObject({ name: "Go to Playlist", url: "https://x.test/p" });
+    expect(reply.notice.thumbnailUrl).toBe("https://i.test/p.jpg");
+  });
+
+  test("from idle it starts with 📙 and no queue line; /playnext says where it landed", async () => {
+    const idle = music([], { play: mock(async () => added(true)) as never });
+    expect(text(await command("play").run(ctx({ query: "https://x.test/p" }), idle))).toBe(
+      "> `📙` **Playlist:** Anime Hits\n> `⌛` **เวลา:** ` 10:00 ` \n> `📊` **มี:** ` 3 ` เพลง \n> **ห้อง:** <#70>",
+    );
+    const next = music([track("a"), track("b"), track("c")], { play: mock(async () => added(false)) as never });
+    expect(text(await command("playnext").run(ctx({ query: "https://x.test/p" }), next))).toBe(
+      "> `📝` **Playlist:** Anime Hits\n> `⌛` **เวลา:** ` 10:00 ` \n> `📊` **มี:** ` 3 ` เพลง \n> **ลำดับ:** ` 1 ถึง 3 ` \n> **คิวทั้งหมด:** ` 3 ` เพลง \n> **ห้อง:** <#70>",
+    );
+  });
+});
