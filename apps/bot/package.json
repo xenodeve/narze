@@ -1,0 +1,21 @@
+{
+  "name": "@narze/bot",
+  "version": "7.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch src/main.ts",
+    "start": "bun src/main.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@narze/shared": "workspace:*",
+    "discord.js": "14.28.1",
+    "ioredis": "6.0.0",
+    "lavalink-client": "2.11.0"
+  },
+  "devDependencies": {
+    "@narze/fake-lavalink": "workspace:*"
+  }
+}
