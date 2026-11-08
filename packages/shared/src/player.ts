@@ -7,6 +7,7 @@ export const RequesterSchema = z.object({
   name: z.string().min(1),
   avatarUrl: z.string().url().nullable(),
 });
+export type Requester = z.infer<typeof RequesterSchema>;
 
 export const TrackSourceSchema = z.enum(["spotify", "youtube", "youtubemusic", "soundcloud", "http"]);
 

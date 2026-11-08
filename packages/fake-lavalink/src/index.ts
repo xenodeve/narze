@@ -60,6 +60,8 @@ export interface FakeLavalink {
   sessionIds(): string[];
   /** The node's view of one Guild's player, as the last PATCH left it. */
   player(guildId: string): FakePlayer | undefined;
+  /** Every /v4/loadtracks identifier asked for, oldest first. */
+  searches(): string[];
   /** Ends the current track as a real node would (reason "finished"). */
   finishTrack(guildId: string): void;
   stop(): void;
@@ -90,6 +92,7 @@ export async function startFakeLavalink(options: FakeLavalinkOptions): Promise<F
   const sessions: string[] = [];
   const sockets = new Map<string, ServerWebSocket<SocketData>>();
   const players = new Map<string, FakePlayer>();
+  const searches: string[] = [];
   const catalog = (options.catalog ?? []).map(toLavalinkTrack);
   const info = {
     version: { semver: "4.0.0-fake", major: 4, minor: 0, patch: 0, preRelease: "fake", build: null },
@@ -107,6 +110,7 @@ export async function startFakeLavalink(options: FakeLavalinkOptions): Promise<F
   };
 
   function loadTracks(identifier: string) {
+    searches.push(identifier);
     if (/^https?:\/\//.test(identifier)) {
       const track = catalog.find((t) => t.info.uri === identifier);
       return track ? { loadType: "track", data: track } : { loadType: "empty", data: {} };
@@ -198,6 +202,7 @@ export async function startFakeLavalink(options: FakeLavalinkOptions): Promise<F
     port: server.port ?? 0,
     sessionIds: () => [...sessions],
     player: (guildId) => players.get(guildId),
+    searches: () => [...searches],
     finishTrack: (guildId) => {
       const current = players.get(guildId);
       if (!current?.track) return;
