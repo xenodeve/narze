@@ -1,4 +1,5 @@
 import {
+  type AvatarOutfit,
   type ControlPermission,
   controlPermission,
   type GuildSummary,
@@ -11,6 +12,7 @@ import {
 } from "@narze/shared";
 import { Inject, Injectable } from "@nestjs/common";
 import type Redis from "ioredis";
+import { SettingsStore } from "../settings/settings-store";
 import { REDIS } from "../tokens";
 import type { StoredGuild } from "../users/user-store";
 
@@ -26,10 +28,11 @@ export function permissionOf(
   guild: StoredGuild,
   player: PlayerSummary | null,
   userVoice: string | null,
+  isBotOwner = false,
 ): ControlPermission {
   return controlPermission({
     isServerOwner: guild.isOwner,
-    isBotOwner: false,
+    isBotOwner,
     hasPlayer: player !== null,
     userVoiceChannelId: userVoice,
     botVoiceChannelId: player?.voiceChannelId ?? null,
@@ -37,8 +40,12 @@ export function permissionOf(
 }
 
 /** A GuildSummary from parts already read: the stored guild and what the Bot reported about it. */
-export function summarize(guild: StoredGuild, { player, userVoice, memberCount }: GuildLive): GuildSummary {
-  const { badge } = permissionOf(guild, player, userVoice);
+export function summarize(
+  guild: StoredGuild,
+  { player, userVoice, memberCount }: GuildLive,
+  settings?: { isBotOwner: boolean; avatar?: AvatarOutfit },
+): GuildSummary {
+  const { badge } = permissionOf(guild, player, userVoice, settings?.isBotOwner ?? false);
   return {
     id: guild.id,
     name: guild.name,
@@ -47,6 +54,7 @@ export function summarize(guild: StoredGuild, { player, userVoice, memberCount }
     playing: player?.playing ?? false,
     queueLength: player?.queueLength ?? 0,
     badge,
+    ...(settings?.avatar ? { avatar: settings.avatar } : {}),
   };
 }
 
@@ -55,7 +63,10 @@ const toCount = (raw: string | null | undefined) => (raw == null ? null : Number
 /** Joins a user's guild snapshot with what the Bot publishes on Redis (ADR-0002). */
 @Injectable()
 export class GuildDirectory {
-  constructor(@Inject(REDIS) private readonly redis: Redis) {}
+  constructor(
+    @Inject(REDIS) private readonly redis: Redis,
+    @Inject(SettingsStore) private readonly settings: SettingsStore,
+  ) {}
 
   /** Mutual Guilds: the user's guilds that the Bot is also in. */
   async mutual(guilds: StoredGuild[]): Promise<StoredGuild[]> {
@@ -70,18 +81,24 @@ export class GuildDirectory {
     const ids = guilds.map((g) => g.id);
     const voice = this.redis.pipeline();
     for (const id of ids) voice.hget(RedisKeys.voiceStates(id), discordId);
-    const [players, counts, voices] = await Promise.all([
+    const [players, counts, voices, settings] = await Promise.all([
       this.redis.mget(ids.map((id) => RedisKeys.playerSummary(id))),
       this.redis.hmget(RedisKeys.botMemberCounts, ...ids),
       voice.exec(),
+      this.settings.many(ids),
     ]);
-    return guilds.map((guild, i) =>
-      summarize(guild, {
-        player: parseJson(PlayerSummarySchema, players[i]),
-        userVoice: (voices?.[i]?.[1] as string | null) ?? null,
-        memberCount: toCount(counts[i]),
-      }),
-    );
+    return guilds.map((guild, i) => {
+      const stored = settings.get(guild.id);
+      return summarize(
+        guild,
+        {
+          player: parseJson(PlayerSummarySchema, players[i]),
+          userVoice: (voices?.[i]?.[1] as string | null) ?? null,
+          memberCount: toCount(counts[i]),
+        },
+        { isBotOwner: stored?.ownerId === discordId, avatar: stored?.avatar },
+      );
+    });
   }
 
   async memberCount(guildId: string): Promise<number | null> {
@@ -101,11 +118,13 @@ export class GuildDirectory {
 
   /** Control Permission of one user in one Guild, plus the voice channel they are in. */
   async permission(discordId: string, guild: StoredGuild): Promise<ControlPermission & { userVoice: string | null }> {
-    const [player, userVoice] = await Promise.all([
+    const [player, userVoice, settings] = await Promise.all([
       this.playerSummary(guild.id),
       this.redis.hget(RedisKeys.voiceStates(guild.id), discordId),
+      this.settings.get(guild.id),
     ]);
-    return { ...permissionOf(guild, player, userVoice), userVoice };
+    // Bot Owner: whoever invited the Bot, from Guild Settings (#106, spec #121).
+    return { ...permissionOf(guild, player, userVoice, settings?.ownerId === discordId), userVoice };
   }
 
   /** The Guild's voice channels with members, as the Bot last published them (spec #86). */

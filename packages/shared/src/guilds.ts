@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { AvatarOutfitSchema } from "./settings";
 
 const snowflake = z.string().regex(/^\d+$/);
 
@@ -23,6 +24,8 @@ export const GuildSummarySchema = z.object({
   playing: z.boolean(),
   queueLength: z.number().int().nonnegative(),
   badge: PermissionBadgeSchema,
+  /** The Guild's Bot Avatar outfit (#106); absent until the Bot has created its settings. */
+  avatar: AvatarOutfitSchema.optional(),
 });
 export type GuildSummary = z.infer<typeof GuildSummarySchema>;
 

@@ -5,6 +5,7 @@ import {
   type GuildEvent,
   GuildEventSchema,
   GuildEventTypes,
+  type GuildSettings,
   PlayerStateSchema,
   PlayerSummarySchema,
   parseJson,
@@ -131,6 +132,12 @@ export class UserGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   }
 
   /** One HMGET for every listener's voice channel, then each tab gets its own user's summary. */
+  /** Spec #92: a Guild's settings changed; its open tabs update, and permissions may have moved. */
+  pushSettings(guildId: string, settings: GuildSettings): void {
+    this.server.to(guildRoom(guildId)).emit(SocketEvents.settingsUpdate, { guildId, settings });
+    void this.pushPermissions(guildId).catch(report("push permissions"));
+  }
+
   private async onGuildEvent(message: string): Promise<void> {
     const event = parseJson(GuildEventSchema, message);
     if (!event) return;

@@ -18,6 +18,8 @@ import { createLavalinkRest } from "./search/lavalink-rest";
 import { SearchController } from "./search/search.controller";
 import { SearchService } from "./search/search-service";
 import { createYouTubeChannels } from "./search/youtube-channels";
+import { SettingsController } from "./settings/settings.controller";
+import { SettingsStore } from "./settings/settings-store";
 import { BotStatusTracker } from "./status/bot-status.tracker";
 import { StatusGateway } from "./status/status.gateway";
 import { DISCORD_API_URL, REDIS, REDIS_SUBSCRIBER, SUPABASE } from "./tokens";
@@ -70,7 +72,7 @@ class AppModule implements OnApplicationShutdown {
   static forRoot(options: AppOptions): DynamicModule {
     return {
       module: AppModule,
-      controllers: [MeController, PlayerController, SearchController],
+      controllers: [MeController, PlayerController, SearchController, SettingsController],
       providers: [
         { provide: REDIS, useFactory: () => new Redis(options.redisUrl) },
         { provide: REDIS_SUBSCRIBER, useFactory: () => new Redis(options.redisUrl) },
@@ -95,6 +97,7 @@ class AppModule implements OnApplicationShutdown {
         Authenticator,
         DiscordApi,
         UserStore,
+        SettingsStore,
         GuildDirectory,
         Presence,
         PlayerCache,
