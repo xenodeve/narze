@@ -1,3 +1,5 @@
+import { isInternalUrl } from "./url-safety";
+
 /** What a track is, for choosing its picture (spec #62). */
 export interface Classification {
   isVideo: boolean;
@@ -43,11 +45,27 @@ export type Head = (url: string) => Promise<{ ok: boolean; contentType: string; 
 
 /** A picture worth showing: answered, an image, and more than a placeholder's 1 KB (spec #63). */
 async function isImage(url: string, head: Head): Promise<boolean> {
+  // The URL comes from track metadata or a scraped page: never ask an internal address (SSRF).
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false;
+  }
+  if (!/^https?:$/.test(parsed.protocol) || isInternalUrl(parsed)) return false;
   const answer = await head(url).catch(() => null);
   return Boolean(answer?.ok && answer.contentType.startsWith("image/") && answer.contentLength > 1024);
 }
 
-const YOUTUBE_THUMB = /^https:\/\/(?:i\.ytimg\.com|img\.youtube\.com)\/vi\/([\w-]+)\/([a-z]+)\.jpg$/;
+const YOUTUBE_THUMB = /^https:\/\/(?:i\.ytimg\.com|img\.youtube\.com)\/vi\/([\w-]+)\/([a-z]+)\.jpg(?:\?.*)?$/;
+
+/** maxresdefault, else hqdefault — both asked at once; null when neither is a real image. */
+async function bestOf(url: string, id: string, head: Head): Promise<string | null> {
+  const base = url.replace(/\/vi\/[\w-]+\/.*$/, `/vi/${id}`);
+  const candidates = [`${base}/maxresdefault.jpg`, `${base}/hqdefault.jpg`];
+  const checks = await Promise.all(candidates.map((c) => isImage(c, head)));
+  return candidates[checks.indexOf(true)] ?? null;
+}
 
 /**
  * Spec #63: a YouTube video thumbnail (mqdefault) becomes maxresdefault when that is a real
@@ -60,11 +78,7 @@ export async function upgrade(url: string | null, head: Head): Promise<string | 
   if (!youtube) return (await isImage(url, head)) ? url : null;
   const [, id, variant] = youtube;
   if (variant !== "mqdefault") return url;
-  for (const better of ["maxresdefault", "hqdefault"]) {
-    const candidate = url.replace(`/${id}/mqdefault.jpg`, `/${id}/${better}.jpg`);
-    if (await isImage(candidate, head)) return candidate;
-  }
-  return url;
+  return (await bestOf(url, id ?? "", head)) ?? url;
 }
 
 /** Spec #64: the playlist's own picture (Spotify image, YouTube page image), then the first track's. */
@@ -74,6 +88,9 @@ export async function playlistThumbnail(
   head: Head,
 ): Promise<string | null> {
   const found = await own().catch(() => null);
+  // A YouTube page image (any variant, often with a query string) is upgraded to maxres (spec #64).
+  const youtube = found ? YOUTUBE_THUMB.exec(found) : null;
+  if (found && youtube) return (await bestOf(found, youtube[1] ?? "", head)) ?? found;
   const checked = await upgrade(found, head);
   return checked ?? firstTrack;
 }

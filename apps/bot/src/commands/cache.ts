@@ -1,17 +1,19 @@
-import { SlashCommandBuilder } from "discord.js";
+import { PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
 import { ok } from "./replies";
 import type { Command } from "./types";
 
 const kb = (bytes: number) => (bytes / 1024).toFixed(2);
 
 /**
- * /cache (spec #2, #69): the autocomplete cache's size, or empty it. Private replies; like v5, any
- * member may clear it. Entries replace v5's files: the cache lives in memory (#104 inventory).
+ * /cache (spec #2, #69): the autocomplete cache's size, or empty it. Private replies. Unlike v5,
+ * only members who can manage the server see it: the cache is shared by every Guild, so one
+ * member anywhere could empty it for all. Entries replace v5's files (it lives in memory).
  */
 export const cache: Command = {
   data: new SlashCommandBuilder()
     .setName("cache")
     .setDescription("จัดการ cache ของ autocomplete")
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
     .addStringOption((o) =>
       o
         .setName("action")

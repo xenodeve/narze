@@ -1,5 +1,5 @@
 import type { Track } from "@narze/shared";
-import { COLOR_SUCCESS, DEFAULT_ICON, formatDuration, type Notice } from "./format";
+import { COLOR_SUCCESS, DEFAULT_ICON, escapeText, formatDuration, type Notice } from "./format";
 
 /** Player flags that decide whether a track start is announced (spec #15, #24, #25). */
 export interface AnnounceFlags {
@@ -38,7 +38,7 @@ export function shouldAnnounce(flags: AnnounceFlags, queueSize: number): boolean
 export function nowPlayingNotice(track: Track, link: { iconUrl?: string; authorUrl?: string } = {}): Notice {
   const lines = [`\`▶️\`┃**${track.title}** \` ${formatDuration(track.durationMs)} \``];
   const from = track.playlist;
-  if (from) lines.push(`> จาก: ${from.name} (${from.index}/${from.total})`);
+  if (from) lines.push(`> จาก: ${escapeText(from.name)} (${from.index}/${from.total})`);
   lines.push(`> Requested by <@${track.requester.id}>`);
   return {
     color: COLOR_SUCCESS,

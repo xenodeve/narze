@@ -1,6 +1,5 @@
-import { createTtlCache } from "./ttl-cache";
+import { createTtlCache, WEEK_MS } from "./ttl-cache";
 
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 /** Spec #73: a token is used until 5 minutes before Spotify says it expires. */
 const TOKEN_MARGIN_MS = 5 * 60 * 1000;
 

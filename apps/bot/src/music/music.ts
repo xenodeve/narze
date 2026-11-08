@@ -6,7 +6,7 @@ import type { Artwork } from "./artwork";
 import { type Choice, createSuggester } from "./autocomplete";
 import type { Notice } from "./format";
 import { type PlayerPublisher, toPlayerState } from "./player-state";
-import { resolveQuery } from "./query";
+import { playlistDisplayName, resolveQuery } from "./query";
 import type { QueueSnapshot, SnapshotStore, StoredTrack } from "./queue-snapshot";
 import { toTrack } from "./track";
 import { createTtlCache } from "./ttl-cache";
@@ -37,7 +37,15 @@ export interface AddedPlaylist {
   count: number;
   durationMs: number;
   thumbnail: string | null;
+  /** The playlist display icon (spec #67 `playlist_display`). */
+  icon?: string;
 }
+
+/** How long a reply or notice waits for a lookup before it goes out with the fallback. */
+const ICON_WAIT_MS = 1500;
+/** Resolves with the promise, or rejects once `ms` have passed. */
+const within = <T>(ms: number, promise: Promise<T>): Promise<T> =>
+  Promise.race([promise, new Promise<T>((_, reject) => setTimeout(() => reject(new Error("timeout")), ms))]);
 
 export type PlayResult =
   | { kind: "started"; track: Track }
@@ -129,7 +137,20 @@ export function createMusic({
     const data = (track.userData ?? {}) as Record<string, unknown>;
     if (!artwork || ARTWORK in data) return;
     const url = await artwork.trackArt(track).catch(() => track.info.artworkUrl ?? null);
-    track.userData = { ...data, [ARTWORK]: url };
+    track.userData = { ...(track.userData as Record<string, unknown>), [ARTWORK]: url };
+  }
+
+  /**
+   * Resolves a track's picture without holding anything up: the Dashboard and the notice go out
+   * with Lavalink's picture, and the resolved one follows as its own revision while the Player still
+   * has the track.
+   */
+  function artLater(player: Player, track: LavalinkTrack): void {
+    if (!artwork || ARTWORK in ((track.userData ?? {}) as Record<string, unknown>)) return;
+    void resolveArt(track).then(async () => {
+      const held = player.queue.current === track || (player.queue.tracks as LavalinkTrack[]).includes(track);
+      if (held && lavalink.getPlayer(player.guildId) === player) await commit(player);
+    }, warn("resolve artwork"));
   }
 
   const sourceManagers = () => lavalink.nodeManager.leastUsedNodes()[0]?.info?.sourceManagers ?? [];
@@ -143,7 +164,8 @@ export function createMusic({
     load: async (query, source) => {
       const node = lavalink.nodeManager.leastUsedNodes()[0];
       if (!node) throw new Error("no Lavalink node");
-      const found = await node.search(source ? { query, source } : { query }, { id: "autocomplete" });
+      // Discord drops an autocomplete answer after 3 s.
+      const found = await within(2500, node.search(source ? { query, source } : { query }, { id: "autocomplete" }));
       return {
         loadType: found.loadType,
         tracks: found.tracks,
@@ -289,7 +311,8 @@ export function createMusic({
     const tracks = result.tracks as LavalinkTrack[];
     const listed = (result as { loadType?: string; playlist?: { name?: string } | null }).loadType === "playlist";
     // Spec #65: a YouTube Mix is a radio station.
-    const name = (result as { playlist?: { name?: string } | null }).playlist?.name?.replace("Mix - ", "สถานีวิทยุ");
+    const listName = (result as { playlist?: { name?: string } | null }).playlist?.name;
+    const name = listName === undefined ? undefined : playlistDisplayName(listName);
     const playlist = listed ? { name: name ?? resolved.query, url: resolved.query } : null;
     tracks.forEach((track, i) => {
       track.userData = {
@@ -340,7 +363,7 @@ export function createMusic({
     // Decide on the queue as it was when the track started, before any await: a /play arriving
     // while the picture resolves or the state publishes must not count.
     const announceAllowed = shouldAnnounce(flags, player.queue.tracks.length);
-    await resolveArt(track);
+    artLater(player, track);
     const shown = toTrack(track);
     const announceIt = shown !== null && announceAllowed;
     // The Dashboard first; the Discord notice is a slower round trip.
@@ -350,7 +373,10 @@ export function createMusic({
       if (channel) {
         const from = (track.userData as { playlist?: { url?: string; thumbnail?: string | null } } | undefined)
           ?.playlist;
-        const iconUrl = artwork ? await artwork.icon(shown, from?.thumbnail ?? null).catch(() => undefined) : undefined;
+        // The icon may wait a moment for Spotify, never longer than ICON_WAIT_MS (then the avatar).
+        const iconUrl = artwork
+          ? await within(ICON_WAIT_MS, artwork.icon(shown, from?.thumbnail ?? null)).catch(() => undefined)
+          : undefined;
         const authorUrl = usePlaylistUrl && from?.url ? from.url : undefined;
         await announce(channel, nowPlayingNotice(shown, { iconUrl, authorUrl })).catch(warn("now-playing notice"));
       }
@@ -463,11 +489,14 @@ export function createMusic({
       durationMs: tracks.reduce((sum, t) => sum + (t.info.duration ?? 0), 0),
       thumbnail: tracks[0]?.info.artworkUrl ?? null,
     };
-    const first = tracks[0];
-    if (first) await resolveArt(first);
     if (artwork) {
-      const firstArt = (first?.userData as Record<string, unknown> | undefined)?.[ARTWORK] as string | null | undefined;
-      playlist.thumbnail = await artwork.playlistArt(from.url, firstArt ?? null).catch(() => playlist.thumbnail);
+      // The reply shows the playlist's picture and display icon: asked together, never for long.
+      const [thumbnail, icon] = await Promise.all([
+        within(ICON_WAIT_MS * 2, artwork.playlistArt(from.url, playlist.thumbnail)).catch(() => playlist.thumbnail),
+        within(ICON_WAIT_MS, artwork.icon(null, playlist.thumbnail, true)).catch(() => undefined),
+      ]);
+      playlist.thumbnail = thumbnail ?? playlist.thumbnail;
+      playlist.icon = icon;
     }
     // The playlist's picture travels with its tracks, for the playlist_thumbnail icon (spec #67).
     for (const t of tracks) {
@@ -509,7 +538,6 @@ export function createMusic({
     }
     if ("error" in found) return abandon({ kind: "error", reason: found.error ?? "failed" });
     const first = found.tracks[0];
-    if (first && !found.playlist) await resolveArt(first);
     const shown = first ? toTrack(first) : null;
     if (!first || !shown) return abandon({ kind: "error", reason: "not-found" });
     if (!player.connected) await player.connect();
@@ -529,6 +557,7 @@ export function createMusic({
       const index = at === undefined ? undefined : Math.min(at, player.queue.tracks.length);
       await player.queue.add(first, index);
       await commit(player);
+      artLater(player, first);
       return { kind: "queued", track: shown, position: (index ?? player.queue.tracks.length - 1) + 1 };
     }
     // From idle, /play announces in its own reply; /playnext, /playat and /skipplay never post a notice (spec #24).

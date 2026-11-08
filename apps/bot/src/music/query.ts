@@ -6,6 +6,12 @@ export type ResolvedQuery =
 
 const UNSUPPORTED = /^https?:\/\/([a-z0-9-]+\.)*(deezer\.com|music\.apple\.com)\//i;
 
+/** A YouTube Mix (radio) playlist id starts with RD; RDCLAK… is a YouTube Music album, not a Mix. */
+export const isMixList = (list: string) => list.startsWith("RD") && !list.startsWith("RDCLAK");
+
+/** Spec #65: a Mix playlist is shown as a radio station. */
+export const playlistDisplayName = (name: string) => name.replace(/^Mix - /, "สถานีวิทยุ");
+
 /**
  * Turns user input into a Lavalink query. Spotify→YouTube mirroring (ISRC, then title) happens in
  * LavaSrc on the node, so the Bot only picks the search prefix: Spotify first when the node has it
@@ -26,7 +32,7 @@ export function resolveQuery(input: string, sourceManagers: readonly string[]): 
     // Spec #3: a YouTube list= link plays as the YouTube Music playlist (everything after list= kept),
     // except a Mix (radio, list=RD…), which only loads from its own link (spec #65).
     const list = /youtu\.?be/i.test(text) ? text.split("list=").slice(1).join("list=") : "";
-    if (list.startsWith("RD")) return { ok: true, query: text };
+    if (isMixList(list)) return { ok: true, query: text };
     return { ok: true, query: list ? `https://music.youtube.com/playlist?list=${list}` : text };
   }
   return { ok: true, query: text, source: sourceManagers.includes("spotify") ? "spsearch" : "ytmsearch" };

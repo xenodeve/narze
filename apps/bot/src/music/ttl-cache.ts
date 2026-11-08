@@ -1,3 +1,6 @@
+/** Spec #73: the 7-day TTL of YouTube categories and Spotify artist lookups. */
+export const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
 /**
  * An in-process cache with a TTL and an LRU cap. The Bot's lookups (autocomplete, YouTube
  * categories, Spotify artists) use it in both Runtime Modes; the TTLs come from spec #73.

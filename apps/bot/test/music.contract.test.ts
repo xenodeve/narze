@@ -863,3 +863,56 @@ describe("autocomplete on the engine (#104, spec #69)", () => {
     expect(fake.searches().length).toBe(before + 2);
   });
 });
+
+describe("#104 review fixes on the engine", () => {
+  const engineWith = (artwork: Parameters<typeof createMusic>[0]["artwork"]) => {
+    for (const event of ["trackStart", "queueEnd", "playerDestroy", "playerSocketClosed"] as const) {
+      lavalink.removeAllListeners(event);
+    }
+    music = createMusic({
+      lavalink,
+      publisher: createPlayerPublisher(redis),
+      announce: async (channelId, notice) => {
+        notices.push({ channelId, notice });
+      },
+      now: () => clock,
+      artwork,
+    });
+  };
+
+  test("a slow picture never holds back the Dashboard: the started track is published first", async () => {
+    let release: (url: string | null) => void = () => {};
+    const pending = new Promise<string | null>((resolve) => {
+      release = resolve;
+    });
+    engineWith({ trackArt: () => pending, playlistArt: async () => null, icon: async () => "https://icon.test/x" });
+    void play("lemon");
+    expect((await eventually(stored, (s) => s?.current?.title === "Lemon"))?.current?.title).toBe("Lemon");
+    release("https://art.test/late.jpg");
+    expect(
+      (await eventually(stored, (s) => s?.current?.artworkUrl === "https://art.test/late.jpg"))?.current?.artworkUrl,
+    ).toBe("https://art.test/late.jpg");
+  });
+
+  test("a picture that did not check out shows none, not Lavalink's", async () => {
+    engineWith({ trackArt: async () => null, playlistArt: async () => null, icon: async () => "https://icon.test/x" });
+    await play("lemon");
+    await play("idol");
+    const state = await eventually(stored, (s) => s?.queue.length === 1);
+    expect(state?.queue[0]?.artworkUrl).toBeNull();
+  });
+
+  test("a playlist reply carries the playlist display icon", async () => {
+    const seen: Array<boolean | undefined> = [];
+    engineWith({
+      trackArt: async () => null,
+      playlistArt: async () => "https://art.test/list.jpg",
+      icon: async (_t, _p, display) => {
+        seen.push(display);
+        return display ? "https://icon.test/display" : "https://icon.test/track";
+      },
+    });
+    expect(await play(PLAYLIST_URL)).toMatchObject({ playlist: { icon: "https://icon.test/display" } });
+    expect(seen).toContain(true);
+  });
+});

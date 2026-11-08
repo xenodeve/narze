@@ -284,3 +284,32 @@ describe("search autocomplete and /cache (#104, spec #2, #69)", () => {
     });
   });
 });
+
+describe("#104 review fixes", () => {
+  test("only the exact sentinel values are refused: a song called Error or fatal_error still plays", async () => {
+    const m = music([]);
+    for (const query of ["Error", "fatal_error"]) await command("play").run(ctx({ query }), m);
+    expect(m.play).toHaveBeenCalledTimes(2);
+    expect(text(await command("play").run(ctx({ query: "nobeforsong_error" }), m))).toBe("> `❌` กรุณาระบุเพลงที่ถูกต้อง");
+  });
+
+  test("a playlist name cannot inject markdown; the reply shows the playlist display icon", async () => {
+    const m = music([], {
+      play: mock(async () => ({
+        kind: "playlist",
+        playlist: {
+          name: "[free](https://evil.test)",
+          url: "u",
+          count: 1,
+          durationMs: 1000,
+          thumbnail: null,
+          icon: "https://icon.test/p",
+        },
+        started: true,
+      })) as never,
+    });
+    const reply = await command("play").run(ctx({ query: "u" }), m);
+    expect(text(reply)).toContain(String.raw`**Playlist:** \[free\]\(https://evil.test\)`);
+    expect(reply.notice.author?.iconUrl).toBe("https://icon.test/p");
+  });
+});

@@ -28,7 +28,7 @@ export function iconModesFrom(env: Record<string, string | undefined>): IconMode
 
 /** A HEAD over fetch, for the image checks of spec #63. */
 export const fetchHead: Head = async (url) => {
-  const res = await fetch(url, { method: "HEAD", redirect: "follow", signal: AbortSignal.timeout(4000) });
+  const res = await fetch(url, { method: "HEAD", redirect: "manual", signal: AbortSignal.timeout(1500) });
   return {
     ok: res.ok,
     contentType: res.headers.get("content-type") ?? "",

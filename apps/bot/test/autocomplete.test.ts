@@ -63,3 +63,17 @@ describe("play autocomplete (#104, spec #2, #69)", () => {
     expect(empty).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("#104 review fixes", () => {
+  test("only a name starting `Mix - ` is renamed; a playlist link over 100 characters offers no choice", async () => {
+    const tracks = [song("a")];
+    const list = "https://www.youtube.com/watch?v=a&list=PL1";
+    expect(
+      await suggester(async () => ({ loadType: "playlist", tracks, playlistName: "Summer Mix - 2024" })).suggest(list),
+    ).toEqual([{ name: "(1 เพลง) Summer Mix - 2024", value: "https://music.youtube.com/playlist?list=PL1" }]);
+    const long = `https://www.youtube.com/watch?v=a&list=PL1&pp=${"x".repeat(120)}`;
+    expect(await suggester(async () => ({ loadType: "playlist", tracks, playlistName: "P" })).suggest(long)).toEqual(
+      [],
+    );
+  });
+});

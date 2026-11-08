@@ -1,5 +1,5 @@
 import { SlashCommandBuilder } from "discord.js";
-import { formatDuration } from "../music/format";
+import { escapeText, formatDuration } from "../music/format";
 import type { Music, PlayRequest, PlayResult } from "../music/music";
 import { fail, ok } from "./replies";
 import type { Command, CommandContext, Reply } from "./types";
@@ -13,12 +13,21 @@ const REASON = {
 
 type Place = Pick<PlayRequest, "next" | "position" | "skipplay">;
 
+/** The values our own error suggestions carry; only these exact strings are refused. */
+const ERROR_SENTINELS = new Set([
+  "error",
+  "not_found_error",
+  "no_queue_error",
+  "empty_queue_error",
+  "nobeforsong_error",
+]);
+
 /** The voice checks every play command makes, then the play: a refusal, or what the engine did. */
 async function playAt(ctx: CommandContext, music: Music, place: Place): Promise<Reply | PlayResult> {
   // v5's sentinels: a suggestion that was itself an error comes back as the query.
   const query = String(ctx.option("query") ?? "");
   if (query === "no_song") return fail("กรุณาระบุเพลง");
-  if (query === "error" || query.endsWith("_error")) return fail("กรุณาระบุเพลงที่ถูกต้อง");
+  if (ERROR_SENTINELS.has(query)) return fail("กรุณาระบุเพลงที่ถูกต้อง");
   const voice = ctx.memberVoiceChannelId;
   if (!voice) return fail("กรุณาเข้าห้องเสียงด้วย");
   const status = music.status(ctx.guildId);
@@ -54,7 +63,7 @@ function playlistReply(
 ): Reply {
   const { playlist } = result;
   const lines = [
-    `> \`${result.started ? "📙" : "📝"}\` **Playlist:** ${playlist.name}`,
+    `> \`${result.started ? "📙" : "📝"}\` **Playlist:** ${escapeText(playlist.name)}`,
     `> \`⌛\` **เวลา:** \` ${formatDuration(playlist.durationMs)} \` `,
     `> \`📊\` **มี:** \` ${playlist.count} \` เพลง `,
   ];
@@ -62,7 +71,7 @@ function playlistReply(
   if (!result.started) lines.push(`> **คิวทั้งหมด:** \` ${music.status(ctx.guildId)?.queue.length ?? 0} \` เพลง `);
   lines.push(`> **ห้อง:** <#${ctx.memberVoiceChannelId}>`);
   return ok(lines.join("\n"), {
-    author: { name: "Go to Playlist", url: playlist.url },
+    author: { name: "Go to Playlist", url: playlist.url, iconUrl: playlist.icon },
     thumbnailUrl: playlist.thumbnail,
   });
 }

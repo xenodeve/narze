@@ -49,3 +49,10 @@ describe("what the Bot asks Lavalink for (spec #3, #55)", () => {
     expect(resolveQuery("   ", [])).toEqual({ ok: false, reason: "empty" });
   });
 });
+
+test("a YouTube Music album playlist (list=RDCLAK…) is not a Mix (#104 review)", () => {
+  expect(resolveQuery("https://www.youtube.com/watch?v=a&list=RDCLAK5uy_x", [])).toEqual({
+    ok: true,
+    query: "https://music.youtube.com/playlist?list=RDCLAK5uy_x",
+  });
+});

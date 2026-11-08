@@ -77,3 +77,22 @@ describe("playlist thumbnail (#104, spec #64)", () => {
     expect(await playlistThumbnail(async () => own, null, heads({}))).toBeNull();
   });
 });
+
+describe("#104 review fixes", () => {
+  test("a YouTube page image (any variant, with a query string) is upgraded to maxres for a playlist", async () => {
+    const og = "https://i.ytimg.com/vi/abc/hqdefault.jpg?sqp=xyz";
+    const maxres = "https://i.ytimg.com/vi/abc/maxresdefault.jpg";
+    expect(await playlistThumbnail(async () => og, null, heads({ [maxres]: image }))).toBe(maxres);
+  });
+
+  test("an image on an internal address is never requested", async () => {
+    const asked: string[] = [];
+    const spy: Head = async (url) => {
+      asked.push(url);
+      return image;
+    };
+    expect(await upgrade("http://127.0.0.1/admin.png", spy)).toBeNull();
+    expect(await upgrade("http://169.254.169.254/latest", spy)).toBeNull();
+    expect(asked).toEqual([]);
+  });
+});

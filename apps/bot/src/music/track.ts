@@ -28,7 +28,7 @@ export function toTrack(track: LavalinkTrack): Track | null {
     author: info.author ?? "",
     durationMs: Math.max(0, Math.round(info.duration ?? 0)),
     // A picture resolved by Track Resolution wins over Lavalink's (spec #62/#63).
-    artworkUrl: resolvedArt(track) ?? info.artworkUrl ?? null,
+    artworkUrl: resolvedArt(track) === undefined ? (info.artworkUrl ?? null) : (resolvedArt(track) ?? null),
     requester: track.requester,
     playlist: (track.userData as { playlist?: unknown } | undefined)?.playlist,
   };

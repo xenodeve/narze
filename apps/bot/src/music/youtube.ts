@@ -1,6 +1,4 @@
-import { createTtlCache } from "./ttl-cache";
-
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+import { createTtlCache, WEEK_MS } from "./ttl-cache";
 
 /** What the YouTube Data API says about a video, for music-vs-video (spec #48, #62). */
 export interface VideoFacts {

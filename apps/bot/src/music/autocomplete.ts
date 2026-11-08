@@ -1,4 +1,4 @@
-import { resolveQuery } from "./query";
+import { playlistDisplayName, type ResolvedQuery, resolveQuery } from "./query";
 import type { TtlCache } from "./ttl-cache";
 
 export interface Choice {
@@ -18,7 +18,6 @@ export const SUGGESTION_LIMIT = 7;
 /** Discord caps a choice's name and value at 100 characters. */
 const MAX = 100;
 const ERROR = (name: string): Choice[] => [{ name, value: "error" }];
-const UNSUPPORTED = /deezer|music\.apple/i;
 
 /**
  * The /play family's autocomplete (v5 §3): text searches the default platform and offers
@@ -37,10 +36,7 @@ export function createSuggester({
 }) {
   const sourceList = () => (typeof sources === "function" ? sources() : sources);
 
-  async function compute(text: string): Promise<{ choices: Choice[]; ok: boolean }> {
-    if (/^https?:\/\//i.test(text) && UNSUPPORTED.test(text))
-      return { choices: ERROR("ไม่รองรับ Platform นี้"), ok: false };
-    const resolved = resolveQuery(text, sourceList());
+  async function compute(resolved: ResolvedQuery): Promise<{ choices: Choice[]; ok: boolean }> {
     if (!resolved.ok) return { choices: ERROR("ไม่รองรับ Platform นี้"), ok: false };
     const found = await load(resolved.query, resolved.source);
     const isUrl = !resolved.source;
@@ -48,7 +44,9 @@ export function createSuggester({
       return { choices: ERROR(isUrl ? "(ข้อผิดพลาด) กรุณาใส่ URL ที่ถูกต้อง" : "ไม่พบเพลงที่ค้นหา"), ok: false };
     }
     if (found.loadType === "playlist") {
-      const name = (found.playlistName ?? "Playlist").replace("Mix - ", "สถานีวิทยุ");
+      const name = playlistDisplayName(found.playlistName ?? "Playlist");
+      // Discord refuses a choice value over 100 characters, and with it every other choice.
+      if (resolved.query.length > MAX) return { choices: [], ok: false };
       return {
         choices: [{ name: `(${found.tracks.length} เพลง) ${name}`.slice(0, MAX), value: resolved.query }],
         ok: true,
@@ -73,7 +71,7 @@ export function createSuggester({
       const cached = cache.get(key);
       if (cached) return cached;
       try {
-        const { choices, ok } = await compute(text);
+        const { choices, ok } = await compute(resolved);
         if (ok) cache.set(key, choices);
         return choices;
       } catch {
