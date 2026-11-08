@@ -22,7 +22,8 @@ decision) · 🔴 **UNTRACKED** (MD-only, no GitHub issue — highest miss-risk)
 
 | Item | Status | Gate | Next action |
 |---|---|---|---|
-| Apply the `v7` ruleset + verify security settings | 🔴 | `v7` pushed and `T4 verify` has run once | Run the commands under "Pending: apply after first push" in `docs/agents/workflow.md` |
+| **No-CI mode** — Actions cannot start (billing lock): a merged PR means "the author ran verify", not "CI passed"; CodeQL is unverified (#116) | 🟡 | developer fixes GitHub billing | Then re-run CI on `v7`, apply the ruleset, restore `verify`, the `workflow.md` mandate and the `pre-push` message, close #116 |
+| Apply the `v7` ruleset + verify security settings | 🔴 | `v7` pushed (done) and `T4 verify` has run once — blocked by #116 | Run the commands under "Pending: apply after first push" in `docs/agents/workflow.md` |
 | Thai mirror for `docs/agents/*` per the governance-doc convention (`<!-- lang:en/th -->`, full mirror) | 🔴 | — | Add the Thai side to `domain.md`, `issue-tracker.md`, `triage-labels.md`, `workflow.md` |
 
 ---
