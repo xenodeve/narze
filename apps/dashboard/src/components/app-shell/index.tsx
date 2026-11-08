@@ -9,6 +9,7 @@ import { useGuilds } from "@/lib/use-guilds";
 import styles from "./app-shell.module.css";
 
 const HOME = "home";
+const SEARCH = "search";
 
 function GuildNav({ userId, activeGuildId }: { userId: string; activeGuildId: string }) {
   const router = useRouter();
@@ -21,6 +22,7 @@ function GuildNav({ userId, activeGuildId }: { userId: string; activeGuildId: st
       key={key}
       items={[
         { label: "หน้าแรก", value: HOME },
+        { label: "ค้นหา", value: SEARCH },
         {
           label: "เซิร์ฟเวอร์",
           children: guilds.map((g) => ({
@@ -36,7 +38,7 @@ function GuildNav({ userId, activeGuildId }: { userId: string; activeGuildId: st
       ]}
       defaultOpen={1}
       defaultActive={activeGuildId}
-      onSelect={(value) => router.push(value === HOME ? "/" : `/guilds/${value}`)}
+      onSelect={(value) => router.push(value === HOME ? "/" : value === SEARCH ? "/search" : `/guilds/${value}`)}
       color="var(--ink-2)"
       accentColor="var(--ink)"
       lineColor="var(--line)"
@@ -49,7 +51,7 @@ function GuildNav({ userId, activeGuildId }: { userId: string; activeGuildId: st
  * App shell (#76, DESIGN.md §5): a sticky glass top bar and a 240px sticky sidebar with the supplied
  * BranchedMenu listing the user's servers. At ≤ 900px the sidebar folds into a <details>.
  */
-export function AppShell({ guildId, children }: { guildId: string; children: ReactNode }) {
+export function AppShell({ guildId = "", children }: { guildId?: string; children: ReactNode }) {
   const session = useSession();
   // Open beside the content on wide screens; folded on narrow ones so the player comes first.
   const [open, setOpen] = useState(false);

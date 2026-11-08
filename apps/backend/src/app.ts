@@ -34,7 +34,7 @@ export interface AppOptions {
   /** Lavalink's REST API for catalog search (ADR-0009); without it searches find no tracks. */
   lavalink?: { url: string; password: string };
   /** Spotify Web API client credentials for the catalog (env only). */
-  spotify?: { clientId?: string; clientSecret?: string };
+  spotify?: { clientId?: string; clientSecret?: string; apiUrl?: string; accountsUrl?: string };
   youtubeApiKey?: string;
 }
 

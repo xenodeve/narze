@@ -11,6 +11,7 @@ import { moodFromArtwork, moodFromText } from "@/lib/mood";
 import { type Permission, usePlayer, type VoiceStatus } from "@/lib/use-player";
 import styles from "./now-playing.module.css";
 import { Progress } from "./progress";
+import { SidePanel } from "./side-panel";
 
 const BotAvatar = dynamic(() => import("bot-avatars").then((m) => m.BotAvatar), { ssr: false });
 
@@ -201,12 +202,17 @@ export function NowPlaying({ guildId, userId }: { guildId: string; userId: strin
           }
         }
       />
-      <QueuePanel
+      <SidePanel
         guildId={guildId}
-        queue={state?.queue ?? []}
-        revision={state?.revision ?? 0}
-        permission={view.permission}
-        jumping={view.jumping}
+        queue={
+          <QueuePanel
+            guildId={guildId}
+            queue={state?.queue ?? []}
+            revision={state?.revision ?? 0}
+            permission={view.permission}
+            jumping={view.jumping}
+          />
+        }
       />
     </div>
   );

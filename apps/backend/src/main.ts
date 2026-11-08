@@ -20,7 +20,13 @@ const app = await createApp({
         password: env.LAVALINK_PASSWORD,
       }
     : undefined,
-  spotify: { clientId: env.SPOTIFY_CLIENT_ID, clientSecret: env.SPOTIFY_CLIENT_SECRET },
+  spotify: {
+    clientId: env.SPOTIFY_CLIENT_ID,
+    clientSecret: env.SPOTIFY_CLIENT_SECRET,
+    // Only end-to-end tests point these at a fake; unset means the real Spotify.
+    apiUrl: env.SPOTIFY_API_URL || undefined,
+    accountsUrl: env.SPOTIFY_ACCOUNTS_URL || undefined,
+  },
   youtubeApiKey: env.YOUTUBE_API_KEY,
 });
 await app.listen(Number(env.BACKEND_PORT ?? 4000));

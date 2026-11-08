@@ -11,17 +11,22 @@ export function createSpotifyApi({
   clientSecret,
   fetch = globalThis.fetch,
   now = Date.now,
+  apiUrl = "https://api.spotify.com/v1",
+  accountsUrl = "https://accounts.spotify.com",
 }: {
   clientId?: string;
   clientSecret?: string;
   fetch?: typeof globalThis.fetch;
   now?: () => number;
+  /** Overridable for end-to-end tests against a fake Spotify; production uses the defaults. */
+  apiUrl?: string;
+  accountsUrl?: string;
 } = {}) {
   let token: { value: string; until: number } | null = null;
   let pending: Promise<string | null> | null = null;
 
   async function fetchToken(): Promise<string | null> {
-    const res = await fetch("https://accounts.spotify.com/api/token", {
+    const res = await fetch(`${accountsUrl}/api/token`, {
       method: "POST",
       headers: {
         authorization: `Basic ${btoa(`${clientId}:${clientSecret}`)}`,
@@ -53,7 +58,7 @@ export function createSpotifyApi({
     async get<T>(pathOrUrl: string): Promise<T | null> {
       const bearer = await accessToken();
       if (!bearer) return null;
-      const url = pathOrUrl.startsWith("https://") ? pathOrUrl : `https://api.spotify.com/v1${pathOrUrl}`;
+      const url = pathOrUrl.startsWith("https://") ? pathOrUrl : `${apiUrl}${pathOrUrl}`;
       const res = await fetch(url, {
         headers: { authorization: `Bearer ${bearer}` },
         signal: AbortSignal.timeout(5000),
