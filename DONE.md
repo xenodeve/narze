@@ -6,6 +6,20 @@
 
 ---
 
+## #99 Discord sign-in, Mutual Guild list, Presence (2026-11-08, branch `feat/99-discord-login`)
+
+**Goal:** sign in with Discord in a popup, list only the servers shared with the Bot with live badges, and count open tabs — with identity established by the Backend, never by the client (v5 trusted `req.body.user.discordId`).
+
+**Shipped:** Supabase Auth (Discord, PKCE, popup + full-page fallback); `Authenticator.verify` via `auth.getUser` on every call; Discord ID only from `identities` and only for Discord-only accounts; `POST /api/me/sync` (provider token must be the caller's; 502 keeps the snapshot) and `GET /api/me/guilds`; `public.users` / `public.user_guilds` + RLS + `replace_user_guilds`; socket handshake auth, Mutual Guild rooms, live `guild:summary`; ref-counted Presence; Bot mirrors guild set + voice states to Redis; `controlPermission()` in shared; `packages/fake-discord`; `bun run infra:up`; email sign-up disabled; ADR-0005.
+
+**Validation:** `bun run verify` exit 0 (65 unit/contract tests against real Redis, Supabase Auth and Postgres); `bun run e2e` 6 passed (popup sign-in, live badge, sign-out refuses the old token, popup-blocked fallback, forged state, forged code); mutation probes on the token-owner check and the Presence edge both went red; screenshots at 1280 light and 390 dark. **Not run:** real Discord (no credentials), CI (#116). **Deferred:** see the scope-notes comment on #99.
+
+**Lessons recorded:** [[supabase-auth-fake-discord]].
+
+**Next:** #100.
+
+---
+
 ## #98 walking skeleton (2026-11-08, PR #115 → `v7` 9bf09367)
 
 **Goal:** prove the whole Bot → Redis → Backend → Socket.io → Dashboard path once, on the v7 monorepo.
