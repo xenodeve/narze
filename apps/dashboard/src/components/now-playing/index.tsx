@@ -163,6 +163,8 @@ export function NowPlaying({ guildId, userId }: { guildId: string; userId: strin
             twentyFourSeven: false,
             queue: [],
             revision: 0,
+            epoch: "idle",
+            lastSeekAt: null,
             voiceChannelId: null,
           }
         }

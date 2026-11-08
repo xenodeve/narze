@@ -24,5 +24,7 @@ export interface Reply {
 
 export interface Command {
   data: SlashCommandOptionsOnlyBuilder;
+  /** The handler may take longer than Discord's 3 s reply window (search, voice join): defer first. */
+  slow?: boolean;
   run(ctx: CommandContext, music: Music): Promise<Reply>;
 }

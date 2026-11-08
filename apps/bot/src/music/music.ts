@@ -26,7 +26,9 @@ export type PlayResult =
 
 export interface MusicOptions {
   lavalink: LavalinkManager;
-  publisher: PlayerPublisher;
+  /** Identifies this Bot process in every Player State (ADR-0007); a restart picks a new one. */
+  epoch?: string;
+  publisher: Pick<PlayerPublisher, "publish" | "gone">;
   /** Posts a Now-Playing Notice in a text channel. */
   announce: (channelId: string, notice: Notice) => Promise<void>;
   now?: () => number;
@@ -37,6 +39,7 @@ const FLAGS = "narze.flags";
 const REVISION = "narze.revision";
 const TEXT_CHANNEL = "narze.textChannelId";
 const ADDED_AT = "addedAt";
+const LAST_SEEK = "narze.lastSeekAt";
 
 /**
  * Publishing is best-effort: playback must go on when Redis is down (ADR-0003), and lavalink-client
@@ -53,13 +56,21 @@ const addedAtOf = (track: LavalinkTrack): number | undefined =>
  * The Bot's music engine over lavalink-client: commands call it, and every change it makes is
  * published as a Player State (ADR-0002) and, on track start, maybe announced (spec #23–#25).
  */
-export function createMusic({ lavalink, publisher, announce, now = Date.now }: MusicOptions) {
+export function createMusic({
+  lavalink,
+  publisher,
+  announce,
+  epoch = crypto.randomUUID(),
+  now = Date.now,
+}: MusicOptions) {
   const sourceManagers = () => lavalink.nodeManager.leastUsedNodes()[0]?.info?.sourceManagers ?? [];
 
   /** Every queue mutation bumps the Queue Revision (ADR-0007). */
   const bump = (player: Player) => player.set(REVISION, (player.get<number | undefined>(REVISION) ?? 0) + 1);
 
   async function publish(player: Player): Promise<void> {
+    // A destroyed player (/leave while a track start was being handled) must not come back.
+    if (lavalink.getPlayer(player.guildId) !== player) return;
     const state = toPlayerState(
       {
         guildId: player.guildId,
@@ -71,7 +82,13 @@ export function createMusic({ lavalink, publisher, announce, now = Date.now }: M
         repeatMode: player.repeatMode,
         voiceChannelId: player.voiceChannelId,
       },
-      { revision: player.get<number | undefined>(REVISION) ?? 0, twentyFourSeven: false, now: now() },
+      {
+        revision: player.get<number | undefined>(REVISION) ?? 0,
+        twentyFourSeven: false,
+        now: now(),
+        epoch,
+        lastSeekAt: player.get<number | undefined>(LAST_SEEK) ?? null,
+      },
     );
     // An Invalid Player State is never published.
     if (state) await publisher.publish(state).catch(warn("publish Player State"));
@@ -107,7 +124,8 @@ export function createMusic({ lavalink, publisher, announce, now = Date.now }: M
   async function onTrackStart(player: Player, track: LavalinkTrack | null): Promise<void> {
     if (!track) return;
     const addedAt = addedAtOf(track);
-    // Spec #26 — re-resolve before it is heard (v5 only fixed the metadata, after playback began).
+    // Spec #26 — swap a stale track as soon as it starts (v5 only fixed the metadata and kept
+    // playing the stale one). The first moment of the old stream can still be heard.
     if (addedAt !== undefined && now() - addedAt > STALE_AFTER_MS && track.info.uri) {
       const fresh = await player.search({ query: track.info.uri }, track.requester);
       const replacement = fresh.tracks[0] as LavalinkTrack | undefined;
@@ -119,14 +137,18 @@ export function createMusic({ lavalink, publisher, announce, now = Date.now }: M
     }
     bump(player);
     const flags = { ...flagsOf(player), trackLoop: player.repeatMode === "track" };
-    const shown = toTrack(track);
-    if (shown && shouldAnnounce(flags, player.queue.tracks.length)) {
-      const channel = player.get<string | undefined>(TEXT_CHANNEL) ?? player.textChannelId;
-      if (channel) await announce(channel, nowPlayingNotice(shown)).catch(() => {});
-    }
     // Spec #25: the per-track flags last one track (terminal playback keeps its flag).
-    player.set(FLAGS, { ...NO_FLAGS, terminal: flagsOf(player).terminal });
+    player.set(FLAGS, { ...NO_FLAGS, terminal: flags.terminal });
+    player.set(LAST_SEEK, undefined);
+    // Decide on the queue as it was when the track started; a /play during the publish must not count.
+    const shown = toTrack(track);
+    const announceIt = shown !== null && shouldAnnounce(flags, player.queue.tracks.length);
+    // The Dashboard first; the Discord notice is a slower round trip.
     await publish(player);
+    if (shown && announceIt) {
+      const channel = player.get<string | undefined>(TEXT_CHANNEL) ?? player.textChannelId;
+      if (channel) await announce(channel, nowPlayingNotice(shown)).catch(warn("now-playing notice"));
+    }
   }
 
   lavalink.on("trackStart", (player, track) => {
@@ -139,28 +161,52 @@ export function createMusic({ lavalink, publisher, announce, now = Date.now }: M
 
   const existing = (guildId: string) => lavalink.getPlayer(guildId) ?? null;
 
-  return {
-    async play(request: PlayRequest): Promise<PlayResult> {
-      const player = playerFor(request);
-      const found = await search(player, request.query, request.requester);
-      if ("error" in found) return { kind: "error", reason: found.error ?? "failed" };
-      const first = found.tracks[0];
-      const shown = first ? toTrack(first) : null;
-      if (!first || !shown) {
-        if (!player.queue.current) await player.destroy();
-        return { kind: "error", reason: "not-found" };
-      }
-      if (!player.connected) await player.connect();
-      if (player.queue.current) {
-        await player.queue.add(first);
-        bump(player);
-        await publish(player);
-        return { kind: "queued", track: shown, position: player.queue.tracks.length };
-      }
-      player.set(FLAGS, { ...NO_FLAGS, firstFromCommand: true });
+  /** One /play per Guild at a time: two at once could both see an idle player and both start. */
+  const locks = new Map<string, Promise<unknown>>();
+  function serial<T>(guildId: string, task: () => Promise<T>): Promise<T> {
+    const run = (locks.get(guildId) ?? Promise.resolve()).then(task, task);
+    const settled = run.catch(() => {});
+    locks.set(guildId, settled);
+    void settled.then(() => {
+      if (locks.get(guildId) === settled) locks.delete(guildId);
+    });
+    return run;
+  }
+
+  async function startOrQueue(request: PlayRequest): Promise<PlayResult> {
+    const fresh = !existing(request.guildId);
+    const player = playerFor(request);
+    // A player created for this request must not outlive a request that plays nothing.
+    const abandon = async (result: PlayResult): Promise<PlayResult> => {
+      if (fresh && !player.queue.current) await player.destroy();
+      return result;
+    };
+    let found: Awaited<ReturnType<typeof search>>;
+    try {
+      found = await search(player, request.query, request.requester);
+    } catch {
+      return abandon({ kind: "error", reason: "failed" });
+    }
+    if ("error" in found) return abandon({ kind: "error", reason: found.error ?? "failed" });
+    const first = found.tracks[0];
+    const shown = first ? toTrack(first) : null;
+    if (!first || !shown) return abandon({ kind: "error", reason: "not-found" });
+    if (!player.connected) await player.connect();
+    if (player.queue.current) {
       await player.queue.add(first);
-      await player.play();
-      return { kind: "started", track: shown };
+      bump(player);
+      await publish(player);
+      return { kind: "queued", track: shown, position: player.queue.tracks.length };
+    }
+    player.set(FLAGS, { ...NO_FLAGS, firstFromCommand: true });
+    await player.queue.add(first);
+    await player.play();
+    return { kind: "started", track: shown };
+  }
+
+  return {
+    play(request: PlayRequest): Promise<PlayResult> {
+      return serial(request.guildId, () => startOrQueue(request));
     },
 
     /** Toggles pause; null when nothing is playing. */
@@ -190,6 +236,7 @@ export function createMusic({ lavalink, publisher, announce, now = Date.now }: M
       const player = existing(guildId);
       if (!player?.queue.current) return false;
       await player.seek(positionMs);
+      player.set(LAST_SEEK, now());
       await publish(player);
       return true;
     },

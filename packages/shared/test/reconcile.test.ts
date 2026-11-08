@@ -15,6 +15,10 @@ describe("client reconciliation by revision (ADR-0007)", () => {
     expect(reconcile(4, 3)).toBe("drop");
   });
 
+  test("a new Bot epoch restarts the count: its first event applies even with a lower revision", () => {
+    expect(reconcile(40, 1, true)).toBe("apply");
+  });
+
   test("a gap means missed mutations: refetch the snapshot instead", () => {
     expect(reconcile(4, 6)).toBe("refetch");
   });

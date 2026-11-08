@@ -146,8 +146,8 @@ export class UserGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
       this.players.clear(event.guildId);
     } else {
       const state = PlayerStateSchema.safeParse(event.data);
-      if (!state.success || state.data.guildId !== event.guildId) return;
-      this.players.apply(state.data);
+      // An event the cache rejected as stale is not relayed either.
+      if (!state.success || state.data.guildId !== event.guildId || !this.players.apply(state.data)) return;
     }
     this.server.to(guildRoom(event.guildId)).emit(SocketEvents.playerEvent, event);
   }

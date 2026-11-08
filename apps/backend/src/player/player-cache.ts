@@ -29,11 +29,15 @@ export class PlayerCache {
     return stored;
   }
 
-  /** From a `player:state` Guild event; an older revision than the cached one is ignored (ADR-0007). */
-  apply(state: PlayerState): void {
+  /**
+   * From a `player:state` Guild event. An older revision of the same Bot process is ignored; a new
+   * epoch (the Bot restarted, revisions start over) always replaces the cached state (ADR-0007).
+   */
+  apply(state: PlayerState): boolean {
     const cached = this.entries.get(state.guildId);
-    if (cached && state.revision < cached.revision) return;
+    if (cached && cached.epoch === state.epoch && state.revision < cached.revision) return false;
     this.remember(state.guildId, state);
+    return true;
   }
 
   /** From a `player:gone` Guild event. */

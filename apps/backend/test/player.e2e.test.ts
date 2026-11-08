@@ -32,7 +32,7 @@ let app: INestApplication;
 let url: string;
 let session: FakeSession;
 
-const state = (title: string, revision: number): PlayerState => ({
+const state = (title: string, revision: number, epoch = "boot-a"): PlayerState => ({
   guildId: G_MINE,
   current: {
     uri: `https://music.youtube.com/watch?v=${title}`,
@@ -51,6 +51,8 @@ const state = (title: string, revision: number): PlayerState => ({
   twentyFourSeven: false,
   queue: [],
   revision,
+  epoch,
+  lastSeekAt: null,
   voiceChannelId: "80",
 });
 
@@ -121,6 +123,14 @@ describe("Player State through the Hot Cache (#100, ADR-0006)", () => {
     await Bun.sleep(50);
     await redis.del(RedisKeys.playerState(G_MINE));
     expect(((await (await getPlayer(G_MINE)).json()) as { state: PlayerState }).state.current?.title).toBe("cached");
+  });
+
+  test("a restarted Bot (new epoch) replaces the cached state even though its revision starts over", async () => {
+    await announce(state("before restart", 40));
+    await announce(state("after restart", 1, "boot-b"));
+    await Bun.sleep(50);
+    const body = (await (await getPlayer(G_MINE)).json()) as { state: PlayerState };
+    expect(body.state.current?.title).toBe("after restart");
   });
 
   test("a Guild the user is not in is refused (View Permission)", async () => {

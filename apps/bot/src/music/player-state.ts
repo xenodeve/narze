@@ -31,7 +31,7 @@ const LOOP = { off: "off", track: "track", queue: "queue" } as const;
  */
 export function toPlayerState(
   view: PlayerView,
-  extra: { revision: number; twentyFourSeven: boolean; now: number },
+  extra: { revision: number; twentyFourSeven: boolean; now: number; epoch: string; lastSeekAt: number | null },
 ): PlayerState | null {
   const current = view.current ? toTrack(view.current) : null;
   if (view.current && !current) return null;
@@ -48,6 +48,8 @@ export function toPlayerState(
     twentyFourSeven: extra.twentyFourSeven,
     queue,
     revision: extra.revision,
+    epoch: extra.epoch,
+    lastSeekAt: extra.lastSeekAt,
     voiceChannelId: view.voiceChannelId,
   });
   return parsed.success ? parsed.data : null;
@@ -78,6 +80,18 @@ export function createPlayerPublisher(redis: Redis) {
         .publish(Channels.guildEvents, event(GuildEventTypes.playerState, state.guildId, state.revision, state))
         .publish(Channels.guildEvents, event(GuildEventTypes.playerSummary, state.guildId, state.revision, summary))
         .exec();
+    },
+    /**
+     * On start: no Player survives a Bot restart until Queue Recovery (#103), so any state a
+     * previous process left is removed and announced as gone, or the Backend would keep serving it.
+     */
+    async sweep(): Promise<void> {
+      const prefix = RedisKeys.playerState("");
+      const stale = new Set<string>();
+      for await (const keys of redis.scanStream({ match: `${prefix}*`, count: 100 })) {
+        for (const key of keys as string[]) stale.add(key.slice(prefix.length));
+      }
+      for (const guildId of stale) await this.gone(guildId);
     },
     async gone(guildId: string): Promise<void> {
       await redis

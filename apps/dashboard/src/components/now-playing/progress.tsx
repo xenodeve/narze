@@ -29,6 +29,7 @@ export function Progress({ state }: { state: PlayerState }) {
 
   useEffect(() => {
     let frame = 0;
+    const lastSeekAt = state.lastSeekAt ?? NEVER;
     const clock = {
       positionMs: state.positionMs,
       syncedAt: state.syncedAt,
@@ -36,7 +37,7 @@ export function Progress({ state }: { state: PlayerState }) {
       durationMs: duration,
     };
     const draw = () => {
-      shown.current = progressAt(clock, Date.now(), shown.current, NEVER);
+      shown.current = progressAt(clock, Date.now(), shown.current, lastSeekAt);
       const ratio = duration > 0 ? shown.current / duration : 0;
       if (fill.current) fill.current.style.transform = `scaleX(${ratio})`;
       if (elapsed.current) elapsed.current.textContent = formatTime(shown.current);
@@ -45,7 +46,7 @@ export function Progress({ state }: { state: PlayerState }) {
     };
     draw();
     return () => cancelAnimationFrame(frame);
-  }, [state.positionMs, state.syncedAt, state.paused, duration]);
+  }, [state.positionMs, state.syncedAt, state.paused, state.lastSeekAt, duration]);
 
   return (
     <div className={styles.progress}>

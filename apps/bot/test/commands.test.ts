@@ -67,6 +67,10 @@ describe("the eight commands of #100 are registered with v5's descriptions (spec
 });
 
 describe("/play", () => {
+  test("defers its reply: search and voice join can outlast the 3 s window", () => {
+    expect(commands.find((c) => c.data.name === "play")?.slow).toBe(true);
+  });
+
   test("refuses a member outside voice, privately, in the failure style (spec #14)", async () => {
     const reply = await run("play", ctx({ memberVoiceChannelId: null }, { query: "lemon" }), music());
     expect(reply).toMatchObject({ ephemeral: true, notice: { color: COLOR_FAILURE } });

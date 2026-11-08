@@ -34,15 +34,37 @@ const view = (over: Partial<PlayerView> = {}): PlayerView => ({
 
 describe("Player State from the Lavalink player", () => {
   test("a playing player maps to a valid Player State with its queue and revision", () => {
-    const state = toPlayerState(view(), { revision: 3, twentyFourSeven: false, now: 9_000 });
+    const state = toPlayerState(view(), {
+      revision: 3,
+      twentyFourSeven: false,
+      now: 9_000,
+      epoch: "e1",
+      lastSeekAt: null,
+    });
     expect(PlayerStateSchema.safeParse(state).success).toBe(true);
     expect(state).toMatchObject({ positionMs: 1_500, syncedAt: 9_000, volume: 15, loop: "off", revision: 3 });
     expect(state?.queue.map((t) => t.title)).toEqual(["next"]);
   });
 
   test("a current or queued track without identity makes the whole state invalid (never published)", () => {
-    expect(toPlayerState(view({ current: lt("bad", "") }), { revision: 0, twentyFourSeven: false, now: 0 })).toBeNull();
-    expect(toPlayerState(view({ queue: [lt("bad", "")] }), { revision: 0, twentyFourSeven: false, now: 0 })).toBeNull();
+    expect(
+      toPlayerState(view({ current: lt("bad", "") }), {
+        revision: 0,
+        twentyFourSeven: false,
+        now: 0,
+        epoch: "e1",
+        lastSeekAt: null,
+      }),
+    ).toBeNull();
+    expect(
+      toPlayerState(view({ queue: [lt("bad", "")] }), {
+        revision: 0,
+        twentyFourSeven: false,
+        now: 0,
+        epoch: "e1",
+        lastSeekAt: null,
+      }),
+    ).toBeNull();
   });
 });
 
@@ -65,7 +87,7 @@ describe("publishing a Player State (Bot→Backend contract)", () => {
       if (event.guildId !== GUILD) return;
       events.push({ type: event.type, seen: (await redis.exists(RedisKeys.playerState(GUILD))) === 1 });
     });
-    const state = toPlayerState(view(), { revision: 1, twentyFourSeven: false, now: 1 });
+    const state = toPlayerState(view(), { revision: 1, twentyFourSeven: false, now: 1, epoch: "e1", lastSeekAt: null });
     if (!state) throw new Error("invalid");
     await createPlayerPublisher(redis).publish(state);
     await Bun.sleep(100);
@@ -80,8 +102,22 @@ describe("publishing a Player State (Bot→Backend contract)", () => {
     });
   });
 
+  test("on start, states left by a previous Bot process are swept and announced as gone", async () => {
+    const state = toPlayerState(view(), {
+      revision: 9,
+      twentyFourSeven: false,
+      now: 1,
+      epoch: "old",
+      lastSeekAt: null,
+    });
+    if (!state) throw new Error("invalid");
+    await createPlayerPublisher(redis).publish(state);
+    await createPlayerPublisher(redis).sweep();
+    expect(await redis.exists(...keys)).toBe(0);
+  });
+
   test("a destroyed player removes both keys", async () => {
-    const state = toPlayerState(view(), { revision: 1, twentyFourSeven: false, now: 1 });
+    const state = toPlayerState(view(), { revision: 1, twentyFourSeven: false, now: 1, epoch: "e1", lastSeekAt: null });
     if (!state) throw new Error("invalid");
     const publisher = createPlayerPublisher(redis);
     await publisher.publish(state);

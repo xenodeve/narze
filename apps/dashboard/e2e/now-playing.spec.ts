@@ -35,6 +35,8 @@ const state = (title: string, over: Partial<PlayerState> = {}): PlayerState => (
   twentyFourSeven: false,
   queue: [],
   revision: ++revision,
+  epoch: "e2e",
+  lastSeekAt: null,
   voiceChannelId: "90",
   ...over,
 });

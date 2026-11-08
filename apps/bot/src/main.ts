@@ -29,7 +29,7 @@ lavalink.nodeManager.on("error", (node, error) => console.warn(`[bot] lavalink n
 client.on("raw", (packet) => lavalink.sendRawData(packet));
 
 // Standalone Mode plays without publishing: there is no Redis to publish to (ADR-0003).
-const silent: PlayerPublisher = { publish: async () => {}, gone: async () => {} };
+const silent: Pick<PlayerPublisher, "publish" | "gone"> = { publish: async () => {}, gone: async () => {} };
 const music = createMusic({
   lavalink,
   publisher: redis ? createPlayerPublisher(redis) : silent,
@@ -51,6 +51,7 @@ client.once("clientReady", async (ready) => {
   console.log(`[bot] logged in as ${ready.user.tag}`);
   await lavalink.init({ id: ready.user.id, username: ready.user.username });
   await registry?.replace(ready.guilds.cache.map(voiceSnapshotOf)).catch(logFailure("guild registry"));
+  if (redis) await createPlayerPublisher(redis).sweep().catch(logFailure("sweep stale Player States"));
 });
 client.on("guildCreate", (guild) => void registry?.add(voiceSnapshotOf(guild)).catch(logFailure("guild registry")));
 client.on("guildDelete", (guild) => void registry?.remove(guild.id).catch(logFailure("guild registry")));

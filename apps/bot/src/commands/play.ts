@@ -11,6 +11,7 @@ const REASON = {
 } as const;
 
 export const play: Command = {
+  slow: true,
   data: new SlashCommandBuilder()
     .setName("play")
     .setDescription("เล่น | เพิ่มคิว")

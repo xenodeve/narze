@@ -48,15 +48,24 @@ export function handleInteractions(client: Client, music: Music, isReady: () => 
       return;
     }
     try {
+      if (command.slow) await interaction.deferReply();
       const reply = await command.run(contextOf(interaction), music);
-      await interaction.reply({
-        embeds: [toEmbed(reply.notice)],
-        flags: reply.ephemeral ? MessageFlags.Ephemeral : undefined,
-      });
+      const embeds = [toEmbed(reply.notice)];
+      if (!interaction.deferred) {
+        await interaction.reply({ embeds, flags: reply.ephemeral ? MessageFlags.Ephemeral : undefined });
+      } else if (reply.ephemeral) {
+        // A deferred public reply cannot turn private: replace it with a private follow-up.
+        await interaction.deleteReply();
+        await interaction.followUp({ embeds, flags: MessageFlags.Ephemeral });
+      } else {
+        await interaction.editReply({ embeds });
+      }
     } catch (error) {
       console.warn(`[bot] /${interaction.commandName}: ${error instanceof Error ? error.message : String(error)}`);
       const answer = { content: FAILED, flags: MessageFlags.Ephemeral } as const;
-      await (interaction.replied ? interaction.followUp(answer) : interaction.reply(answer)).catch(() => {});
+      const send =
+        interaction.replied || interaction.deferred ? interaction.followUp(answer) : interaction.reply(answer);
+      await send.catch(() => {});
     }
   });
 }

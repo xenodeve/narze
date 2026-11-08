@@ -76,6 +76,7 @@ beforeEach(async () => {
   music = createMusic({
     lavalink,
     publisher: createPlayerPublisher(redis),
+    epoch: "test-epoch",
     announce: async (channelId, notice) => {
       notices.push({ channelId, notice });
     },
@@ -138,15 +139,36 @@ describe("playing from Discord against Fake Lavalink (#100)", () => {
     fake.finishTrack(GUILD);
     const state = await eventually(stored, (s) => s?.current?.title === "Idol");
     expect(state?.revision).toBeGreaterThan(1);
+    await eventually(
+      () => notices.length,
+      (n) => n > 0,
+    );
     expect(notices).toHaveLength(1);
     expect(notices[0]?.channelId).toBe(TEXT);
     expect(notices[0]?.notice.description).toContain("**Idol**");
   });
 
-  test("nothing found and unsupported platforms are reported, not played", async () => {
+  test("nothing found and unsupported platforms are reported, not played, and leave no player behind", async () => {
     expect(await play("no such song")).toEqual({ kind: "error", reason: "not-found" });
+    expect(music.status(GUILD)).toBeNull();
     expect(await play("https://www.deezer.com/track/1")).toEqual({ kind: "error", reason: "unsupported" });
+    expect(music.status(GUILD)).toBeNull();
     expect(fake.player(GUILD)?.track ?? null).toBeNull();
+  });
+
+  test("two /play at once: one starts, the other queues (one Guild at a time)", async () => {
+    const results = await Promise.all([play("lemon"), play("idol")]);
+    expect(results.map((r) => r.kind).sort()).toEqual(["queued", "started"]);
+  });
+
+  test("the state carries this process epoch, and a seek is stamped for clients (spec #103)", async () => {
+    await play("lemon");
+    await eventually(stored, (s) => s !== null);
+    clock += 5_000;
+    await music.seek(GUILD, 10_000);
+    const state = await eventually(stored, (s) => s?.lastSeekAt === clock);
+    expect(state?.lastSeekAt).toBe(clock);
+    expect(state?.epoch).toBe("test-epoch");
   });
 
   test("pause toggles, seek and volume reach the node, and each change is published", async () => {
