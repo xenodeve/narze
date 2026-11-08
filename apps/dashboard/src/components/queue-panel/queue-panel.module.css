@@ -163,8 +163,8 @@
 .artEmpty {
   display: grid;
   place-items: center;
-  background: var(--fill);
-  color: var(--ink-3);
+  background: color-mix(in srgb, var(--ink) 12%, var(--bg));
+  color: var(--ink-2);
   font-size: 0.875rem;
 }
 
@@ -240,6 +240,26 @@
   .action:hover {
     background: var(--fill);
     color: var(--ink);
+  }
+}
+
+/* Touch screens have no hover: the row actions stay visible (swipe also removes). */
+@media (hover: none) {
+  .action {
+    opacity: 1;
+  }
+}
+
+/* Narrow screens: the title gets the room; position numbers and durations step aside. */
+@media (max-width: 520px) {
+  .row {
+    grid-template-columns: auto 40px minmax(0, 1fr) auto;
+    gap: 8px;
+  }
+
+  .index,
+  .time {
+    display: none;
   }
 }
 

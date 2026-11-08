@@ -241,9 +241,9 @@ export function QueuePanel({ guildId, queue, revision, permission, jumping }: Qu
                   <SwipeRow
                     direction="left"
                     height={60}
-                    radius={12}
-                    rowColor="var(--surface)"
-                    drawerColor="var(--fill)"
+                    radius={0}
+                    rowColor="var(--bg)"
+                    drawerColor="var(--danger)"
                     actionColor="var(--danger)"
                     textColor="var(--ink)"
                     label={track.title}
