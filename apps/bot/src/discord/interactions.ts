@@ -3,6 +3,7 @@ import {
   type AutocompleteInteraction,
   ButtonBuilder,
   ButtonStyle,
+  ChannelType,
   type ChatInputCommandInteraction,
   type Client,
   ComponentType,
@@ -13,9 +14,22 @@ import {
   type VoiceBasedChannel,
 } from "discord.js";
 import { commands } from "../commands";
-import type { CommandContext, Reply } from "../commands/types";
+import type { CommandContext, Reply, SetChannelResult } from "../commands/types";
 import { COLOR_FAILURE, type Notice } from "../music/format";
 import type { Music } from "../music/music";
+import type { GuildSettingsCache } from "../settings/guild-settings";
+import { auditNotice, promoNotice, shouldPromo } from "./audit";
+
+/** What a command run may reach beyond the music engine (#106). */
+export interface InteractionOptions {
+  settings?: GuildSettingsCache;
+  /** Spec #13: where every command use is logged (`LOG_GUILD_ID` / `LOG_CHANNEL_ID`). */
+  log?: { guildId: string; channelId: string };
+  /** Spec #34: the Dashboard the promo points at. */
+  dashboardUrl?: string;
+  /** Tells the Dashboard a Guild's settings changed (Connected Mode, spec #92). */
+  settingsChanged?: (guildId: string) => Promise<void>;
+}
 
 export function toEmbed(notice: Notice): EmbedBuilder {
   const embed = new EmbedBuilder().setColor(notice.color);
@@ -43,7 +57,12 @@ const NOT_READY = "The bot is not ready yet. Please try again later.";
 const FAILED = "There was an error while executing this command!";
 
 /** Routes slash commands to their handlers; DMs get no response (v5). */
-export function handleInteractions(client: Client, music: Music, isReady: () => boolean): void {
+export function handleInteractions(
+  client: Client,
+  music: Music,
+  isReady: () => boolean,
+  options: InteractionOptions = {},
+): void {
   client.on("interactionCreate", async (interaction) => {
     if (interaction.isAutocomplete() && interaction.inCachedGuild()) {
       await suggest(interaction, music).catch(() => {});
@@ -56,9 +75,10 @@ export function handleInteractions(client: Client, music: Music, isReady: () => 
       await interaction.reply({ content: NOT_READY, flags: MessageFlags.Ephemeral }).catch(() => {});
       return;
     }
+    let succeeded = false;
     try {
       if (command.slow) await interaction.deferReply();
-      const reply = await command.run(contextOf(interaction), music);
+      const reply = await command.run(contextOf(interaction, options), music);
       const embeds = [toEmbed(reply.notice)];
       if (reply.pager) {
         await page(interaction, reply.notice, reply.pager);
@@ -71,6 +91,7 @@ export function handleInteractions(client: Client, music: Music, isReady: () => 
       } else {
         await interaction.editReply({ embeds });
       }
+      succeeded = true;
     } catch (error) {
       console.warn(`[bot] /${interaction.commandName}: ${error instanceof Error ? error.message : String(error)}`);
       const answer = { content: FAILED, flags: MessageFlags.Ephemeral } as const;
@@ -78,14 +99,38 @@ export function handleInteractions(client: Client, music: Music, isReady: () => 
         interaction.replied || interaction.deferred ? interaction.followUp(answer) : interaction.reply(answer);
       await send.catch(() => {});
     }
+    await afterCommand(interaction, succeeded, options);
   });
+}
+
+/** Spec #13, #34: every use is logged; a successful music command sometimes points at the Dashboard. */
+async function afterCommand(
+  interaction: ChatInputCommandInteraction<"cached">,
+  succeeded: boolean,
+  { log, dashboardUrl }: InteractionOptions,
+): Promise<void> {
+  if (succeeded && dashboardUrl && shouldPromo(interaction.commandName)) {
+    await interaction.channel?.send({ embeds: [toEmbed(promoNotice(dashboardUrl))] }).catch(() => {});
+  }
+  if (!log) return;
+  const channel = interaction.client.guilds.cache.get(log.guildId)?.channels.cache.get(log.channelId);
+  if (!channel?.isTextBased()) return;
+  const voice = interaction.member.voice.channel;
+  const notice = auditNotice({
+    user: { id: interaction.user.id, tag: interaction.user.tag, avatarUrl: interaction.user.displayAvatarURL() },
+    voice: voice ? { name: voice.name, id: voice.id } : null,
+    command: { name: interaction.commandName, id: interaction.commandId },
+    channel: { name: interaction.channel?.name ?? "?", id: interaction.channelId },
+    guild: { name: interaction.guild.name, id: interaction.guild.id, iconUrl: interaction.guild.iconURL() },
+  });
+  await channel.send({ embeds: [toEmbed(notice)] }).catch(() => {});
 }
 
 /** Autocomplete: the command builds suggestions for the focused option (Discord shows at most 25). */
 async function suggest(interaction: AutocompleteInteraction<"cached">, music: Music): Promise<void> {
   const command = commands.find((c) => c.data.name === interaction.commandName);
   if (!command?.autocomplete) return interaction.respond([]);
-  const ctx = contextOf(interaction as unknown as ChatInputCommandInteraction<"cached">);
+  const ctx = contextOf(interaction as unknown as ChatInputCommandInteraction<"cached">, {});
   const focused = interaction.options.getFocused(true);
   const choices = await command.autocomplete(ctx, music, String(focused.value), focused.name);
   await interaction.respond(choices.slice(0, 25));
@@ -152,7 +197,8 @@ async function page(
   });
 }
 
-function contextOf(interaction: ChatInputCommandInteraction<"cached">): CommandContext {
+function contextOf(interaction: ChatInputCommandInteraction<"cached">, options: InteractionOptions): CommandContext {
+  const { settings, settingsChanged } = options;
   const { guild, member, user } = interaction;
   return {
     guildId: guild.id,
@@ -168,13 +214,52 @@ function contextOf(interaction: ChatInputCommandInteraction<"cached">): CommandC
       return typeof option?.value === "string" || typeof option?.value === "number" ? option.value : null;
     },
     latencyMs: { reply: Date.now() - interaction.createdTimestamp, ws: interaction.client.ws.ping },
+    setMusicChannel: settings
+      ? (channelId) => saveMusicChannel(interaction, settings, channelId, settingsChanged)
+      : undefined,
   };
+}
+
+/**
+ * /setchannel's save (#106): only the Server Owner or the Bot Owner (the same rule as the
+ * Dashboard, AC1 — Manage Server alone is not enough), only a channel the Bot can post in, a row
+ * created if the Bot never recorded one, and the Dashboard told.
+ */
+async function saveMusicChannel(
+  interaction: ChatInputCommandInteraction<"cached">,
+  settings: GuildSettingsCache,
+  channelId: string | null,
+  settingsChanged?: (guildId: string) => Promise<void>,
+): Promise<SetChannelResult> {
+  const { guild, user } = interaction;
+  try {
+    const stored = (await settings.load(guild.id)) ?? (await settings.join(guild, null), await settings.load(guild.id));
+    if (guild.ownerId !== user.id && stored?.ownerId !== user.id) return "forbidden";
+    if (channelId) {
+      const channel = guild.channels.cache.get(channelId);
+      const me = guild.members.me;
+      const canPost =
+        channel?.type === ChannelType.GuildText &&
+        me !== null &&
+        Boolean(channel.permissionsFor(me)?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages]));
+      if (!canPost) return "cannot-post";
+    }
+    await settings.setMusicChannel(guild.id, channelId);
+    await settingsChanged?.(guild.id).catch(() => {});
+    return "ok";
+  } catch {
+    return "failed";
+  }
 }
 
 /** Posts a Now-Playing Notice; a channel the Bot cannot write to is skipped. */
 export function announcer(client: Client) {
-  return async (channelId: string, notice: Notice): Promise<void> => {
+  return async (channelId: string, notice: Notice): Promise<boolean> => {
     const channel = await client.channels.fetch(channelId).catch(() => null);
-    if (channel?.isSendable()) await channel.send({ embeds: [toEmbed(notice)] });
+    if (!channel?.isSendable()) return false;
+    return channel
+      .send({ embeds: [toEmbed(notice)] })
+      .then(() => true)
+      .catch(() => false);
   };
 }

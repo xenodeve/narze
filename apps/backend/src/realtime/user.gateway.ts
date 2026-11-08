@@ -5,6 +5,7 @@ import {
   type GuildEvent,
   GuildEventSchema,
   GuildEventTypes,
+  type GuildSettings,
   PlayerStateSchema,
   PlayerSummarySchema,
   parseJson,
@@ -30,6 +31,7 @@ import { CommandRelay } from "../control/command-relay";
 import { GuildDirectory, permissionOf, summarize } from "../guilds/guild-directory";
 import { PlayerCache } from "../player/player-cache";
 import { Presence } from "../presence/presence";
+import { SettingsStore } from "../settings/settings-store";
 import { REDIS_SUBSCRIBER } from "../tokens";
 import { type StoredGuild, UserStore } from "../users/user-store";
 
@@ -71,6 +73,7 @@ export class UserGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     @Inject(PlayerCache) private readonly players: PlayerCache,
     @Inject(CommandRelay) private readonly relay: CommandRelay,
     @Inject(REDIS_SUBSCRIBER) private readonly subscriber: Redis,
+    @Inject(SettingsStore) private readonly settings: SettingsStore,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -131,6 +134,12 @@ export class UserGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   }
 
   /** One HMGET for every listener's voice channel, then each tab gets its own user's summary. */
+  /** Spec #92: a Guild's settings changed; its open tabs update, and permissions may have moved. */
+  pushSettings(guildId: string, settings: GuildSettings): void {
+    this.server.to(guildRoom(guildId)).emit(SocketEvents.settingsUpdate, { guildId, settings });
+    void this.pushPermissions(guildId).catch(report("push permissions"));
+  }
+
   private async onGuildEvent(message: string): Promise<void> {
     const event = parseJson(GuildEventSchema, message);
     if (!event) return;
@@ -155,15 +164,21 @@ export class UserGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     const player = PlayerSummarySchema.safeParse(event.data);
     if (!player.success) return;
     const listeners = await this.listeners(event.guildId);
-    const [voices, memberCount] = await Promise.all([
+    const [voices, memberCount, settings] = await Promise.all([
       this.directory.userVoices(event.guildId, [...new Set(listeners.map((l) => l.discordId))]),
       this.directory.memberCount(event.guildId),
+      this.settings.cached(event.guildId),
     ]);
     // One pass: a Player change moves both the row summary and who may control it.
     for (const { socket, discordId, guild } of listeners) {
       const userVoice = voices.get(discordId) ?? null;
-      socket.emit(SocketEvents.guildSummary, summarize(guild, { player: player.data, userVoice, memberCount }));
-      const { canControl, reason } = permissionOf(guild, player.data, userVoice);
+      // Bot Owner and outfit travel with every push (#106): a push without them would undo them.
+      const isBotOwner = settings?.ownerId === discordId;
+      socket.emit(
+        SocketEvents.guildSummary,
+        summarize(guild, { player: player.data, userVoice, memberCount }, { isBotOwner, avatar: settings?.avatar }),
+      );
+      const { canControl, reason } = permissionOf(guild, player.data, userVoice, isBotOwner);
       socket.emit(SocketEvents.permissionUpdate, { guildId: event.guildId, canControl, reason });
     }
   }
@@ -196,12 +211,14 @@ export class UserGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   private async pushPermissions(guildId: string): Promise<void> {
     const sockets = await this.listeners(guildId);
     if (sockets.length === 0) return;
-    const [player, voices] = await Promise.all([
+    const [player, voices, settings] = await Promise.all([
       this.directory.playerSummary(guildId),
       this.directory.userVoices(guildId, [...new Set(sockets.map((s) => s.discordId))]),
+      this.settings.cached(guildId),
     ]);
     for (const { socket, discordId, guild } of sockets) {
-      const { canControl, reason } = permissionOf(guild, player, voices.get(discordId) ?? null);
+      const isBotOwner = settings?.ownerId === discordId;
+      const { canControl, reason } = permissionOf(guild, player, voices.get(discordId) ?? null, isBotOwner);
       socket.emit(SocketEvents.permissionUpdate, { guildId, canControl, reason });
     }
   }

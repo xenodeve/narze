@@ -79,6 +79,7 @@ describe("the eight commands of #100 are registered with v5's descriptions (spec
         "skipplay",
         "247",
         "cache",
+        "setchannel",
       ].sort(),
     );
   });

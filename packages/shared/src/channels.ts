@@ -33,6 +33,8 @@ export const RedisKeys = {
   playerState: (guildId: string) => `player:state:${guildId}`,
   /** JSON VoiceChannelList of one Guild, for the voice-channel picker (spec #86). */
   voiceChannels: (guildId: string) => `bot:voice-channels:${guildId}`,
+  /** JSON `TextChannelList`: text channels the Bot can post in, for the Music Channel picker (#106). */
+  textChannels: (guildId: string) => `bot:text-channels:${guildId}`,
   /** Hash discordId → number of open Dashboard tabs (Presence). */
   presence: "presence:tabs",
 } as const;
@@ -49,6 +51,8 @@ export const GuildEventTypes = {
   queueJump: "queue:jump",
   /** data: VoiceChannelList — someone joined, left or moved voice channels in the Guild. */
   voiceUpdate: "voice:update",
+  /** data: GuildSettings — a Guild's settings changed (#106); the Bot refreshes its copy. */
+  settingsUpdate: "settings:update",
   /** data: `{ code, reason, byRemote, recovering }` — the Bot's voice connection dropped (spec #28). */
   voiceDisconnect: "voice:disconnect",
   /** data: `{ resumed, positionMs, title }` — the voice connection is back after a drop (v5 sent `position` and the whole `track`). */
@@ -78,6 +82,8 @@ export const SocketEvents = {
   playerCommand: "player:command",
   /** Backend → one tab: `{ guildId, canControl, reason }` whenever its Control Permission may have changed. */
   permissionUpdate: "permission:update",
+  /** Backend → room: `{ guildId, settings }` after a settings change (#106, spec #92). */
+  settingsUpdate: "settings:update",
   /** Backend → a Guild's room: the Guild's VoiceChannelList changed. */
   voiceChannels: "voice:channels",
 } as const;

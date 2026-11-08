@@ -1,5 +1,13 @@
-import { DEFAULT_REDIS_URL } from "@narze/shared";
-import { Client, GatewayIntentBits, type Guild } from "discord.js";
+import {
+  Channels,
+  DEFAULT_REDIS_URL,
+  GuildEventSchema,
+  GuildEventTypes,
+  GuildSettingsSchema,
+  parseJson,
+} from "@narze/shared";
+import { createClient } from "@supabase/supabase-js";
+import { AuditLogEvent, Client, GatewayIntentBits, type Guild } from "discord.js";
 import { startCommandBus } from "./command-bus";
 import { announcer, handleInteractions } from "./discord/interactions";
 import { createGuildRegistry, type GuildVoiceSnapshot } from "./guild-registry";
@@ -12,9 +20,16 @@ import { createSnapshotStore } from "./music/queue-snapshot";
 import { createSpotify } from "./music/spotify";
 import { createYouTube } from "./music/youtube";
 import { detectRuntimeMode } from "./runtime-mode";
-import { firstSendableTextChannel, perGuildDebounce, publicVoiceChannels } from "./voice-channels";
+import { createGuildSettings, createSupabaseSettingsStore, inviterOf, WELCOME } from "./settings/guild-settings";
+import {
+  firstSendableTextChannel,
+  perGuildDebounce,
+  publicVoiceChannels,
+  sendableTextChannels,
+} from "./voice-channels";
 
 const env = process.env;
+const logFailure = (what: string) => (error: Error) => console.warn(`[bot] ${what}: ${error.message}`);
 const VERSION = env.BOT_VERSION ?? "7.0.0-dev";
 /** Spec #21: Queue Recovery waits this long after the Lavalink node is up, as v5 did. */
 const RECOVERY_DELAY_MS = 5_000;
@@ -46,6 +61,17 @@ const silent: Pick<PlayerPublisher, "publish" | "gone" | "jump" | "voice"> = {
   jump: async () => {},
   voice: async () => {},
 };
+// Guild Settings (#106): Supabase in both Runtime Modes (ADR-0003); without credentials the Bot
+// plays without a Music Channel or a recorded Bot Owner.
+const settings =
+  env.SUPABASE_URL && env.SUPABASE_SECRET_KEY
+    ? createGuildSettings(
+        createSupabaseSettingsStore(
+          createClient(env.SUPABASE_URL, env.SUPABASE_SECRET_KEY, { auth: { persistSession: false } }),
+        ),
+      )
+    : null;
+
 const music = createMusic({
   lavalink,
   publisher: redis ? createPlayerPublisher(redis) : silent,
@@ -61,6 +87,7 @@ const music = createMusic({
     botIcon: () => client.user?.displayAvatarURL() ?? null,
   }),
   usePlaylistUrl: env.USE_PLAYLIST_URL === "true",
+  noticeChannel: (guildId) => settings?.musicChannel(guildId) ?? null,
 });
 function scheduleRecovery(): void {
   setTimeout(() => {
@@ -73,12 +100,60 @@ function scheduleRecovery(): void {
   }, RECOVERY_DELAY_MS);
 }
 const snapshotTimer = setInterval(() => void music.flush(), SNAPSHOT_EVERY_MS);
-handleInteractions(client, music, () => lavalink.nodeManager.leastUsedNodes().length > 0);
+handleInteractions(client, music, () => lavalink.nodeManager.leastUsedNodes().length > 0, {
+  settings: settings ?? undefined,
+  log:
+    env.LOG_GUILD_ID && env.LOG_CHANNEL_ID ? { guildId: env.LOG_GUILD_ID, channelId: env.LOG_CHANNEL_ID } : undefined,
+  dashboardUrl: env.DASHBOARD_URL,
+  // Connected Mode: /setchannel's change reaches open Dashboard tabs like a Dashboard save (AC2).
+  settingsChanged: redis
+    ? async (guildId) => {
+        const changed = await settings?.load(guildId);
+        if (!changed) return;
+        await redis.publish(
+          Channels.guildEvents,
+          JSON.stringify({
+            type: GuildEventTypes.settingsUpdate,
+            guildId,
+            revision: 0,
+            sequence: 0,
+            ts: Date.now(),
+            data: changed,
+          }),
+        );
+      }
+    : undefined,
+});
+
+/** Spec #22, #121: the inviter (audit log BotAdd), else the Server Owner, is the Bot Owner. */
+async function recordJoin(guild: Guild): Promise<void> {
+  if (!settings) return;
+  const inviter = await inviterOf(async () => {
+    const log = await guild.fetchAuditLogs({ type: AuditLogEvent.BotAdd, limit: 5 });
+    return log.entries.map((e) => ({ targetId: e.targetId, executorId: e.executorId }));
+  }, client.user?.id ?? "");
+  await settings.join({ id: guild.id, name: guild.name, ownerId: guild.ownerId }, inviter);
+}
+
+const publishTextChannels = (guild: Guild) =>
+  void registry?.textChannels(guild.id, sendableTextChannels(guild)).catch(logFailure("text channels"));
 
 const textChannelFor = (guildId: string): string | null => {
   const guild = client.guilds.cache.get(guildId);
   return guild ? firstSendableTextChannel(guild) : null;
 };
+// Connected Mode: a settings change made on the Dashboard reaches the Bot's copy (#106).
+if (redis && settings) {
+  const listener = redis.duplicate();
+  listener.on("message", (_channel, raw) => {
+    const event = parseJson(GuildEventSchema, raw);
+    if (event?.type !== GuildEventTypes.settingsUpdate) return;
+    const changed = GuildSettingsSchema.safeParse(event.data);
+    // The data must be about the Guild the event names.
+    if (changed.success && changed.data.guildId === event.guildId) settings.apply(changed.data);
+  });
+  await listener.subscribe(Channels.guildEvents).catch(logFailure("settings updates"));
+}
 if (redis) {
   await startCommandBus({ subscriber: redis.duplicate(), redis, music, textChannelFor }).catch((error: Error) =>
     console.warn(`[bot] command bus: ${error.message}`),
@@ -99,14 +174,21 @@ const voiceSnapshotOf = (guild: Guild): GuildVoiceSnapshot => ({
     .filter((v) => v.channelId)
     .map((v) => [v.id, v.channelId as string] as [string, string]),
 });
-const logFailure = (what: string) => (error: Error) => console.warn(`[bot] ${what}: ${error.message}`);
 
 client.once("clientReady", async (ready) => {
   console.log(`[bot] logged in as ${ready.user.tag}`);
   await lavalink.init({ id: ready.user.id, username: ready.user.username });
   await registry?.replace(ready.guilds.cache.map(voiceSnapshotOf)).catch(logFailure("guild registry"));
   if (redis) await createPlayerPublisher(redis).sweep().catch(logFailure("sweep stale Player States"));
-  for (const guild of ready.guilds.cache.values()) publishVoiceChannels(guild);
+  for (const guild of ready.guilds.cache.values()) {
+    publishVoiceChannels(guild);
+    publishTextChannels(guild);
+    // Settings rows are created on ready for Guilds joined while the Bot was away (spec #12).
+    void settings
+      ?.load(guild.id)
+      .then((known) => (known ? undefined : recordJoin(guild)))
+      .catch(logFailure("guild settings"));
+  }
   // Spec #21: after the sweep and once Lavalink is up, bring back the Players a restart dropped.
   swept = true;
   if (lavalink.nodeManager.leastUsedNodes().length > 0) scheduleRecovery();
@@ -115,7 +197,26 @@ client.once("clientReady", async (ready) => {
 lavalink.nodeManager.on("connect", () => {
   if (swept) scheduleRecovery();
 });
-client.on("guildCreate", (guild) => void registry?.add(voiceSnapshotOf(guild)).catch(logFailure("guild registry")));
+client.on("guildCreate", (guild) => {
+  void registry?.add(voiceSnapshotOf(guild)).catch(logFailure("guild registry"));
+  publishTextChannels(guild);
+  void recordJoin(guild).catch(logFailure("guild settings"));
+  // Spec #22: a Thai welcome in the system channel; errors swallowed (v5).
+  void guild.systemChannel?.send(WELCOME).catch(() => {});
+});
+client.on("channelCreate", (channel) => {
+  if ("guild" in channel) publishTextChannels(channel.guild);
+});
+client.on("channelDelete", (channel) => {
+  if ("guild" in channel) publishTextChannels(channel.guild);
+});
+// A permission change can open or close a channel to the Bot (#106 review).
+client.on("channelUpdate", (_old, channel) => {
+  if ("guild" in channel) publishTextChannels(channel.guild);
+});
+client.on("guildMemberUpdate", (_old, member) => {
+  if (member.id === client.user?.id) publishTextChannels(member.guild);
+});
 client.on("guildDelete", (guild) => {
   voiceLists.cancel(guild.id);
   void registry?.remove(guild.id).catch(logFailure("guild registry"));

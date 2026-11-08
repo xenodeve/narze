@@ -916,3 +916,55 @@ describe("#104 review fixes on the engine", () => {
     expect(seen).toContain(true);
   });
 });
+
+describe("notices go to the Music Channel when one is set (#106, spec #12)", () => {
+  test("the now-playing notice goes to the Guild's Music Channel instead of the command's channel", async () => {
+    for (const event of ["trackStart", "queueEnd", "playerDestroy", "playerSocketClosed"] as const) {
+      lavalink.removeAllListeners(event);
+    }
+    music = createMusic({
+      lavalink,
+      publisher: createPlayerPublisher(redis),
+      announce: async (channelId, notice) => {
+        notices.push({ channelId, notice });
+      },
+      now: () => clock,
+      noticeChannel: (guildId) => (guildId === GUILD ? "4242" : null),
+    });
+    await play("lemon");
+    await eventually(stored, (s) => s?.current?.title === "Lemon");
+    await play("idol");
+    fake.finishTrack(GUILD);
+    await eventually(
+      () => notices.length,
+      (n) => n > 0,
+    );
+    expect(notices[0]?.channelId).toBe("4242");
+  });
+});
+
+test("a Music Channel the Bot cannot post in falls back to the command's channel (#106 review)", async () => {
+  for (const event of ["trackStart", "queueEnd", "playerDestroy", "playerSocketClosed"] as const) {
+    lavalink.removeAllListeners(event);
+  }
+  music = createMusic({
+    lavalink,
+    publisher: createPlayerPublisher(redis),
+    announce: async (channelId, notice) => {
+      if (channelId === "4242") return false;
+      notices.push({ channelId, notice });
+      return true;
+    },
+    now: () => clock,
+    noticeChannel: () => "4242",
+  });
+  await play("lemon");
+  await eventually(stored, (s) => s?.current?.title === "Lemon");
+  await play("idol");
+  fake.finishTrack(GUILD);
+  await eventually(
+    () => notices.length,
+    (n) => n > 0,
+  );
+  expect(notices[0]?.channelId).toBe(TEXT);
+});

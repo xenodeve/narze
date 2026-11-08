@@ -6,6 +6,49 @@
 
 ---
 
+## #106 Guild Settings: Bot Owner, Music Channel, outfit, notifications (2026-11-08, branch `feat/106-guild-settings`)
+
+**Goal:** per-Guild settings that only the Server Owner or Bot Owner can change, enforced on the server and live in every tab; the Bot Avatar's outfit everywhere; now-playing notifications.
+
+**Shipped:**
+- **Data:** `guild_settings` (Supabase, RLS on, kept after the Bot leaves). The shared schemas cover the outfit, the settings, partial updates, the view, and one row mapping.
+- **Backend:** `GET`/`PUT /api/guilds/:id/settings`.
+  - Any member may read; only the Server Owner or Bot Owner may write.
+  - The Music Channel must be a text channel the Bot can post in.
+  - A change publishes `settings:update` to Redis and to the guild room.
+  - Bot Owner and the outfit now come with every summary, permission and live push. Reads are cached and degrade when Supabase is down.
+- **Bot:**
+  - On the first join, the Bot Owner is the audit-log inviter, else the Server Owner. A re-invite never changes it.
+  - Posts the Thai welcome on joining.
+  - Notices go to the Music Channel, falling back to the command's channel.
+  - `/setchannel`: Server Owner or Bot Owner only, must be a channel the Bot can post in, creates the row if missing, and tells the Dashboard.
+  - Every command is audited, and the 30 % promo runs.
+  - Publishes its text-channel list for the picker. Reads settings from Supabase in both modes (the read carried over from #103).
+- **Dashboard:**
+  - The settings page: searchable picker, Bot Owner with copy ID, the explainer, and the outfit editor with the supplied SquishSwitch toggles.
+  - `GuildAvatar` on the sidebar, Now Playing and the server list.
+  - The supplied BellToggle for notifications.
+
+**Validation:**
+- `bun run verify` exit 0. `bun run e2e`: 25 passed.
+- Red first:
+  - shared schemas, including the partial-outfit merge (zod `.partial()` kept the defaults);
+  - the Backend settings e2e, including the live-push blocker;
+  - Bot module, inviter, welcome, audit and promo, `/setchannel` and its refusals, Music Channel routing and fallback, the registry text channels;
+  - the Dashboard settings e2e (AC1–AC5).
+- Characterization: the Supabase store contract.
+- Screenshots: 1280 light and 390 dark. The bell overlapped the title at 390; it now sits in the normal flow.
+- **Not run:** a real Discord audit log or system channel (#121); CI (#116).
+
+**Lessons:**
+- An optional parameter added to a shared function leaves every existing caller silently on the default. The gateway's live pushes reset the Bot Owner's control after every track change. Make the parameter required and let the compiler list the callers.
+- zod `.partial()` on a schema with `.default()` still fills the defaults, so a "change only the hat" update reset the rest.
+- Two fake Discord users with the same username but different ids make Supabase Auth link both identities to one account, which breaks sign-in for both. Every e2e user needs a unique username.
+
+**Next:** #107.
+
+---
+
 ## #105 Catalog search and browse on the Dashboard (2026-11-08, branch `feat/105-search-catalog`)
 
 **Goal:** search four sources from the Dashboard, open artist, album and channel pages, and play into a chosen server, seeing why a server is locked.

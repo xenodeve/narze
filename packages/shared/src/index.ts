@@ -7,4 +7,5 @@ export * from "./progress";
 export * from "./queue";
 export * from "./reconcile";
 export * from "./search";
+export * from "./settings";
 export * from "./status";

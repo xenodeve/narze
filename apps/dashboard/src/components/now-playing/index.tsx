@@ -1,19 +1,23 @@
 "use client";
 
-import type { PlayerState, Track } from "@narze/shared";
+import type { AvatarOutfit, PlayerState, Track } from "@narze/shared";
 import dynamic from "next/dynamic";
 import { type CSSProperties, useEffect, useState } from "react";
 import { Controls } from "@/components/controls";
+import { GuildAvatar } from "@/components/guild-avatar";
 import { MoodAurora } from "@/components/mood-aurora";
 import { QueuePanel } from "@/components/queue-panel";
 import { explain, sendCommand } from "@/lib/control";
 import { moodFromArtwork, moodFromText } from "@/lib/mood";
+import { useTrackNotifications } from "@/lib/notifications";
+import { useGuildSettings } from "@/lib/settings";
 import { type Permission, usePlayer, type VoiceStatus } from "@/lib/use-player";
 import styles from "./now-playing.module.css";
 import { Progress } from "./progress";
 import { SidePanel } from "./side-panel";
 
-const BotAvatar = dynamic(() => import("bot-avatars").then((m) => m.BotAvatar), { ssr: false });
+// The supplied BellToggle (DESIGN.md): "Notify me" for now-playing notifications, per Guild.
+const BellToggle = dynamic(() => import("@/components/vendor/bell-toggle/BellToggle"), { ssr: false });
 
 /** The mood for a track: sampled from its artwork when the host allows, else derived from its title. */
 function useMood(track: Track | null): string {
@@ -80,12 +84,15 @@ function Stage({
   state,
   permission,
   voice,
+  outfit,
 }: {
   guildId: string;
   state: PlayerState;
   permission: Permission;
   voice: VoiceStatus;
+  outfit?: AvatarOutfit;
 }) {
+  const notify = useTrackNotifications(guildId, state.current);
   const [seekError, setSeekError] = useState<string | null>(null);
   /** A refused seek says why; the bar itself never moved, since it follows the server's state. */
   const seek = async (positionMs: number) => {
@@ -153,7 +160,22 @@ function Stage({
           </div>
         )}
         <div className={styles.avatar} aria-hidden="true">
-          <BotAvatar type="clover" size={56} state={avatarState} headphones color={mood} />
+          <GuildAvatar outfit={outfit} size={56} state={avatarState} color={mood} testId="now-avatar" />
+        </div>
+        <div className={styles.bell}>
+          <BellToggle
+            size="sm"
+            offLabel="แจ้งเตือนฉัน"
+            onLabel="จะแจ้งเตือนเมื่อเปลี่ยนเพลง"
+            badge={false}
+            pressed={notify.optedIn}
+            disabled={notify.blocked}
+            onChange={(on: boolean) => void notify.toggle(on)}
+            color="var(--ink)"
+            background="var(--fill)"
+            onColor="var(--bg)"
+            onBackground="var(--ink)"
+          />
         </div>
       </div>
     </section>
@@ -163,6 +185,8 @@ function Stage({
 /** Now Playing for one Guild: the stage with controls (#100, #101) and the queue (#102). */
 export function NowPlaying({ guildId, userId }: { guildId: string; userId: string }) {
   const view = usePlayer(guildId, userId);
+  const [settings] = useGuildSettings(guildId);
+  const outfit = settings.status === "ready" ? settings.view.settings.avatar : undefined;
   if (view.status === "loading") return <div className={`${styles.stage} ${styles.loading}`} aria-busy="true" />;
   if (view.status === "forbidden") {
     return (
@@ -180,10 +204,14 @@ export function NowPlaying({ guildId, userId }: { guildId: string; userId: strin
   const state = view.state ?? null;
   return (
     <div className={styles.page}>
+      <a className={styles.settingsLink} href={`/guilds/${guildId}/settings`}>
+        ตั้งค่าเซิร์ฟเวอร์
+      </a>
       <Stage
         guildId={guildId}
         permission={view.permission}
         voice={view.voice}
+        outfit={outfit}
         state={
           state ?? {
             guildId,

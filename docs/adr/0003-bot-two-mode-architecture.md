@@ -32,3 +32,4 @@ Supabase เป็น source of truth ทั้งสอง mode — ไม่�
 ## Implementation notes
 
 - **2026-11-08 (#103):** Standalone Mode plays, keeps Queue Snapshots and runs Queue Recovery without Redis (local files, CONTEXT.md). No Bot setting lives in Supabase yet, so the direct Supabase read in Standalone is not built; it lands with #106 (`/setchannel`, guild settings). Until then the Decision's settings path describes intent, not code.
+- **2026-11-08 (#106):** Guild Settings now live in Supabase (`guild_settings`). The Bot reads and writes them directly in both modes (`apps/bot/src/settings/guild-settings.ts`); in Connected Mode a Dashboard change also reaches the Bot's copy through the `settings:update` guild event on Redis (`apps/bot/src/main.ts`). The Decision's settings path is now code.
