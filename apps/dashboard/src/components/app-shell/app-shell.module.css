@@ -101,3 +101,9 @@
   align-items: center;
   gap: 12px;
 }
+
+/* The supplied menu fades inactive rows to 55% of its ink, under 4.5:1 on paper (axe, #114): they use
+   the hint ink every other secondary text uses. */
+.nav :global(.branched-menu) {
+  --bm-muted: var(--ink-2);
+}

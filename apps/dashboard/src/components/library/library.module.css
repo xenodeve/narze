@@ -129,17 +129,18 @@
 .primary,
 .ghost,
 .danger {
-  height: 36px;
+  height: 44px;
   padding: 0 16px;
   border-radius: var(--r-pill);
   font: inherit;
   cursor: pointer;
 }
 
+/* Primary buttons are ink-filled, not blue (DESIGN.md §2 rule 2; white on the dark accent is 2.6:1). */
 .primary {
-  border: 0;
-  background: var(--accent);
-  color: #fff;
+  border: 1px solid var(--ink);
+  background: var(--ink);
+  color: var(--bg);
 }
 
 .primary:disabled,

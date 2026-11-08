@@ -245,7 +245,8 @@
   padding: 1px 8px;
   border: 1px solid color-mix(in srgb, var(--ink-3) 55%, transparent);
   border-radius: var(--r-pill);
-  color: color-mix(in srgb, var(--ink-3) 80%, var(--ink));
+  /* 11px text needs 4.5:1: the hint ink, not the 80% tint (axe, #114). */
+  color: var(--ink-2);
   font-size: 0.6875rem;
 }
 

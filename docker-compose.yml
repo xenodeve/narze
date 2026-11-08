@@ -6,7 +6,8 @@ name: narze
 services:
   redis:
     image: redis:7.4-alpine
-    ports: ["6379:6379"]
+    # Local only: Redis has no password, and anyone who can publish could fake Bot events (#114).
+    ports: ["127.0.0.1:6379:6379"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 2s
@@ -16,7 +17,7 @@ services:
   lavalink:
     image: ghcr.io/lavalink-devs/lavalink:4
     profiles: ["audio"]
-    ports: ["2333:2333"]
+    ports: ["127.0.0.1:2333:2333"]
     environment:
       SERVER_PORT: 2333
       LAVALINK_SERVER_PASSWORD: ${LAVALINK_PASSWORD:-youshallnotpass}

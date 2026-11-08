@@ -35,7 +35,8 @@
 .danger {
   border-color: var(--danger);
   background: var(--danger);
-  color: #fff;
+  /* Paper, not white: white on the dark theme's red is under 4.5:1. */
+  color: var(--bg);
 }
 
 @media (hover: hover) {

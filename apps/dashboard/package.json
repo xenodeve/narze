@@ -24,6 +24,7 @@
     "thinking-orbs": "0.3.2"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
     "@narze/fake-discord": "workspace:*",
     "@narze/fake-lavalink": "workspace:*",
     "@playwright/test": "1.65.0",

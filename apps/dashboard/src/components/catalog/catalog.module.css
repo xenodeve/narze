@@ -60,16 +60,21 @@
   color: inherit;
 }
 
+/* Primary buttons are ink-filled, not blue (DESIGN.md §2 rule 2; white on the dark accent is 2.6:1). */
 .primary {
   justify-self: start;
-  height: 36px;
-  padding: 0 16px;
-  border: 0;
+  height: 44px;
+  padding: 0 18px;
+  border: 1px solid var(--ink);
   border-radius: var(--r-pill);
-  background: var(--accent);
-  color: #fff;
+  background: var(--ink);
+  color: var(--bg);
   font: inherit;
   cursor: pointer;
+}
+
+.primary:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 .heading {
