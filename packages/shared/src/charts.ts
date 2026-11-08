@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { trackKey } from "./history";
 
+/** How many songs the Dashboard shows, and Spotify enriches. */
+export const CHART_SHOWN = 10;
+
 /** Charts the Dashboard shows (#109, ADR-0010): Apple Music "Top Songs" for these countries. */
 export const ChartRegionSchema = z.enum(["th", "us"]);
 export type ChartRegion = z.infer<typeof ChartRegionSchema>;
@@ -45,7 +48,12 @@ export function rankMovement(
   previous: ReadonlyArray<{ rank: number; title: string; artist: string }> | null,
 ): Array<{ movement: Movement; previousRank: number | null }> {
   if (!previous) return now.map(() => ({ movement: null, previousRank: null }));
-  const before = new Map(previous.map((e) => [trackKey(e.title, e.artist), e.rank]));
+  // A song listed twice counts at its higher place.
+  const before = new Map<string, number>();
+  for (const e of previous) {
+    const key = trackKey(e.title, e.artist);
+    if (!before.has(key)) before.set(key, e.rank);
+  }
   return now.map((e) => {
     const was = before.get(trackKey(e.title, e.artist));
     if (was === undefined) return { movement: "new", previousRank: null };

@@ -58,8 +58,9 @@
   color: var(--danger);
 }
 
+/* Accent is only for live state and focus (DESIGN.md rule 2): a new entry is plain ink. */
 .move[data-move="new"] {
-  color: var(--accent);
+  color: var(--ink);
 }
 
 .art {

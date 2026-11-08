@@ -1,3 +1,4 @@
+import type { ChartRegion } from "./charts";
 /** Local development Redis (docker-compose.yml); every process falls back to this when REDIS_URL is unset. */
 export const DEFAULT_REDIS_URL = "redis://127.0.0.1:6379";
 
@@ -18,7 +19,7 @@ export const RedisKeys = {
   /** Set of guild ids the Bot is in. */
   botGuilds: "bot:guilds",
   /** The Backend's cached Chart (#109, ADR-0010), refreshed every 3 days. */
-  chart: (region: string) => `chart:${region}`,
+  chart: (region: ChartRegion) => `chart:${region}`,
   /** Hash userId → voice channel id, for members currently in voice in one Guild. */
   voiceStates: (guildId: string) => `bot:voice:${guildId}`,
   /**

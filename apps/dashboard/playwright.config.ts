@@ -7,6 +7,12 @@ const DASHBOARD_PORT = 3100;
 // Keys come from the running Supabase local (bun run infra:up), never from the repo.
 const supabase = localSupabase();
 
+// Every e2e process (specs and the Backend under test) uses Redis database 1, so a run never leaves
+// fake charts, guild sets or voice states where a dev Backend (database 0) would read them. Pub/sub
+// is not per database: e2e events still reach a dev Backend's subscriber.
+const E2E_REDIS_URL = process.env.E2E_REDIS_URL ?? "redis://127.0.0.1:6379/1";
+process.env.REDIS_URL = E2E_REDIS_URL;
+
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: false,
@@ -45,6 +51,7 @@ export default defineConfig({
       port: BACKEND_PORT,
       env: {
         BACKEND_PORT: String(BACKEND_PORT),
+        REDIS_URL: E2E_REDIS_URL,
         DASHBOARD_ORIGIN: `http://localhost:${DASHBOARD_PORT}`,
         SUPABASE_URL: supabase.url,
         SUPABASE_SECRET_KEY: supabase.secretKey,
@@ -56,7 +63,7 @@ export default defineConfig({
         SPOTIFY_CLIENT_SECRET: "e2e",
         SPOTIFY_API_URL: "http://127.0.0.1:4611/v1",
         SPOTIFY_ACCOUNTS_URL: "http://127.0.0.1:4611",
-        // Charts (#109) from the fake feed; charts.spec clears the cached copy before and after.
+        // Charts (#109) from the fake feed.
         CHARTS_URL: "http://127.0.0.1:4611/charts",
       },
       // Never reuse: in no-CI mode the T4 gate runs e2e locally, and a stale server on this port

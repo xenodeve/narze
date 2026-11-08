@@ -1,6 +1,6 @@
 "use client";
 
-import { type Chart, type ChartEntry, type ChartRegion, ChartSchema } from "@narze/shared";
+import { CHART_SHOWN, type Chart, type ChartEntry, type ChartRegion, ChartSchema } from "@narze/shared";
 import { useEffect, useId, useState } from "react";
 import { answer, apiGet, parsed } from "@/lib/api";
 import { playInGuild } from "@/lib/control";
@@ -17,19 +17,26 @@ async function getChart(region: ChartRegion): Promise<Chart | "unavailable"> {
   return (await parsed<Chart>(await answer(apiGet(`/api/charts/${region}`)), ChartSchema)) ?? "unavailable";
 }
 
+const updatedOn = (ms: number) => new Date(ms).toLocaleDateString("th-TH", { day: "numeric", month: "short" });
+
 const MOVES: Record<NonNullable<ChartEntry["movement"]>, { mark: string; label: string }> = {
   up: { mark: "▲", label: "ขึ้น" },
   down: { mark: "▼", label: "ลง" },
   same: { mark: "–", label: "เท่าเดิม" },
-  new: { mark: "ใหม่", label: "เข้าใหม่" },
+  new: { mark: "ใหม่", label: "เข้าชาร์ตใหม่" },
 };
 
 function Movement({ entry }: { entry: ChartEntry }) {
   if (!entry.movement) return <span className={styles.move} aria-hidden="true" />;
   const move = MOVES[entry.movement];
   const from = entry.previousRank ? ` จากอันดับ ${entry.previousRank}` : "";
+  // Thai stays out of the mono face (DESIGN.md rule 4): only the arrows are mono.
   return (
-    <span className={`mono ${styles.move}`} data-move={entry.movement} title={`${move.label}${from}`}>
+    <span
+      className={entry.movement === "new" ? styles.move : `mono ${styles.move}`}
+      data-move={entry.movement}
+      title={`${move.label}${from} เทียบกับรอบอัปเดตก่อน`}
+    >
       {move.mark}
     </span>
   );
@@ -45,7 +52,8 @@ export function ChartPanel({ guildId }: { guildId: string }) {
   const [message, setMessage] = useState<string | null>(null);
   useEffect(() => {
     setMessage(null);
-    if (charts[region]) return;
+    // A chart is kept for the visit; "unavailable" is not, so coming back to the tab tries again.
+    if (charts[region] && charts[region] !== "unavailable") return;
     let current = true;
     void getChart(region).then((c) => current && setCharts((all) => ({ ...all, [region]: c })));
     return () => {
@@ -54,7 +62,8 @@ export function ChartPanel({ guildId }: { guildId: string }) {
   }, [region, charts]);
   const play = async (entry: ChartEntry) => {
     setMessage(null);
-    const result = await playInGuild(guildId, `${entry.title} ${entry.artist}`);
+    // The exact Spotify track when we know it; otherwise the words, like a typed play.
+    const result = await playInGuild(guildId, entry.spotifyUrl ?? `${entry.title} ${entry.artist}`);
     setMessage(result.ok ? `เพิ่ม ${entry.title} แล้ว` : result.text);
   };
   return (
@@ -85,7 +94,7 @@ export function ChartPanel({ guildId }: { guildId: string }) {
       ) : (
         <>
           <ol className={styles.rows}>
-            {chart.entries.slice(0, 10).map((entry) => (
+            {chart.entries.slice(0, CHART_SHOWN).map((entry) => (
               <li key={entry.rank} className={styles.row} data-testid="chart-entry">
                 <span className={`num ${styles.rank}`}>{entry.rank}</span>
                 <Movement entry={entry} />
@@ -110,9 +119,9 @@ export function ChartPanel({ guildId }: { guildId: string }) {
               </li>
             ))}
           </ol>
-          <p className={`mono ${styles.source}`}>
-            Apple Music · {chart.title}
-            {chart.stale ? " · แหล่งข้อมูลไม่ตอบ แสดงชุดล่าสุดที่มี" : ""}
+          <p className={styles.source}>
+            <span className="mono">Apple Music · {chart.title}</span>
+            {chart.stale ? ` · แหล่งข้อมูลไม่ตอบ แสดงชุดเมื่อ ${updatedOn(chart.fetchedAt)}` : ""}
           </p>
         </>
       )}

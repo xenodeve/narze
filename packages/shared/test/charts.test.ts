@@ -46,3 +46,8 @@ describe("Chart contract (#109)", () => {
     expect(ChartSchema.safeParse({ ...chart, region: "global" }).success).toBe(false);
   });
 });
+
+test("a song listed twice keeps its higher rank as the previous one (#109 review)", () => {
+  const previous = [entry(1, "x"), entry(2, "y"), entry(3, "x")];
+  expect(rankMovement([entry(1, "x")], previous)).toEqual([{ movement: "same", previousRank: 1 }]);
+});

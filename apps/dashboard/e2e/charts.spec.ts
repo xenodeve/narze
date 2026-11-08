@@ -27,8 +27,6 @@ test.beforeAll(async () => {
 test.afterAll(async () => {
   await redis.srem(RedisKeys.botGuilds, G);
   await redis.del(RedisKeys.voiceStates(G));
-  // The fake chart must not linger for a dev Backend sharing this Redis.
-  await redis.del(RedisKeys.chart("th"), RedisKeys.chart("us"));
   await bot.quit();
   await redis.quit();
 });
@@ -48,4 +46,40 @@ test("the idle guild page shows the chart; a song plays; a chart that is down sa
   await chart.getByRole("tab", { name: "สหรัฐฯ" }).click();
   await expect(chart.getByRole("status")).toHaveText(/ชาร์ตนี้ยังโหลดไม่ได้/);
   await expect(chart.getByTestId("chart-entry")).toHaveCount(0);
+});
+
+test("when the source is down, the last chart shows with its date (#109, AC3)", async ({ page }) => {
+  const old = Date.now() - 4 * 24 * 60 * 60_000;
+  await redis.set(
+    RedisKeys.chart("us"),
+    JSON.stringify({
+      region: "us",
+      title: "Top Songs",
+      sourceUpdatedAt: "",
+      fetchedAt: old,
+      stale: false,
+      entries: [
+        {
+          rank: 1,
+          title: "Old Song",
+          artist: "Someone",
+          artwork: null,
+          appleUrl: null,
+          spotifyUrl: null,
+          artistImage: null,
+          movement: null,
+          previousRank: null,
+        },
+      ],
+    }),
+  );
+  await setFakeDiscordUser(pim, [{ id: G, name: "Chart Club", icon: null, owner: false }]);
+  await signInThroughPopup(page, "Pim");
+  await page.goto(`/guilds/${G}`);
+  const chart = page.getByRole("region", { name: "ชาร์ตเพลง" });
+  await chart.getByRole("tab", { name: "สหรัฐฯ" }).click();
+  await expect(chart.getByTestId("chart-entry")).toHaveText([/1.*Old Song.*Someone/]);
+  const day = new Date(old).toLocaleDateString("th-TH", { day: "numeric", month: "short" });
+  await expect(chart.getByText(`แหล่งข้อมูลไม่ตอบ แสดงชุดเมื่อ ${day}`, { exact: false })).toBeVisible();
+  await redis.del(RedisKeys.chart("us"));
 });

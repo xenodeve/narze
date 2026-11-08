@@ -6,7 +6,7 @@ import { ChartSchema, DEFAULT_REDIS_URL, RedisKeys } from "@narze/shared";
 import type { INestApplication } from "@nestjs/common";
 import Redis from "ioredis";
 import { createApp } from "../src/app";
-import { CHART_REFRESH_MS, ChartService } from "../src/charts/chart-service";
+import { CHART_REFRESH_MS, CHART_RETRY_MS, ChartService } from "../src/charts/chart-service";
 
 const redisUrl = process.env.REDIS_URL ?? DEFAULT_REDIS_URL;
 const redis = new Redis(redisUrl);
@@ -45,6 +45,7 @@ const spotify = {
       tracks: {
         items: [
           {
+            name: decodeURIComponent(path).match(/track:(.+?) artist:/)?.[1] ?? "",
             external_urls: { spotify: "https://open.spotify.com/track/x" },
             album: { images: [{ url: "https://i.scdn.co/album.jpg" }] },
             artists: [{ id: "ar1" }],
@@ -118,12 +119,73 @@ describe("charts from Apple Music (#109, ADR-0010)", () => {
     up = false;
     await expect(charts.get("us")).rejects.toThrow("chart unavailable");
     up = true;
+    clock += CHART_RETRY_MS;
     await charts.get("us");
     up = false;
     clock += CHART_REFRESH_MS;
     const chart = await charts.get("us");
     expect(chart.stale).toBe(true);
     expect(chart.entries).toHaveLength(3);
+  });
+});
+
+describe("review fixes (#109)", () => {
+  test("after a failure, Apple is left alone for 15 minutes: the stale copy or 503 answers at once", async () => {
+    const charts = service();
+    await charts.get("th");
+    up = false;
+    clock += CHART_REFRESH_MS;
+    expect((await charts.get("th")).stale).toBe(true);
+    const asked = byRegion.th;
+    expect((await charts.get("th")).stale).toBe(true);
+    expect(byRegion.th).toBe(asked);
+    clock += 15 * 60_000;
+    await charts.get("th");
+    expect(byRegion.th).toBe((asked ?? 0) + 1);
+
+    await expect(charts.get("us")).rejects.toThrow("chart unavailable");
+    const usAsked = byRegion.us;
+    await expect(charts.get("us")).rejects.toThrow("chart unavailable");
+    expect(byRegion.us).toBe(usAsked);
+  });
+
+  test("a song keeps its place in Apple's list even next to a row without a name", async () => {
+    titles = ["Song A", "", "Song C"];
+    const chart = await service().get("th");
+    expect(chart.entries.map((e) => [e.rank, e.title])).toEqual([
+      [1, "Song A"],
+      [3, "Song C"],
+    ]);
+  });
+
+  test("Spotify's answer is kept only when it is the same song (no album art posing as the artist)", async () => {
+    const wrong = new ChartService({
+      redis,
+      chartsUrl: `http://127.0.0.1:${apple.port}`,
+      now: () => clock,
+      spotify: {
+        configured: true,
+        async get<T>(path: string): Promise<T | null> {
+          if (!path.startsWith("/search")) return null;
+          const name = decodeURIComponent(path).includes("Song A") ? "Song A" : "Something Else";
+          return {
+            tracks: {
+              items: [
+                {
+                  name,
+                  external_urls: { spotify: `https://open.spotify.com/track/${name}` },
+                  album: { images: [{ url: "https://i.scdn.co/album.jpg" }] },
+                  artists: [{ id: "ar1" }],
+                },
+              ],
+            },
+          } as T;
+        },
+      },
+    });
+    const chart = await wrong.get("th");
+    expect(chart.entries[0]).toMatchObject({ spotifyUrl: "https://open.spotify.com/track/Song A", artistImage: null });
+    expect(chart.entries[1]?.spotifyUrl).toBeNull();
   });
 });
 
