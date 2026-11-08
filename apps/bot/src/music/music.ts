@@ -38,6 +38,13 @@ const REVISION = "narze.revision";
 const TEXT_CHANNEL = "narze.textChannelId";
 const ADDED_AT = "addedAt";
 
+/**
+ * Publishing is best-effort: playback must go on when Redis is down (ADR-0003), and lavalink-client
+ * does not await its event handlers, where a rejection would exit Bun.
+ */
+const warn = (what: string) => (error: unknown) =>
+  console.warn(`[bot] ${what}: ${error instanceof Error ? error.message : String(error)}`);
+
 const flagsOf = (player: Player): AnnounceFlags => player.get<AnnounceFlags | undefined>(FLAGS) ?? NO_FLAGS;
 const addedAtOf = (track: LavalinkTrack): number | undefined =>
   (track.userData as Record<string, unknown> | undefined)?.[ADDED_AT] as number | undefined;
@@ -67,7 +74,7 @@ export function createMusic({ lavalink, publisher, announce, now = Date.now }: M
       { revision: player.get<number | undefined>(REVISION) ?? 0, twentyFourSeven: false, now: now() },
     );
     // An Invalid Player State is never published.
-    if (state) await publisher.publish(state);
+    if (state) await publisher.publish(state).catch(warn("publish Player State"));
   }
 
   async function search(player: Player, query: string, requester: Requester) {
@@ -97,7 +104,7 @@ export function createMusic({ lavalink, publisher, announce, now = Date.now }: M
     return player;
   }
 
-  lavalink.on("trackStart", async (player, track) => {
+  async function onTrackStart(player: Player, track: LavalinkTrack | null): Promise<void> {
     if (!track) return;
     const addedAt = addedAtOf(track);
     // Spec #26 — re-resolve before it is heard (v5 only fixed the metadata, after playback began).
@@ -120,9 +127,15 @@ export function createMusic({ lavalink, publisher, announce, now = Date.now }: M
     // Spec #25: the per-track flags last one track (terminal playback keeps its flag).
     player.set(FLAGS, { ...NO_FLAGS, terminal: flagsOf(player).terminal });
     await publish(player);
+  }
+
+  lavalink.on("trackStart", (player, track) => {
+    onTrackStart(player, track as LavalinkTrack | null).catch(warn("track start"));
   });
   lavalink.on("queueEnd", (player) => void publish(player));
-  lavalink.on("playerDestroy", (player) => void publisher.gone(player.guildId));
+  lavalink.on("playerDestroy", (player) => {
+    publisher.gone(player.guildId).catch(warn("publish player gone"));
+  });
 
   const existing = (guildId: string) => lavalink.getPlayer(guildId) ?? null;
 

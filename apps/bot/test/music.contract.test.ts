@@ -97,6 +97,27 @@ const play = (query: string) =>
   music.play({ guildId: GUILD, voiceChannelId: VOICE, textChannelId: TEXT, query, requester: dee });
 
 describe("playing from Discord against Fake Lavalink (#100)", () => {
+  test("a failing publish (Redis down) never crashes the Bot: playback goes on", async () => {
+    music = createMusic({
+      lavalink,
+      publisher: {
+        publish: () => Promise.reject(new Error("redis down")),
+        gone: () => Promise.reject(new Error("redis down")),
+      },
+      announce: async () => {},
+      now: () => clock,
+    });
+    expect(await play("lemon")).toMatchObject({ kind: "started" });
+    await play("idol");
+    fake.finishTrack(GUILD);
+    await eventually(
+      () => fake.player(GUILD)?.track?.info.title,
+      (t) => t === "Idol",
+    );
+    expect(await music.skip(GUILD)).toEqual({ kind: "ended" });
+    await Bun.sleep(50);
+  });
+
   test("/play resolves, joins self-deafened at volume 15 and publishes a valid Player State", async () => {
     const result = await play("lemon");
     expect(result).toMatchObject({ kind: "started", track: { title: "Lemon" } });
