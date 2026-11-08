@@ -102,9 +102,11 @@ export class UserGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
       if (typeof token !== "string") return next(new Error("unauthorized"));
       this.auth.verify(token).then(
         (identity) => {
-          if (!identity) return next(new Error("unauthorized"));
+          const expiresAt = expiryOf(token);
+          // A token with no exp would give a socket that never ends (#142): refused, fail closed.
+          if (!identity || expiresAt === null) return next(new Error("unauthorized"));
           (client.data as SessionData).identity = identity;
-          (client.data as SessionData).expiresAt = expiryOf(token);
+          (client.data as SessionData).expiresAt = expiresAt;
           next();
         },
         () => next(new Error("unauthorized")),
@@ -161,12 +163,15 @@ export class UserGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
       .catch(() => null);
     const identity = typeof fresh === "string" ? await this.auth.verify(fresh).catch(() => null) : null;
     if (client.disconnected) return;
-    if (!identity || identity.discordId !== data.identity?.discordId || typeof fresh !== "string") {
+    const expiresAt = typeof fresh === "string" ? expiryOf(fresh) : null;
+    // Fails closed: no token, a refused one, another user's, or one with no future exp (a clock skew
+    // between Supabase Auth and us must not turn this into a loop).
+    if (!identity || identity.discordId !== data.identity?.discordId || expiresAt === null || expiresAt <= Date.now()) {
       client.disconnect(true);
       return;
     }
-    data.expiresAt = expiryOf(fresh);
-    this.expireAt(client, data.expiresAt);
+    data.expiresAt = expiresAt;
+    this.expireAt(client, expiresAt);
   }
 
   async handleDisconnect(client: Socket): Promise<void> {

@@ -76,7 +76,8 @@ describe("a signed-in socket ends with its token", () => {
   const token = (exp: number) => `h.${Buffer.from(JSON.stringify({ exp })).toString("base64url")}.s`;
 
   test("at exp, a fresh token for the same user keeps the socket and sets the next check", async () => {
-    const fresh = token(later(3_600_000));
+    const exp = later(3_600_000);
+    const fresh = token(exp);
     const { socket, ask } = expiring(fresh);
     const verify = mock(async () => identity);
     await gateway({ auth: { verify } }).handleConnection(socket);
@@ -84,7 +85,20 @@ describe("a signed-in socket ends with its token", () => {
     expect(ask).toHaveBeenCalledWith(SocketEvents.sessionToken);
     expect(verify).toHaveBeenCalledWith(fresh);
     expect(socket.disconnect).not.toHaveBeenCalled();
-    expect((socket.data as { expiresAt: number }).expiresAt).toBe(later(3_600_000) * 1000);
+    expect((socket.data as { expiresAt: number }).expiresAt).toBe(exp * 1000);
+    clearTimeout((socket.data as { expiry: ReturnType<typeof setTimeout> }).expiry);
+  });
+
+  test("a socket that closes while the tab is being asked is left alone", async () => {
+    const { socket } = expiring(token(later(3_600_000)));
+    const verify = mock(async () => {
+      (socket as unknown as { disconnected: boolean }).disconnected = true;
+      return identity;
+    });
+    await gateway({ auth: { verify } }).handleConnection(socket);
+    await Bun.sleep(120);
+    expect(socket.disconnect).not.toHaveBeenCalled();
+    expect((socket.data as { expiresAt: number }).expiresAt).toBeLessThan(Date.now());
   });
 
   test("no fresh token, a refused one, another user's, or no answer: the socket is closed", async () => {
@@ -93,6 +107,8 @@ describe("a signed-in socket ends with its token", () => {
       [null, identity],
       [token(later(60_000)), null],
       [token(later(60_000)), other],
+      [token(later(-1_000)), identity],
+      ["h.e30.s", identity],
       ["no answer", identity],
     ] as const) {
       const { socket } = expiring(fresh);
