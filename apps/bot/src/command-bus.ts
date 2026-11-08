@@ -61,6 +61,16 @@ export async function startCommandBus({ subscriber, redis, music, textChannelFor
         return (await music.setLoop(guildId, command.mode)) ? ok : fail("no-player");
       case "shuffle":
         return (await music.shuffle(guildId)) ? ok : fail("queue-too-short");
+      case "move":
+        return (await music.move(guildId, command.from, command.to)) ? ok : fail("invalid-index");
+      case "remove":
+        return (await music.remove(guildId, command.index)) ? ok : fail("invalid-index");
+      case "clear":
+        return (await music.clear(guildId)) ? ok : fail("no-player");
+      case "skipTo":
+        return (await music.skipTo(guildId, command.index)) ? ok : fail("invalid-index");
+      case "playNow":
+        return (await music.playNow(guildId, command.index)) ? ok : fail("invalid-index");
     }
   }
 

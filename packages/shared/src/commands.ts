@@ -5,7 +5,7 @@ import { RequesterSchema } from "./player";
 export const SnowflakeSchema = z.string().regex(/^\d+$/);
 const snowflake = SnowflakeSchema;
 
-/** One playback action from the Dashboard (spec #107). Queue editing arrives with #102. */
+/** One playback action from the Dashboard (spec #107) or queue edit (#102). */
 export const PlayerActionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("pause") }),
   z.object({ action: z.literal("resume") }),
@@ -17,6 +17,15 @@ export const PlayerActionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("volume"), volume: z.number().int().min(0).max(1000) }),
   /** `null` cycles off → track → queue → off (spec #47). */
   z.object({ action: z.literal("loop"), mode: z.enum(["off", "track", "queue"]).nullable() }),
+  // Queue editing (#102). Indexes are 0-based positions in the upcoming queue (not the current track).
+  /** Spec #46: `to` may equal the queue length (append); moving down drops before the target. */
+  z.object({ action: z.literal("move"), from: z.number().int().nonnegative(), to: z.number().int().nonnegative() }),
+  /** Skip to a queued track, dropping the ones before it. */
+  z.object({ action: z.literal("skipTo"), index: z.number().int().nonnegative() }),
+  /** Play a queued track now; the rest of the queue keeps its order (spec #39: jump first, then the update). */
+  z.object({ action: z.literal("playNow"), index: z.number().int().nonnegative() }),
+  z.object({ action: z.literal("remove"), index: z.number().int().nonnegative() }),
+  z.object({ action: z.literal("clear") }),
   z.object({
     action: z.literal("play"),
     query: z.string().trim().min(1).max(500),

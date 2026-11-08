@@ -1,4 +1,5 @@
 import type { Requester, Track } from "@narze/shared";
+import { moveTrack } from "@narze/shared";
 import type { LavalinkManager, Track as LavalinkTrack, Player, RepeatMode } from "lavalink-client";
 import { type AnnounceFlags, NO_FLAGS, nowPlayingNotice, shouldAnnounce } from "./announce";
 import type { Notice } from "./format";
@@ -32,7 +33,7 @@ export interface MusicOptions {
   epoch?: string;
   /** Title of a Spotify URL from its public oEmbed, for links Lavalink cannot resolve (spec #70). */
   oembedTitle?: (url: string) => Promise<string | null>;
-  publisher: Pick<PlayerPublisher, "publish" | "gone">;
+  publisher: Pick<PlayerPublisher, "publish" | "gone" | "jump">;
   /** Posts a Now-Playing Notice in a text channel. */
   announce: (channelId: string, notice: Notice) => Promise<void>;
   now?: () => number;
@@ -269,6 +270,67 @@ export function createMusic({
       await player.queue.shuffle();
       bump(player);
       await publish(player);
+      return true;
+    },
+
+    /** Spec #46 move inside the upcoming queue; false when an index is out of range. */
+    async move(guildId: string, from: number, to: number): Promise<boolean> {
+      const player = existing(guildId);
+      if (!player) return false;
+      const tracks = player.queue.tracks as LavalinkTrack[];
+      const next = moveTrack(tracks, from, to);
+      if (!next) return false;
+      await player.queue.splice(0, tracks.length, next);
+      bump(player);
+      await publish(player);
+      return true;
+    },
+
+    async remove(guildId: string, index: number): Promise<boolean> {
+      const player = existing(guildId);
+      if (!player || index < 0 || index >= player.queue.tracks.length) return false;
+      await player.queue.splice(index, 1);
+      bump(player);
+      await publish(player);
+      return true;
+    },
+
+    async clear(guildId: string): Promise<boolean> {
+      const player = existing(guildId);
+      if (!player) return false;
+      await player.queue.splice(0, player.queue.tracks.length);
+      bump(player);
+      await publish(player);
+      return true;
+    },
+
+    /** Drops the queued tracks before `index` and plays that one (the next start bumps the revision). */
+    async skipTo(guildId: string, index: number): Promise<boolean> {
+      const player = existing(guildId);
+      if (!player?.queue.current || index < 0 || index >= player.queue.tracks.length) return false;
+      if (index > 0) await player.queue.splice(0, index);
+      bump(player);
+      player.set(FLAGS, { ...flagsOf(player), skip: true });
+      await player.skip();
+      return true;
+    },
+
+    /**
+     * Plays a queued track now and keeps the rest in order. The jump is announced first so the
+     * Dashboard can animate it before the list changes (spec #39); no notice for it (spec #24).
+     */
+    async playNow(guildId: string, index: number): Promise<boolean> {
+      const player = existing(guildId);
+      const track = player?.queue.tracks[index] as LavalinkTrack | undefined;
+      if (!player?.queue.current || !track) return false;
+      await publisher
+        .jump(guildId, player.get<number | undefined>(REVISION) ?? 0, { fromIndex: index, title: track.info.title })
+        .catch(warn("publish queue jump"));
+      await player.queue.splice(index, 1);
+      await player.queue.add(track, 0);
+      bump(player);
+      player.set(FLAGS, { ...flagsOf(player), dontShow: true });
+      await player.skip();
       return true;
     },
 

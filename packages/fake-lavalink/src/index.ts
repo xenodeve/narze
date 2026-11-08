@@ -134,7 +134,10 @@ export async function startFakeLavalink(options: FakeLavalinkOptions): Promise<F
     if (typeof body.paused === "boolean") current.paused = body.paused;
     if (typeof body.position === "number") current.position = body.position;
     if (body.voice && typeof body.voice === "object") current.voice = body.voice as Record<string, unknown>;
-    const requested = (body.track as { encoded?: string | null } | undefined)?.encoded ?? body.encodedTrack;
+    // `track.encoded: null` means stop; a missing `track` means "leave the track alone".
+    const trackBody = body.track as { encoded?: string | null } | undefined;
+    const requested = trackBody && "encoded" in trackBody ? trackBody.encoded : body.encodedTrack;
+    const previous = current.track;
     if (typeof requested === "string") {
       const decoded = JSON.parse(Buffer.from(requested, "base64").toString()) as LavalinkTrack["info"];
       current.track = { encoded: requested, info: decoded, pluginInfo: {}, userData: {} };
@@ -142,6 +145,8 @@ export async function startFakeLavalink(options: FakeLavalinkOptions): Promise<F
       players.set(guildId, current);
       // A real node answers the PATCH first and then reports the start over the socket.
       queueMicrotask(() => {
+        // A real node ends the replaced track before starting the new one.
+        if (previous) send({ op: "event", type: "TrackEndEvent", guildId, track: previous, reason: "replaced" });
         send({ op: "event", type: "TrackStartEvent", guildId, track: current.track });
         send({
           op: "playerUpdate",
@@ -151,6 +156,9 @@ export async function startFakeLavalink(options: FakeLavalinkOptions): Promise<F
       });
     } else if (requested === null) {
       current.track = null;
+      if (previous) {
+        queueMicrotask(() => send({ op: "event", type: "TrackEndEvent", guildId, track: previous, reason: "stopped" }));
+      }
     }
     players.set(guildId, current);
     return Response.json({
