@@ -1,4 +1,4 @@
-import { type ImportPreview, importPlatform, type PlaylistTrack } from "@narze/shared";
+import { type ImportPreview, importLink, type PlaylistTrack } from "@narze/shared";
 import type { SpotifyApi } from "@narze/shared/spotify-api";
 import type { LavalinkLoad, LavalinkTrackData } from "../search/search-service";
 
@@ -16,7 +16,7 @@ export class ImportRefused extends Error {}
 
 /**
  * The import preview (#107, spec #50, #71): a Spotify or YouTube playlist as tracks, before it is
- * saved. Only those hosts are loaded (`importPlatform`); Spotify playlists gain each track's album
+ * saved. Only those hosts are loaded (`importLink`); Spotify playlists gain each track's album
  * and the date it was added from the Spotify API, matched by Spotify id.
  */
 export function createImporter({
@@ -45,17 +45,17 @@ export function createImporter({
   }
 
   return async (link: string): Promise<ImportPreview> => {
-    const platform = importPlatform(link);
-    if (!platform) throw new ImportRefused("only Spotify or YouTube playlist links can be imported");
+    const checked = importLink(link);
+    if (!checked) throw new ImportRefused("only Spotify or YouTube playlist links can be imported");
+    const { platform, href } = checked;
     // Spotify's own details (album, added-at, owner) load alongside the tracks.
     const [load, details] = await Promise.all([
-      loadTracks(link),
-      platform === "spotify" ? spotifyDetails(link) : Promise.resolve(null),
+      loadTracks(href),
+      platform === "spotify" ? spotifyDetails(href) : Promise.resolve(null),
     ]);
     const data = load.data as LoadedPlaylist;
     const loaded = load.loadType === "playlist" ? (data.tracks ?? []).filter((t) => t.info.uri) : [];
     if (loaded.length === 0) throw new ImportRefused("not a playlist, or it is empty");
-    const now = new Date().toISOString();
     const tracks: PlaylistTrack[] = loaded.map((t) => {
       const extra = t.info.identifier ? details?.items.get(t.info.identifier) : undefined;
       return {
@@ -65,7 +65,7 @@ export function createImporter({
         thumbnail: t.info.artworkUrl ?? null,
         uri: t.info.uri ?? "",
         album: extra?.track?.album?.name ?? null,
-        addedAt: extra?.added_at ?? now,
+        addedAt: extra?.added_at ?? null,
       };
     });
     return {

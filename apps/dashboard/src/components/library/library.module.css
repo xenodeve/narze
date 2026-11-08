@@ -26,7 +26,8 @@
   margin: 0;
   font-size: clamp(1.75rem, 4vw, 2.5rem);
   font-weight: 600;
-  letter-spacing: -0.02em;
+  /* DESIGN.md rule 4: Thai at zero tracking (these titles are Thai or user-named). */
+  letter-spacing: 0;
   overflow-wrap: anywhere;
 }
 
@@ -88,7 +89,7 @@
 
 .track {
   display: grid;
-  grid-template-columns: 2ch minmax(0, 1fr) auto auto auto auto;
+  grid-template-columns: 2ch minmax(0, 1fr) auto auto auto auto auto;
   align-items: center;
   gap: 10px;
   min-height: 56px;
@@ -172,10 +173,16 @@
   padding: 0 18px;
   border: 1px solid var(--line);
   border-radius: var(--r-pill);
-  background: var(--bg);
+  background: var(--surface);
   color: var(--ink);
   font: inherit;
   font-size: 1rem;
+}
+
+@media (hover: hover) {
+  .input:hover {
+    border-color: var(--ink-3);
+  }
 }
 
 .dialog {
@@ -242,14 +249,37 @@
   color: var(--danger);
 }
 
+/* Toast (DESIGN.md): surface, r2, menu shadow, 240 ms y 8. */
 .toast {
+  justify-self: start;
   margin: 0;
-  color: var(--ok);
+  padding: 10px 14px;
+  border-radius: var(--r2);
+  background: var(--surface);
+  box-shadow: var(--shadow-menu);
+  color: var(--ink);
+  animation: toast 240ms var(--ease) both;
+}
+
+@keyframes toast {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+.move {
+  display: inline-flex;
+}
+
+.icon:disabled {
+  opacity: 0.3;
+  cursor: default;
 }
 
 @media (max-width: 520px) {
   .track {
-    grid-template-columns: minmax(0, 1fr) auto auto auto;
+    grid-template-columns: minmax(0, 1fr) auto auto auto auto;
   }
 
   .index,
@@ -259,7 +289,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .dialog[open] {
+  .dialog[open],
+  .toast {
     animation: none;
   }
 }

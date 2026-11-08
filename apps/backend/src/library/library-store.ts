@@ -46,7 +46,21 @@ const check = (what: string, error: { message: string } | null) => {
 };
 
 /** Playlist ids are uuids; anything else is no playlist (and would be a Postgres cast error). */
-const isId = (id: string) => /^[0-9a-f-]{36}$/i.test(id);
+/** PostgREST answers at most `max_rows` (1000) rows per request; a playlist holds up to 5000. */
+const PAGE = 1000;
+async function allRows<T>(
+  what: string,
+  page: (from: number, to: number) => PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>,
+): Promise<T[]> {
+  const rows: T[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await page(from, from + PAGE - 1);
+    check(what, error);
+    rows.push(...((data ?? []) as T[]));
+    if ((data?.length ?? 0) < PAGE) return rows;
+  }
+}
+const isId = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 
 /**
  * The Library in Supabase (#107). Every read and write names the owner, so another user's
@@ -79,13 +93,15 @@ export class LibraryStore {
       .maybeSingle();
     check("read playlist", error);
     if (!data) return null;
-    const tracks = await this.db
-      .from("playlist_tracks")
-      .select("title, artist, duration_ms, thumbnail, uri, album, added_at")
-      .eq("playlist_id", id)
-      .order("position");
-    check("read tracks", tracks.error);
-    return { ...fromPlaylist(data as PlaylistRow), tracks: ((tracks.data ?? []) as TrackRow[]).map(toTrack) };
+    const rows = await allRows<TrackRow>("read tracks", (from, to) =>
+      this.db
+        .from("playlist_tracks")
+        .select("title, artist, duration_ms, thumbnail, uri, album, added_at")
+        .eq("playlist_id", id)
+        .order("position")
+        .range(from, to),
+    );
+    return { ...fromPlaylist(data as PlaylistRow), tracks: rows.map(toTrack) };
   }
 
   async create(ownerId: string, playlist: NewPlaylist): Promise<Playlist> {
@@ -95,7 +111,7 @@ export class LibraryStore {
         owner_id: ownerId,
         name: playlist.name,
         description: playlist.description ?? null,
-        thumbnail: playlist.tracks[0]?.thumbnail ?? null,
+        thumbnail: playlist.thumbnail ?? playlist.tracks[0]?.thumbnail ?? null,
         source_platform: playlist.sourcePlatform ?? null,
         source_url: playlist.sourceUrl ?? null,
       })
@@ -139,13 +155,15 @@ export class LibraryStore {
   }
 
   async likes(discordId: string): Promise<Like[]> {
-    const { data, error } = await this.db
-      .from("likes")
-      .select("title, artist, duration_ms, thumbnail, uri, liked_at")
-      .eq("discord_id", discordId)
-      .order("liked_at", { ascending: false });
-    check("list likes", error);
-    return ((data ?? []) as Array<TrackRow & { liked_at: string }>).map((row) => ({
+    const rows = await allRows<TrackRow & { liked_at: string }>("list likes", (from, to) =>
+      this.db
+        .from("likes")
+        .select("title, artist, duration_ms, thumbnail, uri, liked_at")
+        .eq("discord_id", discordId)
+        .order("liked_at", { ascending: false })
+        .range(from, to),
+    );
+    return rows.map((row) => ({
       ...toTrack({ ...row, album: null, added_at: null }),
       likedAt: row.liked_at,
     }));

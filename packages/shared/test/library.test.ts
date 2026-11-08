@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   ImportPreviewSchema,
-  importPlatform,
+  importLink,
   NewPlaylistSchema,
   PlaylistChangeSchema,
   PlaylistTrackSchema,
@@ -20,13 +20,21 @@ describe("Library contract (#107, spec #50, #71, #89)", () => {
   });
 
   test("only Spotify and YouTube playlist links can be imported (no other host is ever loaded)", () => {
-    expect(importPlatform("https://open.spotify.com/playlist/abc")).toBe("spotify");
-    expect(importPlatform("https://www.youtube.com/playlist?list=PL1")).toBe("youtube");
-    expect(importPlatform("https://music.youtube.com/playlist?list=PL1")).toBe("youtube");
-    expect(importPlatform("https://youtu.be/x?list=PL1")).toBe("youtube");
-    expect(importPlatform("http://169.254.169.254/playlist")).toBeNull();
-    expect(importPlatform("https://soundcloud.com/a/sets/b")).toBeNull();
-    expect(importPlatform("https://open.spotify.com.evil.test/playlist/abc")).toBeNull();
+    const platform = (link: string) => importLink(link)?.platform ?? null;
+    expect(platform("https://open.spotify.com/playlist/abc")).toBe("spotify");
+    expect(platform("https://open.spotify.com/intl-th/playlist/abc")).toBe("spotify");
+    expect(platform("https://www.youtube.com/playlist?list=PL1")).toBe("youtube");
+    expect(platform("https://music.youtube.com/playlist?list=PL1")).toBe("youtube");
+    expect(platform("https://youtu.be/x?list=PL1")).toBe("youtube");
+    expect(platform("http://169.254.169.254/playlist")).toBeNull();
+    expect(platform("https://soundcloud.com/a/sets/b")).toBeNull();
+    expect(platform("https://open.spotify.com.evil.test/playlist/abc")).toBeNull();
+    // Spec #89: playlists only; an album is not a playlist.
+    expect(platform("https://open.spotify.com/album/abc")).toBeNull();
+  });
+
+  test("the link that is loaded is the link that was checked (normalised once)", () => {
+    expect(importLink("  https://OPEN.spotify.com/playlist/abc ")?.href).toBe("https://open.spotify.com/playlist/abc");
   });
 
   test("a new playlist needs a name; a change can only touch name, description and tracks", () => {
@@ -37,7 +45,10 @@ describe("Library contract (#107, spec #50, #71, #89)", () => {
     expect(PlaylistChangeSchema.safeParse({}).success).toBe(false);
   });
 
-  test("a track must have a uri to play", () => {
+  test("a track must have a uri to play, a whole-ms duration and a real added-at time", () => {
     expect(PlaylistTrackSchema.safeParse({ ...track, uri: "" }).success).toBe(false);
+    expect(PlaylistTrackSchema.safeParse({ ...track, duration: 1.5 }).success).toBe(false);
+    expect(PlaylistTrackSchema.safeParse({ ...track, addedAt: "x" }).success).toBe(false);
+    expect(PlaylistTrackSchema.safeParse({ ...track, addedAt: "2026-01-02T03:04:05Z" }).success).toBe(true);
   });
 });

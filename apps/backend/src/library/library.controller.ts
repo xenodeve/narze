@@ -1,5 +1,6 @@
 import { LIKED_PLAYLIST, NewPlaylistSchema, PlaylistChangeSchema, PlaylistTrackSchema } from "@narze/shared";
 import {
+  BadGatewayException,
   BadRequestException,
   Body,
   Controller,
@@ -92,7 +93,8 @@ export class LibraryController {
       return await this.importer(url);
     } catch (error) {
       if (error instanceof ImportRefused) throw new BadRequestException(error.message);
-      throw new BadRequestException("could not load that playlist");
+      // Our side failed (Lavalink, Spotify): not the user's link.
+      throw new BadGatewayException("could not load that playlist");
     }
   }
 

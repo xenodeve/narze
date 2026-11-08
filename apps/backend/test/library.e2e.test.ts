@@ -171,6 +171,28 @@ describe("playlists belong to their owner (#107, AC1)", () => {
     socket.close();
   });
 
+  test("a 5000-track playlist saves (the contract's limit, beyond express's 100 KB default)", async () => {
+    const tracks = Array.from({ length: 5000 }, (_, i) => ({ ...track(`t${i}`), album: "Album name", addedAt: null }));
+    const res = await call(umaSession, "POST", "/api/library/playlists", { name: "Big", tracks });
+    expect(res.status).toBe(201);
+    expect(((await res.json()) as { tracks: unknown[] }).tracks).toHaveLength(5000);
+  });
+
+  test("the preview's cover is the playlist's cover", async () => {
+    const created = (await (
+      await call(umaSession, "POST", "/api/library/playlists", { name: "Cover", thumbnail: "https://i.test/c.jpg" })
+    ).json()) as { thumbnail: string | null };
+    expect(created.thumbnail).toBe("https://i.test/c.jpg");
+  });
+
+  test("an id that is not a playlist id is not found (never a server error)", async () => {
+    for (const method of ["GET", "PUT", "DELETE"] as const) {
+      const body = method === "PUT" ? { name: "x" } : undefined;
+      const res = await call(umaSession, method, `/api/library/playlists/${"-".repeat(36)}`, body);
+      expect(res.status).toBe(404);
+    }
+  });
+
   test("deleting removes it", async () => {
     const created = (await (await call(umaSession, "POST", "/api/library/playlists", { name: "Gone" })).json()) as {
       id: string;
@@ -197,6 +219,8 @@ describe("import preview (#107, spec #50, #71)", () => {
       await (await call(umaSession, "POST", "/api/library/import", { url: YOUTUBE_URL })).json(),
     );
     expect(youtube).toMatchObject({ platform: "youtube", playlist: { name: "Clips" } });
+    // Only Spotify knows when a track was added; YouTube rows carry no made-up date.
+    expect(youtube.tracks[0]?.addedAt ?? null).toBeNull();
     const before = lavalink.searches().length;
     expect((await call(umaSession, "POST", "/api/library/import", { url: "http://169.254.169.254/x" })).status).toBe(
       400,
@@ -220,5 +244,13 @@ describe("Likes (#107)", () => {
         (l) => l.uri,
       ),
     ).not.toContain(liked.uri);
+  });
+});
+
+describe("an import that fails on our side (#107)", () => {
+  test("a Lavalink outage is a 502 the Dashboard can tell apart from a refused link", async () => {
+    lavalink.stop();
+    const res = await call(umaSession, "POST", "/api/library/import", { url: YOUTUBE_URL });
+    expect(res.status).toBe(502);
   });
 });

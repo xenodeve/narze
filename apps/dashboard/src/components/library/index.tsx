@@ -7,6 +7,7 @@ import {
   type PlaylistSummary,
   type PlaylistTrack,
 } from "@narze/shared";
+import { moveTrack } from "@narze/shared/queue";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -41,6 +42,7 @@ export function LibraryPage() {
 function LibraryGrid() {
   const [playlists, setPlaylists] = useState<PlaylistSummary[] | null | "failed">(null);
   const [importing, setImporting] = useState(false);
+  const [creating, setCreating] = useState(false);
   const load = useCallback(() => {
     void listPlaylists().then((list) => setPlaylists(list ?? "failed"));
   }, []);
@@ -57,9 +59,14 @@ function LibraryGrid() {
     <div className={styles.page}>
       <header className={styles.head}>
         <h1 className={styles.title}>คลังเพลง</h1>
-        <button type="button" className={styles.primary} onClick={() => setImporting(true)}>
-          นำเข้า Playlist
-        </button>
+        <div className={styles.row}>
+          <button type="button" className={styles.ghost} onClick={() => setCreating(true)}>
+            สร้าง Playlist
+          </button>
+          <button type="button" className={styles.primary} onClick={() => setImporting(true)}>
+            นำเข้า Playlist
+          </button>
+        </div>
       </header>
       {playlists === null ? (
         <Thinking label="กำลังโหลดคลังเพลง" />
@@ -98,6 +105,14 @@ function LibraryGrid() {
         onClose={() => setImporting(false)}
         onSaved={() => {
           setImporting(false);
+          load();
+        }}
+      />
+      <CreateDialog
+        open={creating}
+        onClose={() => setCreating(false)}
+        onSaved={() => {
+          setCreating(false);
           load();
         }}
       />
@@ -142,6 +157,7 @@ function ImportDialog({ open, onClose, onSaved }: { open: boolean; onClose: () =
     const saved = await createPlaylist({
       name: name.trim() || preview.playlist.name,
       description: description.trim() || null,
+      thumbnail: preview.playlist.thumbnail,
       tracks: preview.tracks,
       sourcePlatform: preview.platform,
       sourceUrl: link.trim(),
@@ -232,10 +248,13 @@ function TrackRows({
   tracks,
   onPlay,
   onRemove,
+  onMove,
 }: {
   tracks: PlaylistTrack[];
   onPlay: (t: PlaylistTrack) => void;
   onRemove?: (index: number) => void;
+  /** Moves a row one place: `to` is the index it ends up at. */
+  onMove?: (from: number, to: number) => void;
 }) {
   return (
     <ol className={styles.tracks}>
@@ -255,6 +274,28 @@ function TrackRows({
           <button type="button" className={styles.icon} onClick={() => onPlay(t)} aria-label={`เล่น ${t.title}`}>
             ▶
           </button>
+          {onMove ? (
+            <span className={styles.move}>
+              <button
+                type="button"
+                className={styles.icon}
+                onClick={() => onMove(i, i - 1)}
+                disabled={i === 0}
+                aria-label={`เลื่อน ${t.title} ขึ้น`}
+              >
+                ↑
+              </button>
+              <button
+                type="button"
+                className={styles.icon}
+                onClick={() => onMove(i, i + 1)}
+                disabled={i === tracks.length - 1}
+                aria-label={`เลื่อน ${t.title} ลง`}
+              >
+                ↓
+              </button>
+            </span>
+          ) : null}
           {onRemove ? (
             <button
               type="button"
@@ -307,10 +348,9 @@ function PlaylistBody({ id, play }: { id: string; play: Play }) {
       setToast(done);
     } else setToast("บันทึกไม่สำเร็จ ลองอีกครั้ง");
   };
-  // Play all: the source playlist when it came from one, else the first track.
+  // Spec #89: play-all plays the source playlist, so it is only for an imported one.
   const playAll = () => {
-    const query = playlist.sourceUrl ?? playlist.tracks[0]?.uri;
-    if (query) play({ title: playlist.name, query });
+    if (playlist.sourceUrl) play({ title: playlist.name, query: playlist.sourceUrl });
   };
 
   return (
@@ -337,8 +377,13 @@ function PlaylistBody({ id, play }: { id: string; play: Play }) {
           <h1 className={styles.title}>{playlist.name}</h1>
         )}
         {playlist.description ? <p className={styles.meta}>{playlist.description}</p> : null}
+        <p className={styles.meta}>
+          {playlist.sourceUrl
+            ? "เล่นทั้งหมดจะเล่นจาก Playlist ต้นทาง ส่วนเพลงที่แก้ไว้ในนี้ กดเล่นทีละเพลงได้"
+            : "Playlist นี้สร้างในแอป กดเล่นทีละเพลงได้"}
+        </p>
         <div className={styles.row}>
-          <button type="button" className={styles.primary} onClick={playAll} disabled={playlist.tracks.length === 0}>
+          <button type="button" className={styles.primary} onClick={playAll} disabled={!playlist.sourceUrl}>
             เล่นทั้งหมด
           </button>
           <button
@@ -367,6 +412,11 @@ function PlaylistBody({ id, play }: { id: string; play: Play }) {
         onRemove={(index) =>
           void save({ tracks: playlist.tracks.filter((_, i) => i !== index) }, "ลบเพลงออกจาก Playlist แล้ว")
         }
+        onMove={(from, to) => {
+          // moveTrack inserts before `to` in the list it was taken from.
+          const tracks = moveTrack(playlist.tracks, from, to > from ? to + 1 : to);
+          if (tracks) void save({ tracks }, "จัดลำดับแล้ว");
+        }}
       />
       <ConfirmDelete
         open={confirming}
@@ -378,6 +428,52 @@ function PlaylistBody({ id, play }: { id: string; play: Play }) {
         }}
       />
     </div>
+  );
+}
+
+function CreateDialog({ open, onClose, onSaved }: { open: boolean; onClose: () => void; onSaved: () => void }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const [name, setName] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    if (open) {
+      setName("");
+      setError(null);
+      dialog.current?.showModal();
+    } else dialog.current?.close();
+  }, [open]);
+  return (
+    <dialog ref={dialog} className={styles.dialog} onClose={onClose} aria-labelledby="create-title">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          void createPlaylist({ name: name.trim(), tracks: [] }).then((saved) =>
+            saved ? onSaved() : setError("สร้างไม่สำเร็จ ลองอีกครั้ง"),
+          );
+        }}
+      >
+        <h2 id="create-title" className={styles.dialogTitle}>
+          สร้าง Playlist
+        </h2>
+        <label className={styles.field}>
+          ชื่อ
+          <input className={styles.input} value={name} onChange={(e) => setName(e.target.value)} maxLength={100} />
+        </label>
+        {error ? (
+          <p role="alert" className={styles.error}>
+            {error}
+          </p>
+        ) : null}
+        <div className={styles.actions}>
+          <button type="button" className={styles.ghost} onClick={onClose}>
+            ยกเลิก
+          </button>
+          <button type="submit" className={styles.primary} disabled={!name.trim()}>
+            สร้าง
+          </button>
+        </div>
+      </form>
+    </dialog>
   );
 }
 

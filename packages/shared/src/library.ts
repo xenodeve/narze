@@ -4,11 +4,12 @@ import { z } from "zod";
 export const PlaylistTrackSchema = z.object({
   title: z.string(),
   artist: z.string(),
-  duration: z.number().nonnegative(),
+  duration: z.number().int().nonnegative(),
   thumbnail: z.string().nullish(),
   uri: z.string().min(1),
   album: z.string().nullish(),
-  addedAt: z.string().nullish(),
+  /** When it joined the source playlist (Spotify only); Postgres answers with an offset. */
+  addedAt: z.iso.datetime({ offset: true }).nullish(),
 });
 export type PlaylistTrack = z.infer<typeof PlaylistTrackSchema>;
 
@@ -41,6 +42,8 @@ const description = z.string().trim().max(300).nullable();
 export const NewPlaylistSchema = z.object({
   name,
   description: description.optional(),
+  /** The cover; an import passes its preview's. */
+  thumbnail: z.string().url().nullable().optional(),
   tracks: z.array(PlaylistTrackSchema).max(5000).default([]),
   sourcePlatform: ImportPlatformSchema.nullable().optional(),
   sourceUrl: z.string().url().nullable().optional(),
@@ -71,21 +74,22 @@ export const ImportPreviewSchema = z.object({
 export type ImportPreview = z.infer<typeof ImportPreviewSchema>;
 
 /**
- * Which service a playlist link belongs to; null for anything else. Only these hosts are ever
- * loaded (v5 loaded any URL as "unknown", letting a user make the server fetch an arbitrary address).
+ * A playlist link's service and its normalised form; null for anything else. Only these hosts are
+ * ever loaded (v5 loaded any URL as "unknown", letting a user make the server fetch an arbitrary
+ * address), and `href` is what gets loaded, so the string checked is the string fetched.
  */
-export function importPlatform(link: string): ImportPlatform | null {
+export function importLink(link: string): { platform: ImportPlatform; href: string } | null {
   let url: URL;
   try {
-    url = new URL(link);
+    url = new URL(link.trim());
   } catch {
     return null;
   }
   if (url.protocol !== "https:") return null;
-  if (url.hostname === "open.spotify.com" && /^\/(intl-[a-z]+\/)?(playlist|album)\//.test(url.pathname))
-    return "spotify";
+  if (url.hostname === "open.spotify.com" && /^\/(intl-[a-z]+\/)?playlist\//.test(url.pathname))
+    return { platform: "spotify", href: url.href };
   const youtube = ["www.youtube.com", "youtube.com", "music.youtube.com", "m.youtube.com", "youtu.be"];
-  if (youtube.includes(url.hostname) && url.searchParams.has("list")) return "youtube";
+  if (youtube.includes(url.hostname) && url.searchParams.has("list")) return { platform: "youtube", href: url.href };
   return null;
 }
 

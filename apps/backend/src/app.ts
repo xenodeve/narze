@@ -2,6 +2,7 @@ import "reflect-metadata";
 import { createSpotifyApi } from "@narze/shared/spotify-api";
 import { type DynamicModule, type INestApplication, Inject, Module, type OnApplicationShutdown } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
+import type { NestExpressApplication } from "@nestjs/platform-express";
 import { IoAdapter } from "@nestjs/platform-socket.io";
 import { createClient } from "@supabase/supabase-js";
 import Redis from "ioredis";
@@ -122,7 +123,11 @@ class AppModule implements OnApplicationShutdown {
 }
 
 export async function createApp(options: AppOptions): Promise<INestApplication> {
-  const app = await NestFactory.create(AppModule.forRoot(options), { logger: ["error", "warn"] });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule.forRoot(options), {
+    logger: ["error", "warn"],
+  });
+  // A 5000-track playlist (the Library's limit) is about 1.5 MB of JSON; express allows 100 KB.
+  app.useBodyParser("json", { limit: "4mb" });
   app.enableCors({ origin: options.dashboardOrigin });
   app.useWebSocketAdapter(new CorsIoAdapter(app, options.dashboardOrigin));
   app.enableShutdownHooks();

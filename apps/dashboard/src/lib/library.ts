@@ -17,6 +17,7 @@ import {
 } from "@narze/shared";
 import { useEffect, useSyncExternalStore } from "react";
 import { apiGet, apiSend } from "./api";
+import { useSession } from "./session";
 import { onSocketEvents } from "./socket";
 
 /** A request that failed to send counts as no answer. */
@@ -65,6 +66,8 @@ export function useLibraryUpdates(onUpdate: (playlistId: string) => void): void 
 // Likes: one store for the page, so every heart for a track agrees, and a toggle shows at once.
 // Every heart shares one load and one socket listener, however many rows are on screen.
 let likes: Like[] | null = null;
+/** Whose likes `likes` holds: a sign-out and another sign-in on the same tab must not show them. */
+let owner: string | null = null;
 let loading: Promise<void> | null = null;
 let offSocket: (() => void) | null = null;
 const listeners = new Set<() => void>();
@@ -72,23 +75,36 @@ const emit = () => {
   for (const listener of listeners) listener();
 };
 function loadLikes(): Promise<void> {
-  loading ??= answer(apiGet("/api/library/likes"))
+  const forUser = owner;
+  if (!forUser) return Promise.resolve();
+  const load: Promise<void> = answer(apiGet("/api/library/likes"))
     .then((res) => parsed<Like[]>(res, LikeSchema.array()))
     .then((list) => {
-      if (list) {
+      // A load that finishes after the user changed belongs to nobody on screen.
+      if (list && owner === forUser) {
         likes = list;
         emit();
       }
     })
     .finally(() => {
-      loading = null;
+      if (loading === load) loading = null;
     });
+  loading ??= load;
   return loading;
+}
+function setOwner(userId: string | null): void {
+  if (owner === userId) return;
+  owner = userId;
+  likes = null;
+  loading = null;
+  emit();
+  void loadLikes();
 }
 const subscribe = (listener: () => void) => {
   listeners.add(listener);
   if (listeners.size === 1) {
-    if (likes === null) void loadLikes();
+    // Nothing listened while no heart was on screen, so what we hold may be stale.
+    void loadLikes();
     offSocket = onSocketEvents({
       [SocketEvents.libraryUpdate]: (raw: unknown) => {
         if ((raw as { playlistId?: unknown })?.playlistId === LIKED_PLAYLIST) void loadLikes();
@@ -104,11 +120,14 @@ const subscribe = (listener: () => void) => {
   };
 };
 
-/** The signed-in user's likes, live; null until loaded. */
+/** The signed-in user's likes, live; null until loaded (and for nobody signed in). */
 export function useLikes(): Like[] | null {
+  const session = useSession();
+  const userId = session.status === "signed-in" ? session.userId : null;
+  useEffect(() => setOwner(userId), [userId]);
   return useSyncExternalStore(
     subscribe,
-    () => likes,
+    () => (owner === userId ? likes : null),
     () => null,
   );
 }
@@ -118,7 +137,7 @@ export function useLikes(): Like[] | null {
  * and a refusal puts it back.
  */
 export async function toggleLike(track: PlaylistTrack, on: boolean): Promise<void> {
-  const before = likes;
+  const previous = likes?.find((l) => l.uri === track.uri);
   likes = on
     ? [{ ...track, likedAt: new Date().toISOString() }, ...(likes ?? []).filter((l) => l.uri !== track.uri)]
     : (likes ?? []).filter((l) => l.uri !== track.uri);
@@ -128,8 +147,10 @@ export async function toggleLike(track: PlaylistTrack, on: boolean): Promise<voi
       ? apiSend("PUT", "/api/library/likes", track)
       : apiSend("DELETE", `/api/library/likes?uri=${encodeURIComponent(track.uri)}`),
   );
-  if (!res?.ok) {
-    likes = before;
+  if (!res?.ok && likes) {
+    // Undo only this track: other hearts toggled meanwhile keep their change.
+    const rest = likes.filter((l) => l.uri !== track.uri);
+    likes = !on && previous ? [previous, ...rest].sort((a, b) => b.likedAt.localeCompare(a.likedAt)) : rest;
     emit();
   }
 }
