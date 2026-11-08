@@ -60,6 +60,25 @@ Bun.serve({
     const url = new URL(req.url);
     const path = url.pathname;
     if (path === "/api/token") return Response.json({ access_token: "e2e", expires_in: 3600 });
+    // Charts (#109): a fake Apple Music RSS. Thailand answers; the US chart is down.
+    if (path.startsWith("/charts/api/v2/th/")) {
+      return Response.json({
+        feed: {
+          title: "Top Songs",
+          updated: "Sun, 8 Nov 2026 11:28:29 +0000",
+          results: [
+            {
+              name: "Lemon",
+              artistName: "Kenshi Yonezu",
+              url: "https://music.apple.com/th/album/1",
+              artworkUrl100: null,
+            },
+            { name: "Idol", artistName: "YOASOBI", url: "https://music.apple.com/th/album/2", artworkUrl100: null },
+          ],
+        },
+      });
+    }
+    if (path.startsWith("/charts/")) return new Response("down", { status: 503 });
     if (path === "/v1/search") {
       return Response.json(
         url.searchParams.get("type") === "track"

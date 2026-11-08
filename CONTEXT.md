@@ -73,6 +73,8 @@ Glossary for the whole repo (single-context). When a term appears in **bold**, u
 
 **Catalog** — the Dashboard's browse side (#105): search in four source modes (Spotify Web API by default, Spotify through Lavalink, YouTube, YouTube Music), a top result, and artist, album and YouTube channel pages. A play from the Catalog goes through the **Select Server** step, which shows per **Guild** whether the user may play and why not; the guild page's Search tab adds straight into that Guild. The Backend asks Lavalink's REST API for tracks (ADR-0009).
 
+**Chart** — a ranked list of songs on the idle guild page (#109): Apple Music "Top Songs" for Thailand and the United States (ADR-0010), refreshed every 3 days. Rank movement is measured against the previous update. When the source is down the last copy is shown marked as such; with none, the Dashboard says the chart cannot load. A chart song plays like a typed `title artist`.
+
 **Hot Cache** — the two-tier read cache: an in-process LRU in the **Backend** in front of Redis. Holds **Player State** snapshots, search results and metadata with the TTLs from the spec. Never authoritative. The **Bot**'s own lookups (autocomplete, YouTube categories, Spotify artists) use a separate in-process cache with the same TTLs, because the Bot runs without the Backend (ADR-0003).
 
 **Bot Avatar** — the per-Guild plush character (`bot-avatars`) whose state mirrors the **Player** (`working` playing · `default` idle · `sleeping` offline). Its outfit is a guild setting.
@@ -164,6 +166,8 @@ Dashboard ──REST/Socket.io──▶ Backend ──Redis pub/sub──▶ Bot
 ## ใช้ข้ามส่วน
 
 **Catalog** — ฝั่งเลือกดูเพลงของ Dashboard (#105): ค้นหาได้สี่แหล่ง (ค่าเริ่มต้นคือ Spotify Web API, Spotify ผ่าน Lavalink, YouTube, YouTube Music) มี top result และมีหน้าศิลปิน หน้าอัลบั้ม และหน้าช่อง YouTube การกดเล่นจาก Catalog ต้องผ่านขั้นตอน **Select Server** ซึ่งบอกว่าผู้ใช้เล่นใน **Guild** ไหนได้บ้าง และถ้าไม่ได้เป็นเพราะอะไร ส่วนแท็บ Search ในหน้า guild เพิ่มเพลงเข้า Guild นั้นได้ทันที Backend ขอรายการเพลงจาก REST API ของ Lavalink (ADR-0009)
+
+**Chart** — รายการเพลงจัดอันดับในหน้า guild ตอนไม่มีอะไรเล่น (#109) ใช้ "Top Songs" ของ Apple Music สำหรับไทยและสหรัฐฯ (ADR-0010) รีเฟรชทุก 3 วัน การขยับอันดับวัดเทียบกับรอบอัปเดตก่อนหน้า ถ้าแหล่งข้อมูลล่มจะแสดง copy ล่าสุดพร้อมบอกว่าเป็นของเก่า ถ้าไม่มีเลย Dashboard จะบอกว่าชาร์ตโหลดไม่ได้ กดเพลงในชาร์ตแล้วเล่นเหมือนพิมพ์ `title artist` เอง
 
 **Hot Cache** — cache สำหรับอ่านสองชั้น ชั้นแรกเป็น LRU ใน process ของ **Backend** ชั้นถัดไปเป็น Redis เก็บ snapshot ของ **Player State**, ผลค้นหา และ metadata ตาม TTL ในสเปก ไม่ใช่แหล่งข้อมูลจริง ส่วนการค้นข้อมูลของ **Bot** เอง (autocomplete, หมวดหมู่ YouTube, ศิลปินใน Spotify) ใช้ cache อีกตัวใน process ของ Bot ซึ่งใช้ TTL เดียวกัน เพราะ Bot ทำงานได้โดยไม่มี Backend (ADR-0003)
 

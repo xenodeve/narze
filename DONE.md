@@ -6,6 +6,34 @@
 
 ---
 
+## #109 Charts on the idle guild page (2026-11-08, branch `feat/109-charts`)
+
+**Goal:** a real chart to start from when nothing plays, honest when its source is down (spec #53, #72, #117).
+
+**Shipped:**
+- **Provider (ADR-0010):** Apple Music's public RSS "Top Songs" for Thailand and the US, verified live before any code (the request is on #109). v5's RapidAPI Billboard was suspended.
+- **Shared:** `ChartSchema`, `rankMovement()` (against the previous update, by `trackKey`), `CHART_SHOWN`, `RedisKeys.chart()`.
+- **Backend:** `ChartService` and `GET /api/charts/:region`.
+  - It refreshes every 3 days, through an hourly check and on any due read.
+  - After a failure it serves the last copy marked stale; with no copy, 503. A 15-minute backoff follows a failure.
+  - The 10 songs shown get Spotify enrichment, kept only for a same-title match.
+- **Dashboard:** `ChartPanel` on the idle guild page.
+  - Thailand and US tabs, top 10, rank movement and artwork.
+  - A song plays on click, by its Spotify link when matched.
+  - A stale copy shows its date, and the panel says when the chart cannot load.
+- **e2e:** runs on Redis database 1, so nothing an e2e run writes reaches a dev Backend.
+
+**Validated:**
+- `bun run verify` exit 0; backend charts 7/7, shared charts 4/4.
+- `bun run e2e` 33/33, including `e2e/charts.spec.ts` 2/2:
+  - the chart renders and a song plays;
+  - the US chart, which is down, says so;
+  - a stale copy shows its date.
+- Red first: the features and the review fixes (backoff, match rule, rank positions, duplicate songs).
+- Screenshots at 1280 and 390 px.
+
+**Not done here:** shared Row CSS with top-played (#128). Real Apple, Spotify and Discord are untested end to end (#121).
+
 ## #108 Listening Sessions and Play History (2026-11-08, branch `feat/108-sessions-history`)
 
 **Goal:** a record of who listened to what with the Bot, visible only to the people who were there, and the most-played lists to start from when nothing plays.

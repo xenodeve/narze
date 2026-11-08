@@ -7,6 +7,8 @@ import { IoAdapter } from "@nestjs/platform-socket.io";
 import { createClient } from "@supabase/supabase-js";
 import Redis from "ioredis";
 import { Authenticator } from "./auth/authenticator";
+import { ChartService } from "./charts/chart-service";
+import { ChartsController } from "./charts/charts.controller";
 import { CommandRelay } from "./control/command-relay";
 import { DiscordApi } from "./discord/discord-api";
 import { GuildDirectory } from "./guilds/guild-directory";
@@ -44,6 +46,8 @@ export interface AppOptions {
   /** Spotify Web API client credentials for the catalog (env only). */
   spotify?: { clientId?: string; clientSecret?: string; apiUrl?: string; accountsUrl?: string };
   youtubeApiKey?: string;
+  /** Apple Music's RSS for charts (ADR-0010); the real one unless a test points elsewhere. */
+  chartsUrl?: string;
 }
 
 /** Applies the Dashboard origin to every Socket.io server, so CORS lives in one place. */
@@ -85,6 +89,7 @@ class AppModule implements OnApplicationShutdown {
         SettingsController,
         LibraryController,
         HistoryController,
+        ChartsController,
       ],
       providers: [
         { provide: REDIS, useFactory: () => new Redis(options.redisUrl) },
@@ -106,6 +111,12 @@ class AppModule implements OnApplicationShutdown {
               spotify: createSpotifyApi(options.spotify ?? {}),
               youtube: createYouTubeChannels({ apiKey: options.youtubeApiKey }),
             }),
+        },
+        {
+          provide: ChartService,
+          inject: [REDIS],
+          useFactory: (redis: Redis) =>
+            new ChartService({ redis, chartsUrl: options.chartsUrl, spotify: createSpotifyApi(options.spotify ?? {}) }),
         },
         Authenticator,
         DiscordApi,

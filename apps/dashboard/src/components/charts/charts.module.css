@@ -1,0 +1,115 @@
+.panel {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  margin-top: 8px;
+  text-align: left;
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.heading {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+/* Row (DESIGN.md): hairline-ruled rows. */
+.rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--line);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 2ch 3ch 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+  border-bottom: 1px solid var(--line);
+}
+
+.rank {
+  color: var(--ink-2);
+  font-size: 0.8125rem;
+  text-align: right;
+}
+
+.move {
+  color: var(--ink-3);
+  font-size: 0.6875rem;
+  text-align: center;
+}
+
+.move[data-move="up"] {
+  color: var(--ok);
+}
+
+.move[data-move="down"] {
+  color: var(--danger);
+}
+
+/* Accent is only for live state and focus (DESIGN.md rule 2): a new entry is plain ink. */
+.move[data-move="new"] {
+  color: var(--ink);
+}
+
+.art {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r1, 6px);
+  background: var(--fill);
+  object-fit: cover;
+}
+
+.text {
+  display: grid;
+  min-width: 0;
+}
+
+.title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 0.8125rem;
+}
+
+.source {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: 0.6875rem;
+}
+
+/* Button (DESIGN.md): icon = 36 circle. */
+.play {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .play:hover {
+    background: var(--fill);
+    color: var(--ink);
+  }
+}
