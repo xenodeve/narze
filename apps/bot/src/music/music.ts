@@ -50,6 +50,8 @@ const REVISION = "narze.revision";
 const TEXT_CHANNEL = "narze.textChannelId";
 const ADDED_AT = "addedAt";
 const LAST_SEEK = "narze.lastSeekAt";
+/** 24/7 (spec #10, #27): the Player stays in voice as an Idle Player when the queue ends. */
+const TWENTY_FOUR_SEVEN = "narze.twentyFourSeven";
 
 /**
  * Publishing is best-effort: playback must go on when Redis is down (ADR-0003), and lavalink-client
@@ -89,6 +91,8 @@ export function createMusic({
 }: MusicOptions) {
   const sourceManagers = () => lavalink.nodeManager.leastUsedNodes()[0]?.info?.sourceManagers ?? [];
 
+  const is247 = (player: Player) => player.get<boolean | undefined>(TWENTY_FOUR_SEVEN) === true;
+
   /** Every queue mutation bumps the Queue Revision (ADR-0007). */
   const bump = (player: Player) => player.set(REVISION, (player.get<number | undefined>(REVISION) ?? 0) + 1);
 
@@ -114,7 +118,7 @@ export function createMusic({
       },
       {
         revision: player.get<number | undefined>(REVISION) ?? 0,
-        twentyFourSeven: false,
+        twentyFourSeven: is247(player),
         now: now(),
         epoch,
         lastSeekAt: player.get<number | undefined>(LAST_SEEK) ?? null,
@@ -202,7 +206,11 @@ export function createMusic({
   lavalink.on("trackStart", (player, track) => {
     onTrackStart(player, track as LavalinkTrack | null).catch(warn("track start"));
   });
-  lavalink.on("queueEnd", (player) => void publish(player));
+  // Spec #27: the queue ended. Without 24/7 the Bot leaves; with it the Player stays as an Idle Player.
+  lavalink.on("queueEnd", (player) => {
+    const ended = is247(player) ? commit(player) : player.destroy().then(() => {});
+    ended.catch(warn("queue end"));
+  });
   lavalink.on("playerDestroy", (player) => {
     publisher.gone(player.guildId).catch(warn("publish player gone"));
   });
@@ -376,7 +384,9 @@ export function createMusic({
       const player = existing(guildId);
       if (!player?.queue.current) return null;
       if (player.queue.tracks.length === 0) {
-        await player.destroy();
+        // Stopping the last track ends the queue; the queue end decides between leaving and Idle.
+        if (is247(player)) await player.stopPlaying(false, false);
+        else await player.destroy();
         return { kind: "ended" };
       }
       player.set(FLAGS, { ...flagsOf(player), skip: true });
@@ -391,6 +401,16 @@ export function createMusic({
       player.set(LAST_SEEK, now());
       await publish(player);
       return true;
+    },
+
+    /** Sets 24/7, or toggles it when `on` is omitted; null when there is no Player (spec #10). */
+    async setTwentyFourSeven(guildId: string, on?: boolean): Promise<boolean | null> {
+      const player = existing(guildId);
+      if (!player) return null;
+      const next = on ?? !is247(player);
+      player.set(TWENTY_FOUR_SEVEN, next);
+      await publish(player);
+      return next;
     },
 
     async setVolume(guildId: string, volume: number): Promise<boolean> {
@@ -430,6 +450,7 @@ export function createMusic({
         volume: player.volume,
         positionMs: player.position,
         loop: player.repeatMode,
+        twentyFourSeven: is247(player),
         queue: (player.queue.tracks as LavalinkTrack[]).map(toTrack).filter((t): t is Track => t !== null),
       };
     },

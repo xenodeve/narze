@@ -105,3 +105,13 @@ test("progress runs forward from the published position while playing", async ({
   await expect(elapsed).toHaveText(/^1:0[1-3]$/);
   await expect(elapsed).toHaveText(/^1:0[3-6]$/, { timeout: 4000 });
 });
+
+test("an Idle Player with 24/7 shows as waiting in voice, not as no Player (#103)", async ({ page }) => {
+  await signInThroughPopup(page, "Frank");
+  await page.goto(`/guilds/${GUILD}`);
+  await botPublishes(state("Last Song"));
+  await expect(page.getByTestId("now-title")).toHaveText("Last Song");
+  await botPublishes(state("", { current: null, twentyFourSeven: true, positionMs: 0 }));
+  await expect(page.getByRole("heading", { name: "ยังไม่มีเพลงเล่นอยู่" })).toBeVisible();
+  await expect(page.getByTestId("idle-247")).toHaveText("24/7 · บอทรออยู่ในห้องเสียง");
+});

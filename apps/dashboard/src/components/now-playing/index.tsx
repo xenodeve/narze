@@ -108,6 +108,12 @@ function Stage({ guildId, state, permission }: { guildId: string; state: PlayerS
           </>
         ) : (
           <div className={styles.idle}>
+            {/* An Idle Player (spec #27): the queue ended and 24/7 keeps the Bot in voice. */}
+            {state.twentyFourSeven && state.voiceChannelId ? (
+              <p className={styles.label} data-testid="idle-247">
+                24/7 · บอทรออยู่ในห้องเสียง
+              </p>
+            ) : null}
             <h1 id="now-title" className={styles.title}>
               ยังไม่มีเพลงเล่นอยู่
             </h1>

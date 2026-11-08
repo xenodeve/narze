@@ -355,3 +355,55 @@ describe("queue editing on the engine (#102)", () => {
     expect(notices.filter((n) => n.notice.description?.includes("Pretender"))).toHaveLength(0);
   });
 });
+
+describe("queue end and 24/7 (#103, spec #10, #27)", () => {
+  test("with 24/7 off, the queue ending leaves voice and the Player is gone", async () => {
+    await play("lemon");
+    await eventually(stored, (s) => s?.current?.title === "Lemon");
+    fake.finishTrack(GUILD);
+    expect(
+      await eventually(
+        () => lavalink.getPlayer(GUILD),
+        (p) => !p,
+      ),
+    ).toBeFalsy();
+    expect(await eventually(stored, (s) => s === null)).toBeNull();
+  });
+
+  test("with 24/7 on, the queue ending keeps an Idle Player that still shows on the Dashboard", async () => {
+    await play("lemon");
+    expect(await music.setTwentyFourSeven(GUILD)).toBe(true);
+    expect((await eventually(stored, (s) => s?.twentyFourSeven === true))?.twentyFourSeven).toBe(true);
+    fake.finishTrack(GUILD);
+    const idle = await eventually(stored, (s) => s?.current === null);
+    expect(idle).toMatchObject({ current: null, queue: [], twentyFourSeven: true, voiceChannelId: VOICE });
+    expect(lavalink.getPlayer(GUILD)).toBeTruthy();
+    expect(music.status(GUILD)).toMatchObject({ current: null, twentyFourSeven: true });
+  });
+
+  test("/skip on the last track leaves unless 24/7 is on (spec #10)", async () => {
+    await play("lemon");
+    expect(await music.skip(GUILD)).toEqual({ kind: "ended" });
+    expect(
+      await eventually(
+        () => lavalink.getPlayer(GUILD),
+        (p) => !p,
+      ),
+    ).toBeFalsy();
+
+    await play("idol");
+    await music.setTwentyFourSeven(GUILD);
+    expect(await music.skip(GUILD)).toEqual({ kind: "ended" });
+    expect(await eventually(stored, (s) => s?.current === null)).toMatchObject({ twentyFourSeven: true });
+    expect(lavalink.getPlayer(GUILD)).toBeTruthy();
+  });
+
+  test("a track played on an Idle Player starts it again", async () => {
+    await play("lemon");
+    await music.setTwentyFourSeven(GUILD);
+    fake.finishTrack(GUILD);
+    await eventually(stored, (s) => s?.current === null);
+    expect(await play("idol")).toMatchObject({ kind: "started" });
+    expect((await eventually(stored, (s) => s?.current?.title === "Idol"))?.current?.title).toBe("Idol");
+  });
+});
