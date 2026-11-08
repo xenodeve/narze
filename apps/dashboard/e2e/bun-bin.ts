@@ -1,5 +1,6 @@
 /**
- * How to invoke Bun from Playwright. `bun run` sets npm_execpath to Bun's absolute path, which
- * also works on Windows where a POSIX-style path cannot be spawned. BUN_BIN overrides both.
+ * How to invoke Bun from Playwright: one definition, shared with the Supabase helper. `bun run`
+ * sets npm_execpath to Bun's absolute path, which also works on Windows where a POSIX-style path
+ * cannot be spawned. BUN_BIN overrides it.
  */
-export const BUN = process.env.BUN_BIN ?? process.env.npm_execpath ?? "bun";
+export { BUN } from "@narze/fake-discord/supabase-local";

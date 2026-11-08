@@ -3,7 +3,7 @@ import { Inject, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common"
 import { type OnGatewayConnection, WebSocketGateway, WebSocketServer } from "@nestjs/websockets";
 import type Redis from "ioredis";
 import type { Server, Socket } from "socket.io";
-import { REDIS_SUBSCRIBER } from "../redis.tokens";
+import { REDIS_SUBSCRIBER } from "../tokens";
 import { BotStatusTracker } from "./bot-status.tracker";
 
 /** Margin past expiry before re-checking, so the TTL comparison has certainly lapsed. */
@@ -34,9 +34,8 @@ export class StatusGateway implements OnGatewayConnection, OnModuleInit, OnModul
     client.emit(SocketEvents.botStatus, this.tracker.snapshot());
   }
 
-  async onModuleDestroy(): Promise<void> {
+  onModuleDestroy(): void {
     clearTimeout(this.expiryTimer);
-    await this.subscriber.quit();
   }
 
   /** One timer per heartbeat instead of a forever-running interval: wakes only when a Bot can go silent. */

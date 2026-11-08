@@ -31,12 +31,6 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 20                   # a hung browser must not pin a runner
-    services:
-      redis:
-        image: redis:7.4-alpine
-        ports: ["6379:6379"]
-        options: >-
-          --health-cmd "redis-cli ping" --health-interval 2s --health-timeout 2s --health-retries 15
     env:
       REDIS_URL: redis://127.0.0.1:6379
     steps:
@@ -45,6 +39,9 @@ jobs:
         with:
           bun-version-file: package.json # packageManager pins Bun in one place
       - run: bun install --frozen-lockfile
+      # Redis + Supabase local (Auth with the fake Discord) — same command as on a laptop (ADR-0005).
+      # Unverified on Actions while #116 lasts: Supabase Auth must reach host.docker.internal on Linux.
+      - run: bun run infra:up
       - run: bunx playwright install --with-deps chromium
         working-directory: apps/dashboard
       - run: bun run e2e                  # xenodeve/narze end-to-end suite (apps/dashboard Playwright)

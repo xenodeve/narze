@@ -40,7 +40,8 @@ After shipping a unit: add a dated entry on top of `DONE.md`, update the ledger 
 apps/bot          Bot — discord.js + lavalink-client music engine
 apps/backend      Backend — NestJS + Socket.io
 apps/dashboard    Dashboard — Next.js
-packages/shared   shared types / contracts                   (planned)
+packages/shared   shared types / contracts (zod)
+packages/fake-*   fake Lavalink and fake Discord for tests
 docs/adr/         architecture decisions (index: README.md)
 docs/agents/      workflow, tracker, labels, domain-doc rules
 docs/reports/     post-mortems, impact register, bug catalog, survey manifest
@@ -50,7 +51,7 @@ Obsidian-Narze/   team memory vault
 CONTEXT.md · PRODUCT.md · DESIGN.md   glossary · product brief · Strata-xeno design system
 ```
 
-Infra: Supabase (Postgres + Auth) is the source of truth; Redis is cache + pub/sub IPC between Bot and Backend (see CONTEXT.md).
+Infra: Supabase (Postgres + Auth, `supabase/`) is the source of truth; Redis is cache + pub/sub IPC between Bot and Backend (see CONTEXT.md).
 
 ## Commands
 
@@ -66,7 +67,7 @@ use the quoted absolute paths `"C:\Users\xenod\.bun\bin\bun.exe"` and `"C:\Progr
 | `bun run e2e` | Playwright end-to-end (in CI normally; run by the T4 gate during no-CI mode, #116) |
 | `git config core.hooksPath .githooks` | enable the pre-push guards — once per clone |
 
-Infra for local work: `docker compose up -d --wait redis` (tests and e2e), `docker compose --profile audio up -d lavalink` (real audio), `bunx supabase@3 start` (Supabase local, config in `supabase/`).
+Infra for local work: **`bun run infra:up`** starts Redis and Supabase local (Auth + REST + Postgres) and applies migrations — `verify` and `e2e` need both. Sign-in uses the fake Discord unless real credentials are in your shell (`supabase/README.md`, ADR-0005). Real audio: `docker compose --profile audio up -d lavalink`.
 
 ## Coding guidelines
 
@@ -120,13 +121,12 @@ GitHub Actions cannot start any job (account billing lock), so **no check ever r
 
 - **A merged PR means "the author ran verify", not "CI passed".** Nothing in the merge distinguishes the two.
 - The T4 gate's `verify` (`.claude/t4.json`) is the **full** suite — `bun install --frozen-lockfile`,
-  `bun run verify`, `bun run e2e` — and the gate already runs it in a fresh `git worktree` of the PR head
+  `bun run infra:up` (starts or reuses Redis + Supabase local, applies migrations), `bun run verify`, `bun run e2e` — and the gate already runs it in a fresh `git worktree` of the PR head
   (`.claude/hooks/t4-gate:173`), which stands in for CI's clean machine.
 - `code-review` and `scrutinize` run on every PR before merge and are recorded in `T4-Gates:`. This is
   discipline, not a mechanical block: `check-gate-ledger` refuses silence but accepts `not-run`.
 - **Unverified while this lasts:** `t4-codeql` (CodeQL has no local equivalent here).
-- The gate's `e2e` needs the local Redis (`docker compose up -d --wait redis`); with Docker stopped the
-  gate denies the merge (fails closed). Playwright never reuses a running server, so a stale dev server
+- The gate starts Redis and Supabase itself (`infra:up`); with Docker stopped it denies the merge (fails closed). Playwright never reuses a running server, so a stale dev server
   cannot make old code pass.
 - `requireGreenCI` stays `false` (with no checks it would deny every merge).
 - **Ceiling:** none of this binds a human merging on the GitHub web UI.

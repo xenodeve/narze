@@ -1,5 +1,6 @@
 import { DEFAULT_REDIS_URL } from "@narze/shared";
-import { Client, GatewayIntentBits } from "discord.js";
+import { Client, GatewayIntentBits, type Guild } from "discord.js";
+import { createGuildRegistry, type GuildVoiceSnapshot } from "./guild-registry";
 import { startHeartbeat } from "./heartbeat";
 import { createLavalink } from "./lavalink";
 import { detectRuntimeMode } from "./runtime-mode";
@@ -23,9 +24,27 @@ lavalink.nodeManager.on("connect", (node) => console.log(`[bot] lavalink node ${
 lavalink.nodeManager.on("error", (node, error) => console.warn(`[bot] lavalink node ${node.id}: ${error.message}`));
 
 client.on("raw", (packet) => lavalink.sendRawData(packet));
+
+const registry = redis ? createGuildRegistry(redis) : null;
+const voiceSnapshotOf = (guild: Guild): GuildVoiceSnapshot => ({
+  id: guild.id,
+  voice: guild.voiceStates.cache
+    .filter((v) => v.channelId)
+    .map((v) => [v.id, v.channelId as string] as [string, string]),
+});
+const logFailure = (what: string) => (error: Error) => console.warn(`[bot] ${what}: ${error.message}`);
+
 client.once("clientReady", async (ready) => {
   console.log(`[bot] logged in as ${ready.user.tag}`);
   await lavalink.init({ id: ready.user.id, username: ready.user.username });
+  await registry?.replace(ready.guilds.cache.map(voiceSnapshotOf)).catch(logFailure("guild registry"));
+});
+client.on("guildCreate", (guild) => void registry?.add(voiceSnapshotOf(guild)).catch(logFailure("guild registry")));
+client.on("guildDelete", (guild) => void registry?.remove(guild.id).catch(logFailure("guild registry")));
+client.on("voiceStateUpdate", (old, state) => {
+  // Mute, deafen and stream toggles fire this too; only a channel change matters here.
+  if (old.channelId === state.channelId) return;
+  void registry?.voice(state.guild.id, state.id, state.channelId).catch(logFailure("voice registry"));
 });
 
 const stopHeartbeat = redis

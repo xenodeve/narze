@@ -1,5 +1,8 @@
 # Local development and test infrastructure for Narze v7.
-# Supabase local runs separately via the Supabase CLI (`bunx supabase start`).
+# Supabase local runs separately via the Supabase CLI (`bun run infra:up` starts both).
+# A fixed project name: the T4 gate runs `infra:up` from a worktree with another folder name, and
+# must reuse this Redis instead of starting a second one on the same port.
+name: narze
 services:
   redis:
     image: redis:7.4-alpine

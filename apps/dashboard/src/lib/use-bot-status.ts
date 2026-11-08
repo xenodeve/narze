@@ -3,7 +3,7 @@
 import type { BotStatusPayload } from "@narze/shared";
 import { SocketEvents } from "@narze/shared/channels";
 import { useEffect, useState } from "react";
-import { getSocket } from "./socket";
+import { isRehandshake, onSocketEvents } from "./socket";
 
 export type BotStatusView = BotStatusPayload | { status: "connecting"; heartbeat: null };
 
@@ -20,27 +20,19 @@ function isBotStatusPayload(value: unknown): value is BotStatusPayload {
 export function useBotStatus(): BotStatusView {
   const [view, setView] = useState<BotStatusView>({ status: "connecting", heartbeat: null });
 
-  useEffect(() => {
-    let cancelled = false;
-    let detach = () => {};
-    const onStatus = (payload: unknown) => {
-      if (isBotStatusPayload(payload)) setView(payload);
-    };
-    const onDisconnect = () => setView({ status: "offline", heartbeat: null });
-    void getSocket().then((socket) => {
-      if (cancelled) return;
-      socket.on(SocketEvents.botStatus, onStatus);
-      socket.on("disconnect", onDisconnect);
-      detach = () => {
-        socket.off(SocketEvents.botStatus, onStatus);
-        socket.off("disconnect", onDisconnect);
-      };
-    });
-    return () => {
-      cancelled = true;
-      detach();
-    };
-  }, []);
+  useEffect(
+    () =>
+      onSocketEvents({
+        [SocketEvents.botStatus]: (payload: unknown) => {
+          if (isBotStatusPayload(payload)) setView(payload);
+        },
+        // The Backend sends the status again on every connect, so a re-handshake needs no offline flash.
+        disconnect: (reason: string) => {
+          if (!isRehandshake(reason)) setView({ status: "offline", heartbeat: null });
+        },
+      }),
+    [],
+  );
 
   return view;
 }

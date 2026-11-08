@@ -13,6 +13,7 @@
 ## reference — pointers to external resources (URLs, dashboards, tickets)
 - [[note-format]] — the frontmatter + body format every note in this vault follows
 - [[bun-tsconfig-follows-cwd]] — Bun reads tsconfig from the cwd; start the NestJS Backend from apps/backend
+- [[supabase-auth-fake-discord]] — real Supabase Auth + fake Discord in tests: discriminator, host.docker.internal, restart to switch, forged state
 
 ## user — who the developer is (role, preferences)
 - (none yet)

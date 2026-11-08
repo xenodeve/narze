@@ -12,7 +12,8 @@
     "typecheck": "bun run --filter '*' typecheck",
     "test": "bun run --filter '*' test",
     "build": "bun run --filter '@narze/dashboard' build",
-    "e2e": "bun run --filter '@narze/dashboard' e2e"
+    "e2e": "bun run --filter '@narze/dashboard' e2e",
+    "infra:up": "bun scripts/infra-up.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.6",

@@ -60,12 +60,6 @@ jobs:
     runs-on: ubuntu-latest
     # Bot and Backend contract tests talk to a real Redis (seam 2 in PRD #97).
     # Real secrets never belong to the gate.
-    services:
-      redis:
-        image: redis:7.4-alpine
-        ports: ["6379:6379"]
-        options: >-
-          --health-cmd "redis-cli ping" --health-interval 2s --health-timeout 2s --health-retries 15
     env:
       REDIS_URL: redis://127.0.0.1:6379
     steps:
@@ -74,6 +68,9 @@ jobs:
         with:
           bun-version-file: package.json # packageManager pins Bun in one place
       - run: bun install --frozen-lockfile
+      # Redis + Supabase local (Auth with the fake Discord) — same command as on a laptop (ADR-0005).
+      # Unverified on Actions while #116 lasts: Supabase Auth must reach host.docker.internal on Linux.
+      - run: bun run infra:up
       - run: bun run test
 
   build:
