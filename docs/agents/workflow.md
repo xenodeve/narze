@@ -57,6 +57,9 @@ T4-Gates: simplify=ran code-review=ran scrutinize=not-run security-review=n-a ve
 - **E2E:** `bun run e2e` (Playwright, `apps/dashboard`) — runs in `.github/workflows/t4-e2e.yml`, never in
   `"verify"`. Every frontend change is verified end-to-end; add a case for each new page or
   interactive UI. Unit tests cannot see real layout, hydration, or Socket.io sync.
+- **Exception — no-CI mode (#116):** while GitHub Actions cannot start jobs, `.claude/t4.json` `"verify"` is
+  the full suite (`bun install --frozen-lockfile && bun run verify && bun run e2e`) and the two rules above
+  are suspended. Restore them when #116 closes. Details: `AGENTS.md` → "No-CI mode".
 - Bot behaviour that needs Discord / Lavalink is verified against a real test guild and stated
   honestly ("not run: <X>") when it could not be.
 

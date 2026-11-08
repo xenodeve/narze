@@ -19,14 +19,18 @@ export default defineConfig({
       cwd: "../backend",
       port: BACKEND_PORT,
       env: { BACKEND_PORT: String(BACKEND_PORT), DASHBOARD_ORIGIN: `http://localhost:${DASHBOARD_PORT}` },
-      reuseExistingServer: !process.env.CI,
+      // Never reuse: in no-CI mode the T4 gate runs e2e locally, and a stale server on this port
+      // would test old code (#116).
+      reuseExistingServer: false,
     },
     {
       command: `${BUN} run build && ${BUN} run start -- -p ${DASHBOARD_PORT}`,
       port: DASHBOARD_PORT,
       env: { NEXT_PUBLIC_BACKEND_URL: `http://localhost:${BACKEND_PORT}` },
       timeout: 240_000,
-      reuseExistingServer: !process.env.CI,
+      // Never reuse: in no-CI mode the T4 gate runs e2e locally, and a stale server on this port
+      // would test old code (#116).
+      reuseExistingServer: false,
     },
   ],
 });
