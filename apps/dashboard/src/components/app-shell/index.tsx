@@ -11,6 +11,8 @@ import styles from "./app-shell.module.css";
 
 const HOME = "home";
 const SEARCH = "search";
+const LIBRARY = "library";
+const ROUTES: Record<string, string> = { [HOME]: "/", [SEARCH]: "/search", [LIBRARY]: "/library" };
 
 function GuildNav({ userId, activeGuildId }: { userId: string; activeGuildId: string }) {
   const router = useRouter();
@@ -24,6 +26,7 @@ function GuildNav({ userId, activeGuildId }: { userId: string; activeGuildId: st
       items={[
         { label: "หน้าแรก", value: HOME },
         { label: "ค้นหา", value: SEARCH },
+        { label: "คลังเพลง", value: LIBRARY },
         {
           label: "เซิร์ฟเวอร์",
           children: guilds.map((g) => ({
@@ -40,9 +43,9 @@ function GuildNav({ userId, activeGuildId }: { userId: string; activeGuildId: st
           })),
         },
       ]}
-      defaultOpen={1}
+      defaultOpen={2}
       defaultActive={activeGuildId}
-      onSelect={(value) => router.push(value === HOME ? "/" : value === SEARCH ? "/search" : `/guilds/${value}`)}
+      onSelect={(value) => router.push(ROUTES[value] ?? `/guilds/${value}`)}
       color="var(--ink-2)"
       accentColor="var(--ink)"
       lineColor="var(--line)"

@@ -9,12 +9,21 @@ import styles from "./browse.module.css";
 import { CardLink, CatalogSearch, SongRow } from "./index";
 import { Thinking } from "./thinking";
 
-/** Browse pages need a signed-in user: the catalog and the play permissions are per user. */
-function SignedIn({ children }: { children: (play: (target: PlayTarget) => void) => ReactNode }) {
+/**
+ * Browse and Library pages need a signed-in user: the catalog, the Library and the play permissions
+ * are per user. Children get `play`, which opens Select Server.
+ */
+export function SignedIn({
+  children,
+  signedOut = "เข้าสู่ระบบด้วย Discord ก่อน แล้วจะค้นหาเพลงได้",
+}: {
+  children: (play: (target: PlayTarget) => void) => ReactNode;
+  signedOut?: string;
+}) {
   const session = useSession();
   const [target, setTarget] = useState<PlayTarget | null>(null);
   if (session.status === "loading") return null;
-  if (session.status === "signed-out") return <p role="status">เข้าสู่ระบบด้วย Discord ก่อน แล้วจะค้นหาเพลงได้</p>;
+  if (session.status === "signed-out") return <p role="status">{signedOut}</p>;
   return (
     <>
       {children(setTarget)}

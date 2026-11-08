@@ -99,7 +99,7 @@
 
 .row {
   display: grid;
-  grid-template-columns: auto 2ch 40px minmax(0, 1fr) auto auto;
+  grid-template-columns: auto 2ch 40px minmax(0, 1fr) auto auto auto;
   align-items: center;
   gap: 10px;
   min-height: 60px;
@@ -253,7 +253,7 @@
 /* Narrow screens: the title gets the room; position numbers and durations step aside. */
 @media (max-width: 520px) {
   .row {
-    grid-template-columns: auto 40px minmax(0, 1fr) auto;
+    grid-template-columns: auto 40px minmax(0, 1fr) auto auto;
     gap: 8px;
   }
 

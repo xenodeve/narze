@@ -41,6 +41,17 @@ await startFakeLavalink({
   catalog: [
     { title: "Lemon", author: "Kenshi Yonezu", uri: "https://music.youtube.com/watch?v=lemon", lengthMs: 255_000 },
   ],
+  // The Library import (#107).
+  playlists: [
+    {
+      name: "E2E Mix",
+      url: "https://www.youtube.com/playlist?list=PLE2E",
+      tracks: [
+        { title: "Lemon", author: "Kenshi Yonezu", uri: "https://music.youtube.com/watch?v=lemon", lengthMs: 255_000 },
+        { title: "Idol", author: "YOASOBI", uri: "https://music.youtube.com/watch?v=idol", lengthMs: 213_000 },
+      ],
+    },
+  ],
 });
 
 Bun.serve({

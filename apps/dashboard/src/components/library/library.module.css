@@ -1,0 +1,296 @@
+.page {
+  display: grid;
+  gap: 20px;
+  max-width: 960px;
+  min-width: 0;
+}
+
+.head,
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.head {
+  justify-content: space-between;
+}
+
+.detailHead {
+  display: grid;
+  gap: 12px;
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  font-weight: 600;
+  /* DESIGN.md rule 4: Thai at zero tracking (these titles are Thai or user-named). */
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.card {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.cover {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  border-radius: var(--r2);
+  background: color-mix(in srgb, var(--ink) 10%, var(--bg));
+  color: var(--ink-2);
+  font-size: 2rem;
+  object-fit: cover;
+}
+
+.liked {
+  background: color-mix(in srgb, var(--danger) 18%, var(--bg));
+  color: var(--danger);
+}
+
+.name,
+.trackTitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 0.8125rem;
+}
+
+/* Row (DESIGN.md): hairline-ruled rows. */
+.tracks {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--line);
+}
+
+.track {
+  display: grid;
+  grid-template-columns: 2ch minmax(0, 1fr) auto auto auto auto auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+  border-bottom: 1px solid var(--line);
+}
+
+.index {
+  color: var(--ink-3);
+  font-size: 0.8125rem;
+  text-align: right;
+}
+
+.text {
+  display: grid;
+  min-width: 0;
+}
+
+.icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .icon:hover {
+    background: var(--fill);
+    color: var(--ink);
+  }
+}
+
+.primary,
+.ghost,
+.danger {
+  height: 36px;
+  padding: 0 16px;
+  border-radius: var(--r-pill);
+  font: inherit;
+  cursor: pointer;
+}
+
+.primary {
+  border: 0;
+  background: var(--accent);
+  color: #fff;
+}
+
+.primary:disabled,
+.ghost:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.ghost {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-2);
+}
+
+.danger {
+  border: 1px solid var(--danger);
+  background: transparent;
+  color: var(--danger);
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+  color: var(--ink-2);
+  font-size: 0.8125rem;
+}
+
+/* Field (DESIGN.md): 48px pill input. */
+.input {
+  height: 48px;
+  padding: 0 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 1rem;
+}
+
+@media (hover: hover) {
+  .input:hover {
+    border-color: var(--ink-3);
+  }
+}
+
+.dialog {
+  width: min(520px, calc(100vw - 32px));
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-window);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-window);
+}
+
+.dialog[open] {
+  animation: enter 200ms var(--ease) both;
+}
+
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+.dialog::backdrop {
+  background: rgb(0 0 0 / 0.45);
+}
+
+.dialogTitle {
+  margin: 0 0 16px;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.dialog .field,
+.preview {
+  margin-bottom: 12px;
+}
+
+.preview {
+  display: grid;
+  gap: 10px;
+}
+
+.previewHead {
+  margin: 0;
+}
+
+.previewList {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--ink-2);
+  font-size: 0.875rem;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.error {
+  margin: 0;
+  color: var(--danger);
+}
+
+/* Toast (DESIGN.md): surface, r2, menu shadow, 240 ms y 8. */
+.toast {
+  justify-self: start;
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: var(--r2);
+  background: var(--surface);
+  box-shadow: var(--shadow-menu);
+  color: var(--ink);
+  animation: toast 240ms var(--ease) both;
+}
+
+@keyframes toast {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+.move {
+  display: inline-flex;
+}
+
+.icon:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+@media (max-width: 520px) {
+  .track {
+    grid-template-columns: minmax(0, 1fr) auto auto auto auto;
+  }
+
+  .index,
+  .track > .meta {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dialog[open],
+  .toast {
+    animation: none;
+  }
+}

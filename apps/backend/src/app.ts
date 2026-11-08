@@ -2,6 +2,7 @@ import "reflect-metadata";
 import { createSpotifyApi } from "@narze/shared/spotify-api";
 import { type DynamicModule, type INestApplication, Inject, Module, type OnApplicationShutdown } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
+import type { NestExpressApplication } from "@nestjs/platform-express";
 import { IoAdapter } from "@nestjs/platform-socket.io";
 import { createClient } from "@supabase/supabase-js";
 import Redis from "ioredis";
@@ -9,6 +10,9 @@ import { Authenticator } from "./auth/authenticator";
 import { CommandRelay } from "./control/command-relay";
 import { DiscordApi } from "./discord/discord-api";
 import { GuildDirectory } from "./guilds/guild-directory";
+import { IMPORTER, LibraryController } from "./library/library.controller";
+import { createImporter } from "./library/library-importer";
+import { LibraryStore } from "./library/library-store";
 import { MeController } from "./me/me.controller";
 import { PlayerController } from "./player/player.controller";
 import { PlayerCache } from "./player/player-cache";
@@ -72,7 +76,7 @@ class AppModule implements OnApplicationShutdown {
   static forRoot(options: AppOptions): DynamicModule {
     return {
       module: AppModule,
-      controllers: [MeController, PlayerController, SearchController, SettingsController],
+      controllers: [MeController, PlayerController, SearchController, SettingsController, LibraryController],
       providers: [
         { provide: REDIS, useFactory: () => new Redis(options.redisUrl) },
         { provide: REDIS_SUBSCRIBER, useFactory: () => new Redis(options.redisUrl) },
@@ -98,6 +102,15 @@ class AppModule implements OnApplicationShutdown {
         DiscordApi,
         UserStore,
         SettingsStore,
+        LibraryStore,
+        {
+          provide: IMPORTER,
+          useFactory: () =>
+            createImporter({
+              loadTracks: createLavalinkRest({ url: options.lavalink?.url, password: options.lavalink?.password }),
+              spotify: createSpotifyApi(options.spotify ?? {}),
+            }),
+        },
         GuildDirectory,
         Presence,
         PlayerCache,
@@ -110,7 +123,11 @@ class AppModule implements OnApplicationShutdown {
 }
 
 export async function createApp(options: AppOptions): Promise<INestApplication> {
-  const app = await NestFactory.create(AppModule.forRoot(options), { logger: ["error", "warn"] });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule.forRoot(options), {
+    logger: ["error", "warn"],
+  });
+  // A 5000-track playlist (the Library's limit) is about 1.5 MB of JSON; express allows 100 KB.
+  app.useBodyParser("json", { limit: "4mb" });
   app.enableCors({ origin: options.dashboardOrigin });
   app.useWebSocketAdapter(new CorsIoAdapter(app, options.dashboardOrigin));
   app.enableShutdownHooks();

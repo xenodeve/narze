@@ -10,3 +10,15 @@ export function apiGet(path: string, signal?: AbortSignal): Promise<Response> {
     signal,
   });
 }
+
+/** POST / PUT / DELETE to the Backend as the signed-in user, with a JSON body when given. */
+export function apiSend(method: "POST" | "PUT" | "DELETE", path: string, body?: unknown): Promise<Response> {
+  return fetch(`${BACKEND_URL}${path}`, {
+    method,
+    headers: {
+      authorization: `Bearer ${currentAccessToken() ?? ""}`,
+      ...(body === undefined ? {} : { "content-type": "application/json" }),
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+}

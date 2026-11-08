@@ -42,6 +42,8 @@ interface SessionData {
 }
 
 const guildRoom = (guildId: string) => `guild:${guildId}`;
+/** One room per signed-in user: their Library changes reach their other tabs (#107). */
+const userRoom = (discordId: string) => `user:${discordId}`;
 
 /**
  * Nest calls socket handlers without awaiting them, and on Bun an unhandled rejection exits the
@@ -122,7 +124,7 @@ export class UserGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     data.guilds = new Map(guilds.map((g) => [g.id, g]));
     // Queue the open before any await, so a disconnect from here on queues its close after it.
     const opened = this.presence.open(identity.discordId);
-    await client.join(guilds.map((g) => guildRoom(g.id)));
+    await client.join([...guilds.map((g) => guildRoom(g.id)), userRoom(identity.discordId)]);
     await opened;
     client.emit(SocketEvents.sessionReady);
   }
@@ -133,13 +135,18 @@ export class UserGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     if (identity && guilds) await this.presence.close(identity.discordId).catch(report("disconnect"));
   }
 
-  /** One HMGET for every listener's voice channel, then each tab gets its own user's summary. */
+  /** #107: a playlist (or the likes, as LIKED_PLAYLIST) changed; the user's other tabs refetch. */
+  pushLibrary(discordId: string, playlistId: string): void {
+    this.server.to(userRoom(discordId)).emit(SocketEvents.libraryUpdate, { playlistId });
+  }
+
   /** Spec #92: a Guild's settings changed; its open tabs update, and permissions may have moved. */
   pushSettings(guildId: string, settings: GuildSettings): void {
     this.server.to(guildRoom(guildId)).emit(SocketEvents.settingsUpdate, { guildId, settings });
     void this.pushPermissions(guildId).catch(report("push permissions"));
   }
 
+  /** One HMGET for every listener's voice channel, then each tab gets its own user's summary. */
   private async onGuildEvent(message: string): Promise<void> {
     const event = parseJson(GuildEventSchema, message);
     if (!event) return;
