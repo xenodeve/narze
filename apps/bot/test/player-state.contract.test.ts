@@ -71,8 +71,15 @@ describe("Player State from the Lavalink player", () => {
 // Its own Redis database: the sweep test removes every Player State key it can see, and `verify`
 // runs the Backend's tests at the same time on database 0. (Pub/sub is shared across databases;
 // the sweep only announces the keys it found, which here are this file's.)
-const redis = new Redis(process.env.REDIS_URL ?? DEFAULT_REDIS_URL, { db: 15 });
-const subscriber = new Redis(process.env.REDIS_URL ?? DEFAULT_REDIS_URL, { db: 15 });
+// The database goes in the URL: ioredis lets a URL's database win over a `db` option, and the
+// test preload (test/redis-db.ts) puts one in REDIS_URL.
+const ownDb = (() => {
+  const url = new URL(process.env.REDIS_URL ?? DEFAULT_REDIS_URL);
+  url.pathname = "/15";
+  return url.toString();
+})();
+const redis = new Redis(ownDb);
+const subscriber = new Redis(ownDb);
 const keys = [RedisKeys.playerState(GUILD), RedisKeys.playerSummary(GUILD)];
 beforeEach(() => redis.del(...keys));
 afterAll(async () => {

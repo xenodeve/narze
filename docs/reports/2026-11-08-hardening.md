@@ -10,37 +10,56 @@ comes from a run in this session. The command that produces it is written next t
 | Device | Intel Core i5-13500 (20 threads), 48 GB RAM, Windows 11 (10.0.26300) |
 | Browser | Chromium bundled with Playwright 1.65.0, headless, viewport 1280×720 unless stated |
 | Build | Next.js 16.4.5 production build (`next build` + `next start`, React 19.3.1), started by Playwright's web server |
-| Network | localhost: Backend, Supabase local and Redis on this machine. Throttled run: Chrome DevTools fast 4G (40 ms latency, 9 Mb/s down, 1.5 Mb/s up) and 4× CPU slowdown |
+| Network | localhost: Backend, Supabase local and Redis on this machine. Throttled run: a custom network profile through the DevTools protocol (40 ms latency, 9 Mb/s down, 1.5 Mb/s up; not DevTools' Fast 4G preset) and 4× CPU slowdown |
 | Data | A Player in a guild with one track playing (`e2e/perf.spec.ts` seeds Redis) |
 
 ## Player route performance (AC1)
 
-`PERF=1 bun run e2e -- e2e/perf.spec.ts`, three runs. LCP and CLS come from `PerformanceObserver`. INP is the longest event duration over two real clicks: the pause toggle and a tab.
+`PERF=1 bun run e2e -- e2e/perf.spec.ts`, three runs after the review fixes.
+- **LCP and CLS:** from `PerformanceObserver`.
+- **INP:** the longest event duration over two real clicks, the pause toggle and the side panel's Search tab.
+- **Warm cache:** LCP and INP are measured after sign-in in the same context, so the JS is already cached. The network throttle therefore mostly hits the HTML and the API calls.
 
-| Measure | Target | Unthrottled (3 runs) | 4× CPU + fast 4G (3 runs) | Status |
+| Measure | Target | Unthrottled, warm cache (3 runs) | 4× CPU + throttled network, warm cache (3 runs) | Status |
 |---|---|---|---|---|
-| LCP | < 2.5 s | 220 / 224 / 348 ms | 748 / 844 / 892 ms | ✅ |
-| INP | < 200 ms | 56 / 80 / 136 ms | 96 / 120 / 152 ms | ✅, within 50 ms of the target when throttled |
-| CLS | < 0.05 | 0.002 / 0.002 / 0.002 | 0.002 / 0.002 / 0.002 | ✅ |
-| Initial JS, gzip as sent | < 180 KB | **201.1 KB** (10 files, cold cache) | — | ❌ over target |
+| LCP | < 2.5 s | 208 / 256 / 260 ms | 680 / 704 / 884 ms | ✅ |
+| INP (scripted, 2 clicks) | < 200 ms | 56 / 56 / 72 ms | 128 / 136 / 152 ms | ✅, within 50 ms of the target when throttled |
+| CLS | < 0.05 | 0.002 / 0.002 / 0.002 | 0.002 / 0.002 / 0.002 | ✅ (every shift summed, which can only overstate) |
+| Player JS, gzip as sent | < 180 KB | **392.8 KB**: signed in, cold cache (`Network.clearBrowserCache`), 18 files, every `/_next/*.js` until the network is idle | — | ❌ over target |
 
-Caveats:
-- LCP and INP are measured after sign-in in the same browser context, so the shared chunks are already cached. The JS row uses a fresh context with a cold cache.
-- INP varies between runs on this machine (56–136 ms unthrottled). The perf spec is therefore an opt-in measurement run, not part of the e2e gate.
+**Player JS is over target, by more than twice.** An earlier signed-out measurement (201.1 KB) missed the chunks only a signed-in player page loads. Largest files, gzip:
+- about 70 + 43 KB: React DOM and the Next runtime;
+- 62 KB: supabase-js (sign-in and session);
+- 52 + 50 KB: two motion and animation chunks (the supplied canvases and components);
+- 35 KB: zod, through `@narze/shared`;
+- 15 KB: BranchedMenu.
 
-**Initial JS is over target.** The largest files are about 70 KB (React DOM and the Next runtime), 43 KB (the app runtime), and **35 KB of zod**. zod comes in because the Dashboard imports schemas from `@narze/shared`, and any schema used pulls in the whole classic zod build (125 KB raw). Getting under 180 KB needs either the `zod/mini` build in the client-side schemas or lazy validation. That is a cross-package change, filed as #140 (severity: medium, performance).
+The count includes chunks that load lazily before the network goes idle, so it slightly overstates "initial". The fix is a bundle-splitting job across packages: lazy auth, lazy canvases, and a smaller zod on the client. That is #140 (severity: medium, performance).
 
 ## Accessibility (AC2)
 
 `bun run e2e -- e2e/a11y.spec.ts`, in the gate:
 
-- **axe (WCAG 2.0/2.1/2.2 A and AA), light and dark: 0 violations on every route.** The routes checked are `/`, `/search`, `/library`, `/sessions`, `/artist/:id`, `/album/:id`, `/guilds/:id`, `/guilds/:id/settings`, `/admin`, `/admin/logs` and `/admin/settings`. The first run found these, now fixed:
+- **axe (WCAG 2.0/2.1/2.2 A and AA), light and dark: 0 violations on 20 routes with real content and on the signed-out landing page.** The data is seeded: a Player with a queue, an idle guild with its chart, a Listening Session, Play History, a playlist, a like, and admin pages answered by a fake Bot. Each route waits for its own content before axe runs. The first run, on 11 empty routes, missed several problems. The routes are:
+  - `/`, `/search`, `/library`, `/library/liked`, `/library/:id`
+  - `/sessions`, `/sessions/:id`
+  - `/artist/:id`, `/album/:id`
+  - `/guilds/:id` with a Player, `/guilds/:id` idle, `/guilds/:id/settings`
+  - `/admin`, `/admin/logs`, `/admin/settings`
+  - `/admin/guilds`, `/admin/guilds/:id` (with a channel open), `/admin/users`, `/admin/users/:id`, `/admin/sessions/:id`
+
+  Fixed along the way:
   - **Side menu:** the inactive items were 55% of `--ink-2`, under 4.5:1. They now use `--ink-2`.
   - **Primary buttons:** white on `--accent` measured 2.6:1 in dark. They are now ink-filled per DESIGN.md §2 rule 2, and 44 px tall. This covers catalog, browse, library and settings.
   - **Admin role badge:** measured 3.82:1. It now uses `--ink-2`, as does the channel viewer's badge.
+  - **Text in `--ink-3`:** chart rank movement, the chart source, library row numbers, queue meta, and select-server hints measured 2.71:1 (light) and 3.96:1 (dark). They now use `--ink-2`.
+  - **Success text in light `--ok`:** measured 4.04:1. It is now `--ok` mixed 75% with ink.
+  - **Channel viewer mentions:** accent text on an accent tint. Now accent 80% mixed with ink.
+  - **Nested control on the player:** the progress bar was a `progressbar` with the seek slider inside it. A seekable track now exposes only the slider, which follows playback (`aria-valuetext`).
+  - **Queue swipe drawer:** white text on the dark theme's red measured 2.79:1. The supplied SwipeRow picks its text from a hex colour and fell back to white for a CSS variable; it now gets the theme's hex.
   - **Queue "clear" confirm:** white on the dark theme's `--danger` would fail the same check (axe could not reach it with the dialog closed). It now uses paper text.
-- **No horizontal overflow** on any route above at 390, 1024 and 1440 px, in light and dark (66 page loads).
-- **Reduced motion and WebGL off** (`prefers-reduced-motion: reduce` plus `?fx=0`): the player, home and admin pages render completely with no page errors. No WebGL Aurora runs; the flat wash is drawn instead.
+- **No horizontal overflow** on every route above at 390, 1024 and 1440 px, in light and dark (120 page loads, each waiting for its content). The player page was 10px too wide at 1024 px: the side panel and the queue were grids with an implicit column sized to their content. Both now have `grid-template-columns: minmax(0, 1fr)`. The check reads the document's scroll width. It cannot see content clipped inside `overflow: hidden` boxes, and long titles were not tested.
+- **Reduced motion, `?fx=0`, and no WebGL** (three separate cases, the last with `getContext('webgl2')` returning null): the player page renders with its queue, draws the flat wash instead of the Aurora, and throws no page errors.
 - **Keyboard only:**
   - Tab reaches the pause toggle and a queue row's "play now".
   - Both show a focus ring.
@@ -66,7 +85,7 @@ Checked and found safe:
 - **Identity:** it comes only from the Discord identity. The sync rejects a foreign provider token.
 - **Route guards:** every REST controller requires auth or the AdminGuard.
 - **Row scoping:** library and history rows are scoped to their owner or participants.
-- **Supabase:** RLS is on for all 8 tables, `anon` is fully revoked, and every function is `security invoker` with EXECUTE revoked.
+- **Supabase:** RLS is on for all 9 tables, `anon` is fully revoked, and every function is `security invoker` with EXECUTE revoked.
 - **XSS:** the only `dangerouslySetInnerHTML` is a static pre-paint script. Markdown links are http(s) only. `postMessage` is pinned to the page's own origin.
 - **CORS and CSRF:** CORS allows one origin, and bearer tokens mean CSRF does not apply.
 - **Bot commands:** `/setchannel` checks owner or Bot Owner.

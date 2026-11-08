@@ -97,7 +97,7 @@
 }
 
 .index {
-  color: var(--ink-3);
+  color: var(--ink-2);
   font-size: 0.8125rem;
   text-align: right;
 }
@@ -141,6 +141,15 @@
   border: 1px solid var(--ink);
   background: var(--ink);
   color: var(--bg);
+}
+
+.primary:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+/* Ghost buttons are 40px (DESIGN.md Button). */
+.ghost {
+  height: 40px;
 }
 
 .primary:disabled,

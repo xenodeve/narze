@@ -15,7 +15,7 @@ const redis = new Redis(process.env.REDIS_URL ?? DEFAULT_REDIS_URL);
 const TARGETS = { lcp: 2500, cls: 0.05, inp: 200, jsKb: 180 };
 
 // A measurement run, not part of the correctness gate: timings vary with the machine and its load
-// (INP moved between 48 and 168 ms on one machine). Run it on purpose: PERF=1 bun run e2e -- e2e/perf.spec.ts
+// (see the ranges in docs/reports/2026-11-08-hardening.md). Run it on purpose: PERF=1 bun run e2e -- e2e/perf.spec.ts
 test.skip(!process.env.PERF, "measurement run only (PERF=1)");
 
 const state: PlayerState = {
@@ -70,7 +70,9 @@ async function measure(page: Page, label: string) {
   await page.waitForLoadState("networkidle");
   // Interactions: the pause toggle and a tab change, each a real click through the UI.
   await page.getByTestId("toggle-pause").click();
-  await page.getByRole("tab").first().click();
+  // A real change: the side panel switches from the queue to the Search tab.
+  await page.getByRole("tab", { name: "ค้นหา" }).click();
+  await expect(page.getByRole("tab", { name: "ค้นหา" })).toHaveAttribute("aria-selected", "true");
   await page.waitForTimeout(500);
   const perf = (await page.evaluate(() => (window as unknown as { __perf: Record<string, number> }).__perf)) as {
     lcp: number;
@@ -106,9 +108,17 @@ for (const throttled of [false, true]) {
   });
 }
 
-test("player page initial JS, cold cache, as sent (gzip from next start) (#114 AC1)", async ({ browser }) => {
+test("player page initial JS, signed in, cold cache, as sent (gzip from next start) (#114 AC1)", async ({
+  browser,
+}) => {
   const context = await browser.newContext();
   const page = await context.newPage();
+  await setFakeDiscordUser(dev, [{ id: G, name: "Perf Room", icon: null, owner: true }]);
+  await signInThroughPopup(page, "Devi");
+  // Signed in, then an empty cache: the player route's own chunks (the Aurora, the controls) count.
+  const cdp = await context.newCDPSession(page);
+  await cdp.send("Network.enable");
+  await cdp.send("Network.clearBrowserCache");
   const responses: Array<Promise<number>> = [];
   page.on("response", (res) => {
     const url = res.url();
@@ -117,6 +127,7 @@ test("player page initial JS, cold cache, as sent (gzip from next start) (#114 A
       res
         .request()
         .sizes()
+        // responseBodySize is the encoded (gzip) body, as `next start` sends it.
         .then((s) => {
           if (process.env.PERF_FILES)
             console.log(`PERF file ${(s.responseBodySize / 1024).toFixed(1)}KB ${url.split("/").pop()}`);
@@ -126,21 +137,12 @@ test("player page initial JS, cold cache, as sent (gzip from next start) (#114 A
     );
   });
   await page.goto(`/guilds/${G}`);
+  await expect(page.getByRole("heading", { name: "Lemon" })).toBeVisible();
   await page.waitForLoadState("networkidle");
   const bytes = (await Promise.all(responses)).reduce((a, b) => a + b, 0);
-  const encoding = await page.evaluate(async () => {
-    const script = performance.getEntriesByType("resource").find((e) => e.name.endsWith(".js")) as
-      | PerformanceResourceTiming
-      | undefined;
-    return script
-      ? { transfer: script.transferSize, encoded: script.encodedBodySize, decoded: script.decodedBodySize }
-      : null;
-  });
-  console.log(
-    `PERF player-js files=${responses.length} sent=${(bytes / 1024).toFixed(1)}KB sample=${JSON.stringify(encoding)}`,
-  );
-  // Over target today (201 KB, mostly zod through @narze/shared): tracked in its own issue, recorded in
-  // docs/reports. This line keeps the target visible; the run is opt-in, so it does not block the gate.
+  console.log(`PERF player-js files=${responses.length} sent=${(bytes / 1024).toFixed(1)}KB`);
+  // Over target today, mostly zod through @narze/shared (#140; numbers in docs/reports). This line keeps
+  // the target visible; the run is opt-in, so it does not block the gate.
   expect(bytes / 1024).toBeLessThan(TARGETS.jsKb);
   await context.close();
 });

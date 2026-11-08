@@ -30,6 +30,7 @@ export function Progress({ state, onSeek }: { state: PlayerState; onSeek?: (posi
   const fill = useRef<HTMLDivElement>(null);
   const elapsed = useRef<HTMLSpanElement>(null);
   const bar = useRef<HTMLDivElement>(null);
+  const seekInput = useRef<HTMLInputElement>(null);
   const shown = useRef(state.positionMs);
   /** While the user drags the seek handle, the bar follows the handle, not the clock. */
   const dragging = useRef<number | null>(null);
@@ -49,27 +50,40 @@ export function Progress({ state, onSeek }: { state: PlayerState; onSeek?: (posi
       const ratio = duration > 0 ? shown.current / duration : 0;
       if (fill.current) fill.current.style.transform = `scaleX(${ratio})`;
       if (elapsed.current) elapsed.current.textContent = formatTime(shown.current);
-      bar.current?.setAttribute("aria-valuenow", String(Math.round(shown.current / 1000)));
+      // One control per job (axe nested-interactive, #114): a seekable track is the slider, which
+      // follows playback; otherwise the bar is a read-only progressbar.
+      if (seekInput.current && dragging.current === null) {
+        seekInput.current.value = String(Math.round(shown.current));
+        seekInput.current.setAttribute("aria-valuetext", formatTime(shown.current));
+      } else if (!seekInput.current) {
+        bar.current?.setAttribute("aria-valuenow", String(Math.round(shown.current / 1000)));
+      }
       if (!state.paused || dragging.current !== null) frame = requestAnimationFrame(draw);
     };
     draw();
     return () => cancelAnimationFrame(frame);
   }, [state.positionMs, state.syncedAt, state.paused, state.lastSeekAt, duration]);
 
+  const seekable = Boolean(onSeek) && duration > 0;
   return (
     <div className={styles.progress}>
       <div
         ref={bar}
         className={styles.track}
-        role="progressbar"
-        aria-label="ความคืบหน้าของเพลง"
-        aria-valuemin={0}
-        aria-valuemax={Math.round(duration / 1000)}
-        aria-valuenow={Math.round(state.positionMs / 1000)}
+        {...(seekable
+          ? {}
+          : {
+              role: "progressbar",
+              "aria-label": "ความคืบหน้าของเพลง",
+              "aria-valuemin": 0,
+              "aria-valuemax": Math.round(duration / 1000),
+              "aria-valuenow": Math.round(state.positionMs / 1000),
+            })}
       >
         <div ref={fill} className={styles.fill} />
-        {onSeek && duration > 0 ? (
+        {seekable && onSeek ? (
           <input
+            ref={seekInput}
             type="range"
             className={styles.seek}
             min={0}
