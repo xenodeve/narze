@@ -119,6 +119,13 @@ describe("signing in and listing servers (#99)", () => {
     expect(res.status).toBe(403);
   });
 
+  test("a Discord failure while listing guilds answers 502 and keeps the stored snapshot", async () => {
+    const failing = await signInWithFakeDiscord(supabase, alice, aliceGuilds, { guildsStatus: 429 });
+    expect((await sync(failing)).status).toBe(502);
+    const res = await api("/api/me/guilds", { token: aliceSession.access_token });
+    expect(((await res.json()) as GuildSummary[]).map((g) => g.id)).toEqual([G_OWNED, G_MEMBER]);
+  });
+
   test("a member in the Bot's voice channel is badged In Voice", async () => {
     const summary: PlayerSummary = { playing: true, queueLength: 2, voiceChannelId: "77" };
     await redis.set(RedisKeys.playerSummary(G_MEMBER), JSON.stringify(summary));

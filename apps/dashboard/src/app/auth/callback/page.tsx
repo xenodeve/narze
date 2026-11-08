@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { BACKEND_URL } from "@/lib/config";
 import { SIGNED_IN_MESSAGE } from "@/lib/session";
@@ -7,6 +8,9 @@ import { getSupabase } from "@/lib/supabase";
 import styles from "./callback.module.css";
 
 type Step = "working" | "failed";
+
+// The avatar faces the user on this waiting/failed screen (DESIGN.md §2 rule 7); canvas, client-only.
+const BotAvatar = dynamic(() => import("bot-avatars").then((m) => m.BotAvatar), { ssr: false });
 
 /**
  * Where Supabase Auth returns after Discord. Exchanges the PKCE code (a code minted for another
@@ -55,19 +59,24 @@ export default function AuthCallback() {
 
   return (
     <main className={styles.main}>
-      {step === "working" ? (
-        <p role="status" className={styles.text}>
-          กำลังเข้าสู่ระบบ…
-        </p>
-      ) : (
-        <div role="alert" className={styles.box}>
-          <h1 className={styles.title}>เข้าสู่ระบบไม่สำเร็จ</h1>
-          <p className={styles.text}>ลิงก์นี้ใช้ไม่ได้หรือหมดอายุแล้ว ลองกดเข้าสู่ระบบใหม่จากหน้าแรก</p>
-          <a className={styles.link} href="/">
-            กลับหน้าแรก
-          </a>
+      <div className={styles.box}>
+        <div className={styles.avatar} aria-hidden="true">
+          <BotAvatar type="clover" size={88} state={step === "working" ? "working" : "sleeping"} headphones />
         </div>
-      )}
+        {step === "working" ? (
+          <p role="status" className={styles.text}>
+            กำลังเข้าสู่ระบบ…
+          </p>
+        ) : (
+          <div role="alert" className={styles.box}>
+            <h1 className={styles.title}>เข้าสู่ระบบไม่สำเร็จ</h1>
+            <p className={styles.text}>ลิงก์นี้ใช้ไม่ได้หรือหมดอายุแล้ว ลองกดเข้าสู่ระบบใหม่จากหน้าแรก</p>
+            <a className={styles.link} href="/">
+              กลับหน้าแรก
+            </a>
+          </div>
+        )}
+      </div>
     </main>
   );
 }

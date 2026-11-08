@@ -6,10 +6,10 @@ import styles from "./server-list.module.css";
 
 /** Latin badge text is set in mono (DESIGN.md Badge); the Thai meaning is the accessible name. */
 const BADGE: Record<PermissionBadge, { text: string; meaning: string; tone: string }> = {
-  owner: { text: "OWNER", meaning: "คุณเป็นเจ้าของเซิร์ฟเวอร์นี้", tone: "warn" },
+  owner: { text: "OWNER", meaning: "คุณเป็นเจ้าของเซิร์ฟเวอร์นี้", tone: "ok" },
   "in-voice": { text: "IN VOICE", meaning: "คุณอยู่ห้องเสียงเดียวกับบอท สั่งเพลงได้", tone: "live" },
-  "can-play": { text: "CAN PLAY", meaning: "คุณเริ่มเปิดเพลงได้", tone: "ok" },
-  "view-only": { text: "VIEW ONLY", meaning: "ดูได้อย่างเดียว เข้าห้องเสียงก่อนถึงจะสั่งเพลงได้", tone: "idle" },
+  "can-play": { text: "CAN PLAY", meaning: "คุณเริ่มเปิดเพลงได้", tone: "idle" },
+  "view-only": { text: "VIEW ONLY", meaning: "ดูได้อย่างเดียว เข้าห้องเสียงก่อนถึงจะสั่งเพลงได้", tone: "offline" },
 };
 
 function GuildRow({ guild }: { guild: GuildSummary }) {

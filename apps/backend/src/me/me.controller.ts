@@ -1,5 +1,6 @@
 import type { GuildSummary } from "@narze/shared";
 import {
+  BadGatewayException,
   BadRequestException,
   Body,
   Controller,
@@ -43,6 +44,7 @@ export class MeController {
       this.discord.guilds(parsed.data.providerToken),
     ]);
     if (owner?.id !== identity.discordId) throw new ForbiddenException("the Discord token belongs to another user");
+    if (!guilds) throw new BadGatewayException("Discord did not return the guild list; the stored one is kept");
     await this.store.upsertUser(identity);
     await this.store.replaceGuilds(
       identity.discordId,

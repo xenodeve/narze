@@ -113,8 +113,10 @@
   white-space: nowrap;
 }
 
-.badge[data-tone="warn"] {
-  --tone: var(--warn);
+/* Badge tones from the closed set (DESIGN.md Badge): live = in the Bot's channel, ok = owner,
+   idle = can start playback, offline (the default ink-3) = view only. */
+.badge[data-tone="idle"] {
+  --tone: var(--ink-2);
 }
 .badge[data-tone="live"] {
   --tone: var(--accent);

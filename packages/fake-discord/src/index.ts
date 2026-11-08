@@ -40,6 +40,8 @@ export interface FakeDiscord {
 interface Account {
   user: FakeDiscordUser;
   guilds: FakeDiscordGuild[];
+  /** Answer /users/@me/guilds with this status instead (e.g. 429), to test Discord failures. */
+  guildsStatus?: number;
 }
 
 const DEFAULT_ACCOUNT: Account = {
@@ -48,10 +50,14 @@ const DEFAULT_ACCOUNT: Account = {
 };
 
 /** Sets the user (and guilds) the running fake's next authorization signs in as. */
-export async function setFakeDiscordUser(user: FakeDiscordUser, guilds: FakeDiscordGuild[]): Promise<void> {
+export async function setFakeDiscordUser(
+  user: FakeDiscordUser,
+  guilds: FakeDiscordGuild[],
+  options: { guildsStatus?: number } = {},
+): Promise<void> {
   await fetch(`http://127.0.0.1:${FAKE_DISCORD_PORT}/__fake/user`, {
     method: "POST",
-    body: JSON.stringify({ user, guilds }),
+    body: JSON.stringify({ user, guilds, ...options }),
   });
 }
 
@@ -115,6 +121,7 @@ export async function startFakeDiscord(options: FakeDiscordOptions = {}): Promis
       }
       if (path === "/api/users/@me/guilds") {
         if (!signedIn) return Response.json({ message: "401: Unauthorized" }, { status: 401 });
+        if (signedIn.guildsStatus) return Response.json({ message: "fake failure" }, { status: signedIn.guildsStatus });
         return Response.json(signedIn.guilds);
       }
       return new Response("Not found", { status: 404 });

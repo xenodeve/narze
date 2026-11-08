@@ -96,7 +96,11 @@ export function currentAccessToken(): string | null {
  * blockers allow it; if it is blocked anyway, the whole page goes to Discord instead.
  */
 export async function signIn(): Promise<void> {
-  const popup = window.open("", "narze-sign-in", "popup,width=520,height=760");
+  const width = 500;
+  const height = 700;
+  const left = Math.round(window.screenX + (window.outerWidth - width) / 2);
+  const top = Math.round(window.screenY + (window.outerHeight - height) / 2);
+  const popup = window.open("", "narze-sign-in", `popup,width=${width},height=${height},left=${left},top=${top}`);
   const supabase = await getSupabase();
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "discord",

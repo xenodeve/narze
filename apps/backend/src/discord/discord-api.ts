@@ -23,8 +23,12 @@ export class DiscordApi {
     return this.get("/users/@me", token);
   }
 
-  async guilds(token: string): Promise<DiscordGuild[]> {
-    return (await this.get<DiscordGuild[]>("/users/@me/guilds", token)) ?? [];
+  /**
+   * The user's guilds, or null when Discord refuses (429, 5xx): an empty list would be stored as
+   * "in no servers". One page of up to 200, Discord's maximum; more is not fetched.
+   */
+  guilds(token: string): Promise<DiscordGuild[] | null> {
+    return this.get<DiscordGuild[]>("/users/@me/guilds", token);
   }
 }
 

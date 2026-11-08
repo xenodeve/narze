@@ -6,7 +6,7 @@ import {
   parseJson,
   SocketEvents,
 } from "@narze/shared";
-import { Inject, type OnModuleInit } from "@nestjs/common";
+import { Inject, Logger, type OnModuleInit } from "@nestjs/common";
 import {
   type OnGatewayConnection,
   type OnGatewayDisconnect,
@@ -31,6 +31,14 @@ interface SessionData {
 const guildRoom = (guildId: string) => `guild:${guildId}`;
 
 /**
+ * Nest calls socket handlers without awaiting them, and on Bun an unhandled rejection exits the
+ * process — so every async path here ends in this, never in a rejection.
+ */
+const logger = new Logger("UserGateway");
+const report = (what: string) => (error: unknown) =>
+  logger.warn(`${what}: ${error instanceof Error ? error.message : String(error)}`);
+
+/**
  * Signed-in sockets: verified at handshake (`auth.token`), joined to a room per Mutual Guild, and
  * counted for Presence. A socket without a token stays anonymous and only receives Bot status.
  */
@@ -49,7 +57,7 @@ export class UserGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   async onModuleInit(): Promise<void> {
     await this.presence.reset();
     this.subscriber.on("message", (channel: string, message: string) => {
-      if (channel === Channels.guildEvents) void this.onGuildEvent(message);
+      if (channel === Channels.guildEvents) this.onGuildEvent(message).catch(report("guild event"));
     });
     await this.subscriber.subscribe(Channels.guildEvents);
   }
@@ -72,9 +80,19 @@ export class UserGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   }
 
   async handleConnection(client: Socket): Promise<void> {
-    const data = client.data as SessionData;
-    const { identity } = data;
+    const { identity } = client.data as SessionData;
     if (!identity) return;
+    try {
+      await this.signIn(client, identity);
+    } catch (error) {
+      report("connect")(error);
+      // A tab we could not set up is dropped; the client reconnects and tries again.
+      client.disconnect(true);
+    }
+  }
+
+  private async signIn(client: Socket, identity: Identity): Promise<void> {
+    const data = client.data as SessionData;
     const guilds = await this.directory.mutual(await this.store.guildsOf(identity.discordId));
     // The tab may have closed while we were verifying; counting it now would leak a Presence tab.
     if (client.disconnected) return;
@@ -89,7 +107,7 @@ export class UserGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   async handleDisconnect(client: Socket): Promise<void> {
     const { identity, guilds } = client.data as SessionData;
     // `guilds` is set only once the tab was counted, so a socket that left mid-connect is not uncounted.
-    if (identity && guilds) await this.presence.close(identity.discordId);
+    if (identity && guilds) await this.presence.close(identity.discordId).catch(report("disconnect"));
   }
 
   /** One HMGET for every listener's voice channel, then each tab gets its own user's summary. */

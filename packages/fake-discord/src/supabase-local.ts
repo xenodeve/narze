@@ -70,15 +70,15 @@ export async function signInWithFakeDiscord(
   supabase: LocalSupabase,
   user: FakeDiscordUser,
   guilds: FakeDiscordGuild[],
-  redirectTo = "http://localhost:3000/auth/callback",
+  options: { guildsStatus?: number; redirectTo?: string } = {},
 ): Promise<FakeSession> {
   const fake = `http://127.0.0.1:${FAKE_DISCORD_PORT}`;
-  await setFakeDiscordUser(user, guilds);
+  await setFakeDiscordUser(user, guilds, { guildsStatus: options.guildsStatus });
   const { verifier, challenge } = await pkcePair();
   const authorize = new URL(`${supabase.url}/auth/v1/authorize`);
   authorize.search = new URLSearchParams({
     provider: "discord",
-    redirect_to: redirectTo,
+    redirect_to: options.redirectTo ?? "http://localhost:3000/auth/callback",
     scopes: "identify guilds",
     code_challenge: challenge,
     code_challenge_method: "s256",

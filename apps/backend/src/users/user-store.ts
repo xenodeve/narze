@@ -11,7 +11,7 @@ export interface StoredGuild {
   isOwner: boolean;
 }
 
-const fail = (what: string, error: { message: string } | null) => {
+const assertOk = (what: string, error: { message: string } | null) => {
   if (error) throw new Error(`${what}: ${error.message}`);
 };
 
@@ -28,24 +28,16 @@ export class UserStore {
       avatar_url: identity.avatarUrl,
       updated_at: new Date().toISOString(),
     });
-    fail("upsert user", error);
+    assertOk("upsert user", error);
   }
 
-  /** Replaces the whole snapshot: a guild the user left disappears at their next sign-in. */
+  /**
+   * Replaces the whole snapshot in one transaction (`replace_user_guilds`): a guild the user left
+   * disappears at their next sign-in, and no reader sees a half-written list.
+   */
   async replaceGuilds(discordId: string, guilds: StoredGuild[]): Promise<void> {
-    const removed = await this.db.from("user_guilds").delete().eq("discord_id", discordId);
-    fail("clear guilds", removed.error);
-    if (guilds.length === 0) return;
-    const { error } = await this.db.from("user_guilds").insert(
-      guilds.map((g) => ({
-        discord_id: discordId,
-        guild_id: g.id,
-        name: g.name,
-        icon_url: g.iconUrl,
-        is_owner: g.isOwner,
-      })),
-    );
-    fail("store guilds", error);
+    const { error } = await this.db.rpc("replace_user_guilds", { p_discord_id: discordId, p_guilds: guilds });
+    assertOk("store guilds", error);
   }
 
   async guildsOf(discordId: string): Promise<StoredGuild[]> {
@@ -54,7 +46,7 @@ export class UserStore {
       .select("guild_id, name, icon_url, is_owner")
       .eq("discord_id", discordId)
       .order("name");
-    fail("read guilds", error);
+    assertOk("read guilds", error);
     return (data ?? []).map((row) => ({
       id: row.guild_id,
       name: row.name,
@@ -68,12 +60,12 @@ export class UserStore {
       .from("users")
       .update({ active, last_seen_at: new Date().toISOString() })
       .eq("discord_id", discordId);
-    fail("set presence", error);
+    assertOk("set presence", error);
   }
 
   /** On Backend start no tab can still be connected, so nobody is active. */
   async deactivateAll(): Promise<void> {
     const { error } = await this.db.from("users").update({ active: false }).eq("active", true);
-    fail("reset presence", error);
+    assertOk("reset presence", error);
   }
 }

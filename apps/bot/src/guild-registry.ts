@@ -2,7 +2,7 @@ import { RedisKeys } from "@narze/shared";
 import type Redis from "ioredis";
 
 /** One Guild as the Bot sees it: id plus who is in which voice channel ([userId, channelId]). */
-export interface GuildPresence {
+export interface GuildVoiceSnapshot {
   id: string;
   voice: Array<[userId: string, channelId: string]>;
 }
@@ -12,7 +12,7 @@ export interface GuildPresence {
  * and evaluate Control Permission without asking the Bot (ADR-0002). Connected Mode only.
  */
 export function createGuildRegistry(redis: Redis) {
-  const writeGuild = (tx: ReturnType<Redis["multi"]>, guild: GuildPresence) => {
+  const writeGuild = (tx: ReturnType<Redis["multi"]>, guild: GuildVoiceSnapshot) => {
     tx.sadd(RedisKeys.botGuilds, guild.id);
     tx.del(RedisKeys.voiceStates(guild.id));
     if (guild.voice.length > 0) tx.hset(RedisKeys.voiceStates(guild.id), Object.fromEntries(guild.voice));
@@ -20,14 +20,14 @@ export function createGuildRegistry(redis: Redis) {
 
   return {
     /** On ready: the cache is the truth, so anything left from a previous run goes. */
-    async replace(guilds: GuildPresence[]): Promise<void> {
+    async replace(guilds: GuildVoiceSnapshot[]): Promise<void> {
       const previous = await redis.smembers(RedisKeys.botGuilds);
       const tx = redis.multi().del(RedisKeys.botGuilds);
       for (const id of previous) tx.del(RedisKeys.voiceStates(id));
       for (const guild of guilds) writeGuild(tx, guild);
       await tx.exec();
     },
-    async add(guild: GuildPresence): Promise<void> {
+    async add(guild: GuildVoiceSnapshot): Promise<void> {
       const tx = redis.multi();
       writeGuild(tx, guild);
       await tx.exec();
