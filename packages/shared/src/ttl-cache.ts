@@ -1,3 +1,5 @@
+const registry = new Map<string, { stats(): { entries: number; bytes: number } }>();
+
 /** Spec #73: the 7-day TTL of YouTube categories and Spotify artist lookups. */
 export const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -9,14 +11,17 @@ export function createTtlCache<K, V>({
   ttlMs,
   max,
   now = Date.now,
+  name,
 }: {
   ttlMs: number;
   max: number;
   now?: () => number;
+  /** Named caches are listed in the admin stats (#110, spec #74); the latest one per name. */
+  name?: string;
 }) {
   // A Map keeps insertion order: re-inserting on read makes the first key the least recently used.
   const entries = new Map<K, { value: V; at: number }>();
-  return {
+  const cache = {
     get(key: K): V | undefined {
       const entry = entries.get(key);
       if (!entry) return undefined;
@@ -51,6 +56,16 @@ export function createTtlCache<K, V>({
       return { entries: entries.size, bytes, oldestAt };
     },
   };
+  if (name) registry.set(name, cache);
+  return cache;
+}
+
+/** Every named cache's size, for the admin stats (#110). */
+export function cacheStats(): Array<{ name: string; items: number; bytes: number }> {
+  return [...registry].map(([name, cache]) => {
+    const { entries, bytes } = cache.stats();
+    return { name, items: entries, bytes };
+  });
 }
 
 export type TtlCache<K, V> = ReturnType<typeof createTtlCache<K, V>>;
