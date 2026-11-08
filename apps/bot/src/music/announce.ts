@@ -45,3 +45,11 @@ export function nowPlayingNotice(track: Track): Notice {
     thumbnailUrl: track.artworkUrl,
   };
 }
+
+/** Posted where the Player's notices go when Queue Recovery brings it back (#103); replaces Now Playing. */
+export function recoveryNotice(track: Track | null, positionMs: number, queued: number): Notice {
+  const what = track
+    ? `เล่นต่อ **${track.title}** \` ${formatDuration(positionMs)} \` · คิวอีก \` ${queued} \` เพลง`
+    : "กลับเข้าห้องเสียงแล้ว (24/7)";
+  return { color: COLOR_SUCCESS, description: `\`🔄\`┃**กู้คิวเพลงหลังบอทรีสตาร์ท** ${what}` };
+}

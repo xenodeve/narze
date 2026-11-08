@@ -10,10 +10,11 @@ import { playqueue } from "./playqueue";
 import { queue } from "./queue";
 import { seek } from "./seek";
 import { skip } from "./skip";
+import { twentyFourSeven } from "./twenty-four-seven";
 import type { Command } from "./types";
 import { volume } from "./volume";
 
-/** The slash commands so far (spec #1): #100 and #102; /247, /setchannel and /cache arrive with #103, #106, #104. */
+/** The slash commands so far (spec #1): #100, #102 and #103; /setchannel and /cache arrive with #106 and #104. */
 export const commands: Command[] = [
   play,
   pause,
@@ -30,4 +31,5 @@ export const commands: Command[] = [
   playat,
   playqueue,
   skipplay,
+  twentyFourSeven,
 ];

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { type AnnounceFlags, nowPlayingNotice, shouldAnnounce } from "../src/music/announce";
+import { type AnnounceFlags, nowPlayingNotice, recoveryNotice, shouldAnnounce } from "../src/music/announce";
 
 const none: AnnounceFlags = {
   firstFromCommand: false,
@@ -56,5 +56,23 @@ describe("Now-Playing Notice content (spec #23)", () => {
       description: "`▶️`┃**Lemon** ` 04:15 `\n> Requested by <@500000000000000001>",
       thumbnailUrl: "https://i.ytimg.com/vi/x/sddefault.jpg",
     });
+  });
+});
+
+describe("Queue Recovery notice (#103)", () => {
+  test("says what plays again, from where, and how much is queued; or that 24/7 rejoined", () => {
+    const track = {
+      uri: "https://music.youtube.com/watch?v=lemon",
+      source: "youtubemusic" as const,
+      title: "Lemon",
+      author: "Kenshi Yonezu",
+      durationMs: 255_000,
+      artworkUrl: null,
+      requester: { id: "1", name: "Dee", avatarUrl: null },
+    };
+    expect(recoveryNotice(track, 30_000, 2).description).toBe(
+      "`🔄`┃**กู้คิวเพลงหลังบอทรีสตาร์ท** เล่นต่อ **Lemon** ` 00:30 ` · คิวอีก ` 2 ` เพลง",
+    );
+    expect(recoveryNotice(null, 0, 0).description).toBe("`🔄`┃**กู้คิวเพลงหลังบอทรีสตาร์ท** กลับเข้าห้องเสียงแล้ว (24/7)");
   });
 });

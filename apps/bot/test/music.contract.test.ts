@@ -1,12 +1,16 @@
 import { afterAll, afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { type FakeLavalink, startFakeLavalink } from "@narze/fake-lavalink";
-import { DEFAULT_REDIS_URL, type PlayerState, PlayerStateSchema, RedisKeys } from "@narze/shared";
+import { DEFAULT_REDIS_URL, GuildEventTypes, type PlayerState, PlayerStateSchema, RedisKeys } from "@narze/shared";
 import Redis from "ioredis";
 import type { LavalinkManager } from "lavalink-client";
 import { createLavalink } from "../src/lavalink";
 import type { Notice } from "../src/music/format";
 import { createMusic, type Music } from "../src/music/music";
 import { createPlayerPublisher } from "../src/music/player-state";
+import { createSnapshotStore } from "../src/music/queue-snapshot";
 
 const BOT = { id: "1100000000000000001", username: "narze-test" };
 const GUILD = "960000000000000001";
@@ -49,13 +53,9 @@ async function eventually<T>(read: () => Promise<T> | T, ok: (v: T) => boolean, 
   return value;
 }
 
-beforeEach(async () => {
-  await redis.del(RedisKeys.playerState(GUILD), RedisKeys.playerSummary(GUILD));
-  fake = await startFakeLavalink({ password: "pw", catalog: CATALOG });
-  voicePackets = [];
-  notices = [];
-  clock = 1_000_000;
-  lavalink = createLavalink({
+/** A Bot process's Lavalink manager, connected to the fake. */
+async function connect(): Promise<LavalinkManager> {
+  const lavalink = createLavalink({
     host: "127.0.0.1",
     port: fake.port,
     password: "pw",
@@ -81,6 +81,16 @@ beforeEach(async () => {
     () => lavalink.nodeManager.leastUsedNodes()[0]?.sessionId,
     (id) => Boolean(id),
   );
+  return lavalink;
+}
+
+beforeEach(async () => {
+  await redis.del(RedisKeys.playerState(GUILD), RedisKeys.playerSummary(GUILD));
+  fake = await startFakeLavalink({ password: "pw", catalog: CATALOG });
+  voicePackets = [];
+  notices = [];
+  clock = 1_000_000;
+  lavalink = await connect();
   music = createMusic({
     lavalink,
     publisher: {
@@ -117,6 +127,7 @@ describe("playing from Discord against Fake Lavalink (#100)", () => {
         publish: () => Promise.reject(new Error("redis down")),
         gone: () => Promise.reject(new Error("redis down")),
         jump: () => Promise.reject(new Error("redis down")),
+        voice: () => Promise.reject(new Error("redis down")),
       },
       announce: async () => {},
       now: () => clock,
@@ -192,7 +203,10 @@ describe("playing from Discord against Fake Lavalink (#100)", () => {
     expect((await eventually(stored, (s) => s?.paused === true))?.paused).toBe(true);
     expect(await music.togglePause(GUILD)).toMatchObject({ paused: false });
     await music.seek(GUILD, 30_000);
-    expect(fake.player(GUILD)?.position).toBe(30_000);
+    // Saved at flush time: the position kept moving for a few ms after the seek.
+    const position = fake.player(GUILD)?.position ?? 0;
+    expect(position).toBeGreaterThanOrEqual(30_000);
+    expect(position).toBeLessThan(31_000);
     await music.setVolume(GUILD, 80);
     expect(fake.player(GUILD)?.volume).toBe(80);
     expect((await eventually(stored, (s) => s?.volume === 80))?.volume).toBe(80);
@@ -353,5 +367,380 @@ describe("queue editing on the engine (#102)", () => {
     expect(state?.queue.map((t) => t.title)).toEqual(["Idol", "Gurenge"]);
     expect(state?.revision).toBe(before + 1);
     expect(notices.filter((n) => n.notice.description?.includes("Pretender"))).toHaveLength(0);
+  });
+});
+
+describe("queue end and 24/7 (#103, spec #10, #27)", () => {
+  test("with 24/7 off, the queue ending leaves voice and the Player is gone", async () => {
+    await play("lemon");
+    await eventually(stored, (s) => s?.current?.title === "Lemon");
+    fake.finishTrack(GUILD);
+    expect(
+      await eventually(
+        () => lavalink.getPlayer(GUILD),
+        (p) => !p,
+      ),
+    ).toBeFalsy();
+    expect(await eventually(stored, (s) => s === null)).toBeNull();
+  });
+
+  test("with 24/7 on, the queue ending keeps an Idle Player that still shows on the Dashboard", async () => {
+    await play("lemon");
+    expect(await music.setTwentyFourSeven(GUILD)).toBe(true);
+    expect((await eventually(stored, (s) => s?.twentyFourSeven === true))?.twentyFourSeven).toBe(true);
+    fake.finishTrack(GUILD);
+    const idle = await eventually(stored, (s) => s?.current === null);
+    expect(idle).toMatchObject({ current: null, queue: [], twentyFourSeven: true, voiceChannelId: VOICE });
+    expect(lavalink.getPlayer(GUILD)).toBeTruthy();
+    expect(music.status(GUILD)).toMatchObject({ current: null, twentyFourSeven: true });
+  });
+
+  test("/skip on the last track leaves unless 24/7 is on (spec #10)", async () => {
+    await play("lemon");
+    expect(await music.skip(GUILD)).toEqual({ kind: "ended" });
+    expect(
+      await eventually(
+        () => lavalink.getPlayer(GUILD),
+        (p) => !p,
+      ),
+    ).toBeFalsy();
+
+    await play("idol");
+    await music.setTwentyFourSeven(GUILD);
+    expect(await music.skip(GUILD)).toEqual({ kind: "ended" });
+    expect(await eventually(stored, (s) => s?.current === null)).toMatchObject({ twentyFourSeven: true });
+    expect(lavalink.getPlayer(GUILD)).toBeTruthy();
+  });
+
+  test("a track played on an Idle Player starts it again", async () => {
+    await play("lemon");
+    await music.setTwentyFourSeven(GUILD);
+    fake.finishTrack(GUILD);
+    await eventually(stored, (s) => s?.current === null);
+    expect(await play("idol")).toMatchObject({ kind: "started" });
+    expect((await eventually(stored, (s) => s?.current?.title === "Idol"))?.current?.title).toBe("Idol");
+  });
+});
+
+describe("Queue Recovery after a restart (#103, spec #21, #35, #123)", () => {
+  const dirs: string[] = [];
+  afterEach(async () => {
+    for (const dir of dirs.splice(0)) await rm(dir, { recursive: true, force: true });
+  });
+  async function snapshotsDir() {
+    const dir = await mkdtemp(join(tmpdir(), "narze-recovery-"));
+    dirs.push(dir);
+    return createSnapshotStore(dir);
+  }
+  const engine = (
+    manager: LavalinkManager,
+    snapshots: ReturnType<typeof createSnapshotStore>,
+    seen: PlayerState[] = [],
+  ) =>
+    createMusic({
+      lavalink: manager,
+      publisher: {
+        ...createPlayerPublisher(redis),
+        publish: async (state) => {
+          seen.push(state);
+          await createPlayerPublisher(redis).publish(state);
+        },
+      },
+      snapshots,
+      announce: async (channelId, notice) => {
+        notices.push({ channelId, notice });
+      },
+      now: () => clock,
+    });
+
+  test("a restarted Bot restores the queue, current track, position and 24/7", async () => {
+    const snapshots = await snapshotsDir();
+    music = engine(lavalink, snapshots);
+    await play("lemon");
+    await play("idol");
+    await play("gurenge");
+    await eventually(stored, (s) => s?.queue.length === 2);
+    await music.seek(GUILD, 30_000);
+    await music.setTwentyFourSeven(GUILD);
+    await music.flush();
+
+    // The process dies: nothing it registered runs again, and its Lavalink session ends.
+    lavalink.removeAllListeners();
+    await lavalink.nodeManager.leastUsedNodes()[0]?.destroy?.();
+    notices = [];
+
+    const seen: PlayerState[] = [];
+    lavalink = await connect();
+    music = engine(lavalink, snapshots, seen);
+    expect(await music.recover()).toBe(1);
+
+    const state = await eventually(stored, (s) => s?.current?.title === "Lemon" && !s.recovering);
+    expect(state).toMatchObject({ twentyFourSeven: true, voiceChannelId: VOICE });
+    expect(state?.queue.map((t) => t.title)).toEqual(["Idol", "Gurenge"]);
+    // Saved at flush time: the position kept moving for a few ms after the seek.
+    const position = fake.player(GUILD)?.position ?? 0;
+    expect(position).toBeGreaterThanOrEqual(30_000);
+    expect(position).toBeLessThan(31_000);
+    expect(seen.some((s) => s.recovering === true)).toBe(true);
+    expect(notices).toHaveLength(1);
+    expect(notices[0]?.channelId).toBe(TEXT);
+    expect(notices[0]?.notice.description).toContain("กู้คิวเพลง");
+  });
+
+  test("a Lavalink failure that destroys the Player keeps its snapshot; /leave clears it", async () => {
+    const snapshots = await snapshotsDir();
+    music = engine(lavalink, snapshots);
+    await play("lemon");
+    await eventually(
+      async () => (await snapshots.all()).length,
+      (n) => n === 1,
+    );
+    await lavalink.getPlayer(GUILD)?.destroy("NodeReconnectFail");
+    await Bun.sleep(30);
+    expect((await snapshots.all()).length).toBe(1);
+
+    await play("idol");
+    await music.leave(GUILD);
+    expect(
+      await eventually(
+        async () => (await snapshots.all()).length,
+        (n) => n === 0,
+      ),
+    ).toBe(0);
+  });
+
+  test("restoring never overwrites the snapshot with an empty current; a missing current plays the queue", async () => {
+    const snapshots = await snapshotsDir();
+    const written: Array<{ current: unknown; queue: unknown[] }> = [];
+    const watched = {
+      ...snapshots,
+      save: async (s: Parameters<typeof snapshots.save>[0]) => {
+        written.push(s);
+        await snapshots.save(s);
+      },
+    };
+    music = engine(lavalink, snapshots);
+    await play("lemon");
+    await play("idol");
+    await music.flush();
+    lavalink.removeAllListeners();
+    await lavalink.nodeManager.leastUsedNodes()[0]?.destroy?.();
+    lavalink = await connect();
+    music = engine(lavalink, watched);
+    await music.recover();
+    await eventually(stored, (s) => s?.current?.title === "Lemon" && !s.recovering);
+    expect(written.length).toBeGreaterThan(0);
+    expect(written.every((s) => s.current !== null)).toBe(true);
+
+    // A crash after the old bug wrote current: null — the queue's head plays instead of idling forever.
+    const [snap] = await snapshots.all();
+    if (!snap) throw new Error("no snapshot");
+    await snapshots.save({ ...snap, current: null, positionMs: 0 });
+    lavalink.removeAllListeners();
+    await lavalink.nodeManager.leastUsedNodes()[0]?.destroy?.();
+    lavalink = await connect();
+    music = engine(lavalink, snapshots);
+    expect(await music.recover()).toBe(1);
+    expect(
+      await eventually(
+        () => fake.player(GUILD)?.track?.info.title,
+        (t) => t === "Idol",
+      ),
+    ).toBe("Idol");
+  });
+
+  test("a /play that arrives while a Player is being restored waits for the restore", async () => {
+    const snapshots = await snapshotsDir();
+    music = engine(lavalink, snapshots);
+    await play("lemon");
+    await play("idol");
+    await music.flush();
+    lavalink.removeAllListeners();
+    await lavalink.nodeManager.leastUsedNodes()[0]?.destroy?.();
+    lavalink = await connect();
+    music = engine(lavalink, snapshots);
+    const recovering = music.recover();
+    await eventually(() => lavalink.getPlayer(GUILD), Boolean);
+    await play("pretender");
+    expect(await recovering).toBe(1);
+    const state = await eventually(stored, (s) => s?.current?.title === "Lemon" && s.queue.length === 2);
+    expect(state?.queue.map((t) => t.title)).toEqual(["Idol", "Pretender"]);
+  });
+
+  test("Standalone Mode: with nothing to publish to, the Bot still plays and recovers (ADR-0003)", async () => {
+    const snapshots = await snapshotsDir();
+    const silent = { publish: async () => {}, gone: async () => {}, jump: async () => {}, voice: async () => {} };
+    const standalone = (manager: LavalinkManager) =>
+      createMusic({ lavalink: manager, publisher: silent, snapshots, announce: async () => {}, now: () => clock });
+    music = standalone(lavalink);
+    expect(await play("lemon")).toMatchObject({ kind: "started" });
+    await play("idol");
+    await music.flush();
+    lavalink.removeAllListeners();
+    await lavalink.nodeManager.leastUsedNodes()[0]?.destroy?.();
+
+    lavalink = await connect();
+    music = standalone(lavalink);
+    expect(await music.recover()).toBe(1);
+    expect(
+      await eventually(
+        () => fake.player(GUILD)?.track?.info.title,
+        (t) => t === "Lemon",
+      ),
+    ).toBe("Lemon");
+    expect(music.status(GUILD)?.queue.map((t) => t.title)).toEqual(["Idol"]);
+  });
+
+  test("the snapshot is cleared when the queue ends without 24/7, and a Guild left behind is skipped", async () => {
+    const snapshots = await snapshotsDir();
+    music = engine(lavalink, snapshots);
+    await play("lemon");
+    await eventually(
+      async () => (await snapshots.all()).length,
+      (n) => n === 1,
+    );
+    fake.finishTrack(GUILD);
+    expect(
+      await eventually(
+        async () => (await snapshots.all()).length,
+        (n) => n === 0,
+      ),
+    ).toBe(0);
+
+    await play("idol");
+    await music.flush();
+    lavalink.removeAllListeners();
+    await lavalink.nodeManager.leastUsedNodes()[0]?.destroy?.();
+    lavalink = await connect();
+    music = engine(lavalink, snapshots);
+    expect(await music.recover(() => false)).toBe(0);
+    expect(await snapshots.all()).toEqual([]);
+    expect(lavalink.getPlayer(GUILD)).toBeFalsy();
+  });
+});
+
+describe("voice-drop recovery (#103, spec #28)", () => {
+  let events: Array<{ type: string; data: Record<string, unknown> }>;
+  beforeEach(() => {
+    events = [];
+    music = createMusic({
+      lavalink,
+      publisher: {
+        ...createPlayerPublisher(redis),
+        voice: async (_guildId, type, data) => {
+          events.push({ type, data });
+        },
+      },
+      announce: async () => {},
+      now: () => clock,
+      voiceRetryMs: [0, 0],
+    });
+  });
+  const reconnected = () => eventually(() => events.find((e) => e.type === GuildEventTypes.voiceReconnected), Boolean);
+
+  async function playingAt(positionMs: number) {
+    await play("lemon");
+    await eventually(stored, (s) => s?.current?.title === "Lemon");
+    await music.seek(GUILD, positionMs);
+  }
+
+  for (const code of [4006, 4009, 4014, 4015]) {
+    test(`code ${code} reconnects and resumes where it was`, async () => {
+      await playingAt(40_000);
+      const joins = voicePackets.length;
+      fake.closeVoice(GUILD, code, false);
+      // The stream restarted on Lavalink's side; only the seek back puts it where it was.
+      const lost = fake.player(GUILD);
+      if (lost) lost.position = 0;
+      expect((await reconnected())?.data).toMatchObject({ resumed: true });
+      expect(events[0]).toMatchObject({
+        type: GuildEventTypes.voiceDisconnect,
+        data: { code, byRemote: false, recovering: true },
+      });
+      expect(voicePackets.length).toBeGreaterThan(joins);
+      expect(fake.player(GUILD)?.position).toBeGreaterThanOrEqual(40_000);
+      expect(fake.player(GUILD)?.paused).toBe(false);
+    });
+  }
+
+  test("a close by Discord's side reconnects whatever the code; other codes are left alone", async () => {
+    await playingAt(10_000);
+    fake.closeVoice(GUILD, 4000, true);
+    expect(await reconnected()).toBeTruthy();
+
+    events = [];
+    const joins = voicePackets.length;
+    fake.closeVoice(GUILD, 1000, false);
+    await eventually(
+      () => events.length,
+      (n) => n > 0,
+    );
+    await Bun.sleep(50);
+    expect(events).toEqual([
+      { type: GuildEventTypes.voiceDisconnect, data: expect.objectContaining({ code: 1000, recovering: false }) },
+    ]);
+    expect(voicePackets.length).toBe(joins);
+  });
+
+  const slow = () => {
+    // One engine per Lavalink manager, as in the Bot: the one from beforeEach stops listening.
+    lavalink.removeAllListeners("playerSocketClosed");
+    return createMusic({
+      lavalink,
+      publisher: {
+        ...createPlayerPublisher(redis),
+        voice: async (_guildId, type, data) => {
+          events.push({ type, data });
+        },
+      },
+      announce: async () => {},
+      now: () => clock,
+      voiceRetryMs: [60, 0],
+    });
+  };
+
+  test("a track skipped while reconnecting is not sought to the old track's position", async () => {
+    music = slow();
+    await playingAt(40_000);
+    await play("idol");
+    fake.closeVoice(GUILD, 4006, false);
+    await music.skip(GUILD);
+    await eventually(
+      () => fake.player(GUILD)?.track?.info.title,
+      (t) => t === "Idol",
+    );
+    expect((await reconnected())?.data).toMatchObject({ resumed: false });
+    expect(fake.player(GUILD)?.position ?? 0).toBeLessThan(40_000);
+  });
+
+  test("a Player that leaves while reconnecting ends the drop as failed, without its error text", async () => {
+    music = slow();
+    await playingAt(10_000);
+    fake.closeVoice(GUILD, 4006, false);
+    await eventually(
+      () => events.length,
+      (n) => n > 0,
+    );
+    await music.leave(GUILD);
+    const failed = await eventually(() => events.find((e) => e.type === GuildEventTypes.voiceReconnectFailed), Boolean);
+    expect(failed?.data).toEqual({ error: "player-gone" });
+  });
+
+  test("a second drop while reconnecting does not start a second reconnect", async () => {
+    music = slow();
+    await playingAt(10_000);
+    fake.closeVoice(GUILD, 4006, false);
+    fake.closeVoice(GUILD, 4006, false);
+    await reconnected();
+    await Bun.sleep(100);
+    expect(events.filter((e) => e.type === GuildEventTypes.voiceReconnected)).toHaveLength(1);
+  });
+
+  test("a paused Player reconnects and stays paused", async () => {
+    await playingAt(20_000);
+    await music.togglePause(GUILD);
+    fake.closeVoice(GUILD, 4006, false);
+    expect((await reconnected())?.data).toMatchObject({ resumed: false });
+    expect(fake.player(GUILD)?.paused).toBe(true);
   });
 });

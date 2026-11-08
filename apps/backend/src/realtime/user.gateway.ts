@@ -9,6 +9,7 @@ import {
   PlayerSummarySchema,
   parseJson,
   SocketEvents,
+  VOICE_EVENT_TYPES,
   VoiceChannelListSchema,
 } from "@narze/shared";
 import { Inject, Logger, type OnModuleInit } from "@nestjs/common";
@@ -47,6 +48,12 @@ const guildRoom = (guildId: string) => `guild:${guildId}`;
 const logger = new Logger("UserGateway");
 const report = (what: string) => (error: unknown) =>
   logger.warn(`${what}: ${error instanceof Error ? error.message : String(error)}`);
+
+/**
+ * Events the Dashboard only draws, so they are relayed but never cached: the queue jump animation
+ * (spec #39) and a voice drop with its recovery (spec #28).
+ */
+const DRAWN_ONLY = new Set<string>([GuildEventTypes.queueJump, ...VOICE_EVENT_TYPES]);
 
 /**
  * Signed-in sockets: verified at handshake (`auth.token`), joined to a room per Mutual Guild, and
@@ -131,8 +138,7 @@ export class UserGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
       this.onPlayerEvent(event);
       return;
     }
-    if (event.type === GuildEventTypes.queueJump) {
-      // Not cached: it only lets the Dashboard animate the jump before the queue update (spec #39).
+    if (DRAWN_ONLY.has(event.type)) {
       this.server.to(guildRoom(event.guildId)).emit(SocketEvents.playerEvent, event);
       return;
     }

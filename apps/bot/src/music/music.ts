@@ -1,10 +1,11 @@
 import type { Requester, Track } from "@narze/shared";
-import { moveTrack } from "@narze/shared";
+import { GuildEventTypes, moveTrack, type VoiceEventType } from "@narze/shared";
 import type { LavalinkManager, Track as LavalinkTrack, Player, RepeatMode } from "lavalink-client";
-import { type AnnounceFlags, NO_FLAGS, nowPlayingNotice, shouldAnnounce } from "./announce";
+import { type AnnounceFlags, NO_FLAGS, nowPlayingNotice, recoveryNotice, shouldAnnounce } from "./announce";
 import type { Notice } from "./format";
 import { type PlayerPublisher, toPlayerState } from "./player-state";
 import { resolveQuery } from "./query";
+import type { QueueSnapshot, SnapshotStore, StoredTrack } from "./queue-snapshot";
 import { toTrack } from "./track";
 
 /** Spec #6/#19: a new Player starts at volume 15. */
@@ -37,11 +38,18 @@ export interface MusicOptions {
   epoch?: string;
   /** Title of a Spotify URL from its public oEmbed, for links Lavalink cannot resolve (spec #70). */
   oembedTitle?: (url: string) => Promise<string | null>;
-  publisher: Pick<PlayerPublisher, "publish" | "gone" | "jump">;
+  publisher: Pick<PlayerPublisher, "publish" | "gone" | "jump" | "voice">;
   /** Posts a Now-Playing Notice in a text channel. */
   announce: (channelId: string, notice: Notice) => Promise<void>;
   now?: () => number;
+  /** Queue Snapshots for Queue Recovery (#103); without it nothing is written or restored. */
+  snapshots?: SnapshotStore;
+  /** Spec #28: wait before reconnecting after a voice drop, then before seeking back. */
+  voiceRetryMs?: [number, number];
 }
+
+/** Spec #28: Discord voice close codes worth reconnecting on (plus any close from Discord's side). */
+const RECOVERABLE_VOICE_CODES = new Set([4006, 4009, 4014, 4015]);
 
 // Per-player data keys (lavalink-client player.set/get).
 const CYCLE: Record<RepeatMode, RepeatMode> = { off: "track", track: "queue", queue: "off" };
@@ -50,6 +58,10 @@ const REVISION = "narze.revision";
 const TEXT_CHANNEL = "narze.textChannelId";
 const ADDED_AT = "addedAt";
 const LAST_SEEK = "narze.lastSeekAt";
+/** 24/7 (spec #10, #27): the Player stays in voice as an Idle Player when the queue ends. */
+const TWENTY_FOUR_SEVEN = "narze.twentyFourSeven";
+/** Queue Recovery is restoring this Player; the track start that follows clears it. */
+const RECOVERING = "narze.recovering";
 
 /**
  * Publishing is best-effort: playback must go on when Redis is down (ADR-0003), and lavalink-client
@@ -86,8 +98,12 @@ export function createMusic({
   epoch = crypto.randomUUID(),
   oembedTitle = spotifyOembedTitle,
   now = Date.now,
+  snapshots,
+  voiceRetryMs = [1000, 500],
 }: MusicOptions) {
   const sourceManagers = () => lavalink.nodeManager.leastUsedNodes()[0]?.info?.sourceManagers ?? [];
+
+  const is247 = (player: Player) => player.get<boolean | undefined>(TWENTY_FOUR_SEVEN) === true;
 
   /** Every queue mutation bumps the Queue Revision (ADR-0007). */
   const bump = (player: Player) => player.set(REVISION, (player.get<number | undefined>(REVISION) ?? 0) + 1);
@@ -114,14 +130,86 @@ export function createMusic({
       },
       {
         revision: player.get<number | undefined>(REVISION) ?? 0,
-        twentyFourSeven: false,
+        twentyFourSeven: is247(player),
         now: now(),
         epoch,
         lastSeekAt: player.get<number | undefined>(LAST_SEEK) ?? null,
+        recovering: player.get<boolean | undefined>(RECOVERING) === true,
       },
     );
+    // Every published change is also what a restart would need (Queue Snapshot, #103). The write
+    // is ordered per Guild by the store; the Dashboard does not wait for the disk.
+    void save(player);
     // An Invalid Player State is never published.
     if (state) await publisher.publish(state).catch(warn("publish Player State"));
+  }
+
+  const toStoredTrack = (track: LavalinkTrack): StoredTrack | null =>
+    track.encoded
+      ? {
+          encoded: track.encoded,
+          info: { ...track.info },
+          userData: track.userData as Record<string, unknown> | undefined,
+          requester: track.requester,
+        }
+      : null;
+
+  const fromStoredTrack = (track: StoredTrack) =>
+    lavalink.utils.buildTrack(
+      { encoded: track.encoded, info: track.info, pluginInfo: {}, userData: track.userData ?? {} } as never,
+      track.requester,
+    ) as LavalinkTrack;
+
+  /** Writes this Player's Queue Snapshot; best-effort, like publishing. */
+  async function save(player: Player): Promise<void> {
+    // While restoring, the Player has no current track yet: writing now would lose it.
+    if (!snapshots || !player.voiceChannelId || player.get<boolean | undefined>(RECOVERING)) return;
+    const current = player.queue.current ? toStoredTrack(player.queue.current) : null;
+    const snapshot: QueueSnapshot = {
+      guildId: player.guildId,
+      voiceChannelId: player.voiceChannelId,
+      textChannelId: player.get<string | undefined>(TEXT_CHANNEL) ?? player.textChannelId ?? null,
+      current,
+      positionMs: current ? Math.max(0, Math.round(player.position)) : 0,
+      paused: player.paused,
+      queue: (player.queue.tracks as LavalinkTrack[]).map(toStoredTrack).filter((t): t is StoredTrack => t !== null),
+      volume: player.volume,
+      repeatMode: player.repeatMode,
+      twentyFourSeven: is247(player),
+      savedAt: now(),
+    };
+    await snapshots.save(snapshot).catch(warn("save Queue Snapshot"));
+  }
+
+  /** Brings one Player back from its snapshot: voice, volume, loop, 24/7, queue, then the track. */
+  async function restore(snapshot: QueueSnapshot): Promise<void> {
+    // A snapshot without a current track but with a queue plays the queue's head from the start.
+    const [head, ...rest] = snapshot.current ? [snapshot.current, ...snapshot.queue] : snapshot.queue;
+    const current = head ? fromStoredTrack(head) : null;
+    const positionMs = snapshot.current ? snapshot.positionMs : 0;
+    const player = playerFor({
+      guildId: snapshot.guildId,
+      voiceChannelId: snapshot.voiceChannelId,
+      textChannelId: snapshot.textChannelId,
+    });
+    player.set(TWENTY_FOUR_SEVEN, snapshot.twentyFourSeven);
+    if (current) player.set(RECOVERING, true);
+    await player.connect();
+    await player.setVolume(snapshot.volume);
+    await player.setRepeatMode(snapshot.repeatMode);
+    if (rest.length > 0) await player.queue.add(rest.map(fromStoredTrack));
+    if (snapshot.textChannelId) {
+      const notice = recoveryNotice(current ? toTrack(current) : null, positionMs, rest.length);
+      await announce(snapshot.textChannelId, notice).catch(warn("recovery notice"));
+    }
+    if (!current) {
+      await commit(player);
+      return;
+    }
+    // The Dashboard shows "recovering" until the track starts; the notice above replaces Now Playing.
+    player.set(FLAGS, { ...NO_FLAGS, dontShow: true });
+    await commit(player);
+    await player.play({ clientTrack: current, position: positionMs, paused: snapshot.paused });
   }
 
   async function search(player: Player, query: string, requester: Requester) {
@@ -154,18 +242,18 @@ export function createMusic({
     return { tracks } as const;
   }
 
-  function playerFor(request: Pick<PlayRequest, "guildId" | "voiceChannelId" | "textChannelId">): Player {
+  function playerFor(request: { guildId: string; voiceChannelId: string; textChannelId: string | null }): Player {
     const existing = lavalink.getPlayer(request.guildId);
     if (existing) return existing;
     const player = lavalink.createPlayer({
       guildId: request.guildId,
       voiceChannelId: request.voiceChannelId,
-      textChannelId: request.textChannelId,
+      textChannelId: request.textChannelId ?? undefined,
       selfDeaf: true,
       selfMute: false,
       volume: DEFAULT_VOLUME,
     });
-    player.set(TEXT_CHANNEL, request.textChannelId);
+    if (request.textChannelId) player.set(TEXT_CHANNEL, request.textChannelId);
     return player;
   }
 
@@ -184,6 +272,7 @@ export function createMusic({
       }
     }
     bump(player);
+    player.set(RECOVERING, false);
     const flags = { ...flagsOf(player), trackLoop: player.repeatMode === "track" };
     // Spec #25: the per-track flags last one track (terminal playback keeps its flag).
     player.set(FLAGS, { ...NO_FLAGS, terminal: flags.terminal });
@@ -199,12 +288,73 @@ export function createMusic({
     }
   }
 
+  const voiceEvent = (guildId: string, type: VoiceEventType, data: Record<string, unknown>) =>
+    publisher.voice(guildId, type, data).catch(warn("publish voice event"));
+
+  /** Guilds reconnecting after a voice drop; a second drop meanwhile joins the first. */
+  const reconnecting = new Set<string>();
+
+  /**
+   * Spec #28: a dropped voice connection comes back where it was, unless the code says not to.
+   * Whatever happens, a drop announced as recovering ends with reconnected or failed, so the
+   * Dashboard never stays on "reconnecting".
+   */
+  async function onVoiceClosed(player: Player, code: number, reason: string, byRemote: boolean): Promise<void> {
+    const { guildId } = player;
+    // Spec #28: skip a Player that is gone or no longer in voice.
+    if (lavalink.getPlayer(guildId) !== player || !player.voiceChannelId || reconnecting.has(guildId)) return;
+    const recovering = RECOVERABLE_VOICE_CODES.has(code) || byRemote;
+    // Claimed before the first await, so a second close arriving meanwhile is ignored.
+    if (recovering) reconnecting.add(guildId);
+    const positionMs = player.position;
+    const track = player.queue.current?.encoded ?? null;
+    const wasPlaying = track !== null && !player.paused;
+    await voiceEvent(guildId, GuildEventTypes.voiceDisconnect, { code, reason, byRemote, recovering });
+    if (!recovering) return;
+    const alive = () => lavalink.getPlayer(guildId) === player;
+    try {
+      await Bun.sleep(voiceRetryMs[0]);
+      if (!alive()) throw new Error("player-gone");
+      await player.connect();
+      await Bun.sleep(voiceRetryMs[1]);
+      if (!alive()) throw new Error("player-gone");
+      // Only the track that dropped goes back to where it was; one skipped to meanwhile starts fresh.
+      const same = player.queue.current?.encoded === track;
+      const resumed = wasPlaying && same;
+      if (resumed) {
+        if (positionMs > 0) await player.seek(positionMs);
+        if (player.paused) await player.resume();
+      }
+      const title = player.queue.current?.info.title ?? null;
+      await voiceEvent(guildId, GuildEventTypes.voiceReconnected, { resumed, positionMs, title });
+    } catch (error) {
+      // A fixed code: lavalink-client errors can carry the node's address.
+      const gone = error instanceof Error && error.message === "player-gone";
+      await voiceEvent(guildId, GuildEventTypes.voiceReconnectFailed, { error: gone ? "player-gone" : "reconnect" });
+      if (!gone) warn("voice reconnect")(error);
+    } finally {
+      reconnecting.delete(guildId);
+    }
+  }
+
+  lavalink.on("playerSocketClosed", (player, payload) => {
+    onVoiceClosed(player, payload.code, payload.reason, payload.byRemote).catch(warn("voice drop"));
+  });
+
   lavalink.on("trackStart", (player, track) => {
     onTrackStart(player, track as LavalinkTrack | null).catch(warn("track start"));
   });
-  lavalink.on("queueEnd", (player) => void publish(player));
-  lavalink.on("playerDestroy", (player) => {
+  // Spec #27: the queue ended. Without 24/7 the Bot leaves; with it the Player stays as an Idle Player.
+  lavalink.on("queueEnd", (player) => {
+    const ended = is247(player) ? commit(player) : player.destroy().then(() => {});
+    ended.catch(warn("queue end"));
+  });
+  lavalink.on("playerDestroy", (player, reason) => {
     publisher.gone(player.guildId).catch(warn("publish player gone"));
+    // A Player that left (queue end without 24/7, /leave, kicked) is not restored after a restart.
+    // One that Lavalink took down (the node failed or was destroyed) is exactly what to restore.
+    if (String(reason ?? "").startsWith("Node")) return;
+    snapshots?.clear(player.guildId).catch(warn("clear Queue Snapshot"));
   });
 
   const existing = (guildId: string) => lavalink.getPlayer(guildId) ?? null;
@@ -276,6 +426,45 @@ export function createMusic({
   }
 
   return {
+    /**
+     * Queue Recovery (spec #21, #123): restores every Queue Snapshot whose Guild `keep` accepts;
+     * the rest are cleared. Returns how many Players came back.
+     */
+    async recover(keep: (snapshot: QueueSnapshot) => boolean = () => true): Promise<number> {
+      if (!snapshots) return 0;
+      let restored = 0;
+      for (const snapshot of await snapshots.all()) {
+        if (lavalink.getPlayer(snapshot.guildId)) continue;
+        if (!keep(snapshot)) {
+          await snapshots.clear(snapshot.guildId).catch(warn("clear Queue Snapshot"));
+          continue;
+        }
+        try {
+          // In the Guild's queue of work, so a /play arriving meanwhile waits for the restore. A
+          // /play that got there first started a Player of its own: that one wins.
+          const done = await serial(snapshot.guildId, async () => {
+            if (lavalink.getPlayer(snapshot.guildId)) return false;
+            await restore(snapshot);
+            return true;
+          });
+          if (done) restored += 1;
+        } catch (error) {
+          warn(`recover ${snapshot.guildId}`)(error);
+          await lavalink
+            .getPlayer(snapshot.guildId)
+            ?.destroy()
+            .catch(() => {});
+          await snapshots.clear(snapshot.guildId).catch(warn("clear Queue Snapshot"));
+        }
+      }
+      return restored;
+    },
+
+    /** Writes every Player's snapshot with its current position (shutdown, and every few seconds). */
+    async flush(): Promise<void> {
+      await Promise.all([...lavalink.players.values()].map(save));
+    },
+
     play(request: PlayRequest): Promise<PlayResult> {
       return serial(request.guildId, () => startOrQueue(request));
     },
@@ -376,7 +565,9 @@ export function createMusic({
       const player = existing(guildId);
       if (!player?.queue.current) return null;
       if (player.queue.tracks.length === 0) {
-        await player.destroy();
+        // Stopping the last track ends the queue; the queue end decides between leaving and Idle.
+        if (is247(player)) await player.stopPlaying(false, false);
+        else await player.destroy();
         return { kind: "ended" };
       }
       player.set(FLAGS, { ...flagsOf(player), skip: true });
@@ -391,6 +582,16 @@ export function createMusic({
       player.set(LAST_SEEK, now());
       await publish(player);
       return true;
+    },
+
+    /** Toggles 24/7; the new value, or null when there is no Player (spec #10). */
+    async setTwentyFourSeven(guildId: string): Promise<boolean | null> {
+      const player = existing(guildId);
+      if (!player) return null;
+      const next = !is247(player);
+      player.set(TWENTY_FOUR_SEVEN, next);
+      await publish(player);
+      return next;
     },
 
     async setVolume(guildId: string, volume: number): Promise<boolean> {
@@ -430,6 +631,7 @@ export function createMusic({
         volume: player.volume,
         positionMs: player.position,
         loop: player.repeatMode,
+        twentyFourSeven: is247(player),
         queue: (player.queue.tracks as LavalinkTrack[]).map(toTrack).filter((t): t is Track => t !== null),
       };
     },

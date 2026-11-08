@@ -6,6 +6,7 @@ import {
   PlayerStateSchema,
   type PlayerSummary,
   RedisKeys,
+  type VoiceEventType,
 } from "@narze/shared";
 import type Redis from "ioredis";
 import type { Track as LavalinkTrack, RepeatMode } from "lavalink-client";
@@ -31,7 +32,14 @@ const LOOP = { off: "off", track: "track", queue: "queue" } as const;
  */
 export function toPlayerState(
   view: PlayerView,
-  extra: { revision: number; twentyFourSeven: boolean; now: number; epoch: string; lastSeekAt: number | null },
+  extra: {
+    revision: number;
+    twentyFourSeven: boolean;
+    now: number;
+    epoch: string;
+    lastSeekAt: number | null;
+    recovering?: boolean;
+  },
 ): PlayerState | null {
   const current = view.current ? toTrack(view.current) : null;
   if (view.current && !current) return null;
@@ -51,6 +59,7 @@ export function toPlayerState(
     epoch: extra.epoch,
     lastSeekAt: extra.lastSeekAt,
     voiceChannelId: view.voiceChannelId,
+    ...(extra.recovering ? { recovering: true } : {}),
   });
   return parsed.success ? parsed.data : null;
 }
@@ -80,6 +89,10 @@ export function createPlayerPublisher(redis: Redis) {
         .publish(Channels.guildEvents, event(GuildEventTypes.playerState, state.guildId, state.revision, state))
         .publish(Channels.guildEvents, event(GuildEventTypes.playerSummary, state.guildId, state.revision, summary))
         .exec();
+    },
+    /** A voice drop and how recovering from it went (spec #28); drawn by the Dashboard, not cached. */
+    async voice(guildId: string, type: VoiceEventType, data: Record<string, unknown>): Promise<void> {
+      await redis.publish(Channels.guildEvents, event(type, guildId, 0, data));
     },
     /** Announces that a queued track is about to play now, before the queue update (spec #39). */
     async jump(guildId: string, revision: number, data: { fromIndex: number; title: string }): Promise<void> {

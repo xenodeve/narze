@@ -49,7 +49,21 @@ export const GuildEventTypes = {
   queueJump: "queue:jump",
   /** data: VoiceChannelList — someone joined, left or moved voice channels in the Guild. */
   voiceUpdate: "voice:update",
+  /** data: `{ code, reason, byRemote, recovering }` — the Bot's voice connection dropped (spec #28). */
+  voiceDisconnect: "voice:disconnect",
+  /** data: `{ resumed, positionMs, title }` — the voice connection is back after a drop (v5 sent `position` and the whole `track`). */
+  voiceReconnected: "voice:reconnected",
+  /** data: `{ error: "player-gone" | "reconnect" }` — reconnecting failed; a fixed code, never the raw error. */
+  voiceReconnectFailed: "voice:reconnect-failed",
 } as const;
+
+/** The voice-drop events (spec #28), drawn by the Dashboard and never cached. */
+export const VOICE_EVENT_TYPES = [
+  GuildEventTypes.voiceDisconnect,
+  GuildEventTypes.voiceReconnected,
+  GuildEventTypes.voiceReconnectFailed,
+] as const;
+export type VoiceEventType = (typeof VOICE_EVENT_TYPES)[number];
 
 /** Socket.io event names shared by Backend and Dashboard (ADR-0001). */
 export const SocketEvents = {

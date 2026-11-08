@@ -8,7 +8,7 @@ import { MoodAurora } from "@/components/mood-aurora";
 import { QueuePanel } from "@/components/queue-panel";
 import { explain, sendCommand } from "@/lib/control";
 import { moodFromArtwork, moodFromText } from "@/lib/mood";
-import { type Permission, usePlayer } from "@/lib/use-player";
+import { type Permission, usePlayer, type VoiceStatus } from "@/lib/use-player";
 import styles from "./now-playing.module.css";
 import { Progress } from "./progress";
 
@@ -62,7 +62,29 @@ function Artwork({ track }: { track: Track }) {
   );
 }
 
-function Stage({ guildId, state, permission }: { guildId: string; state: PlayerState; permission: Permission }) {
+const VOICE_TEXT = { reconnecting: "เสียงหลุด กำลังต่อใหม่…", failed: "ต่อเสียงใหม่ไม่สำเร็จ ลองใช้ /join" } as const;
+
+/** A voice drop (spec #28), playing or idle. */
+function VoiceLine({ voice }: { voice: VoiceStatus }) {
+  if (!voice) return null;
+  return (
+    <p className={styles.label} data-testid="voice-status" role="status">
+      {VOICE_TEXT[voice]}
+    </p>
+  );
+}
+
+function Stage({
+  guildId,
+  state,
+  permission,
+  voice,
+}: {
+  guildId: string;
+  state: PlayerState;
+  permission: Permission;
+  voice: VoiceStatus;
+}) {
   const [seekError, setSeekError] = useState<string | null>(null);
   /** A refused seek says why; the bar itself never moved, since it follows the server's state. */
   const seek = async (positionMs: number) => {
@@ -82,7 +104,9 @@ function Stage({ guildId, state, permission }: { guildId: string; state: PlayerS
             <Artwork track={track} />
             <div className={styles.meta}>
               <p className={styles.label}>{state.paused ? "พักไว้" : "กำลังเล่น"}</p>
-              <h1 id="now-title" key={track.uri} className={styles.title} data-testid="now-title">
+              <VoiceLine voice={voice} />
+              {/* Sibling keys must differ: the title and the progress bar both re-mount per track. */}
+              <h1 id="now-title" key={`title:${track.uri}`} className={styles.title} data-testid="now-title">
                 {track.title}
               </h1>
               <p className={styles.author}>{track.author || "Unknown Artist"}</p>
@@ -94,7 +118,7 @@ function Stage({ guildId, state, permission }: { guildId: string; state: PlayerS
                 <span>ขอโดย {track.requester.name}</span>
               </p>
               <Progress
-                key={track.uri}
+                key={`progress:${track.uri}`}
                 state={state}
                 onSeek={permission.canControl ? (ms) => void seek(ms) : undefined}
               />
@@ -108,6 +132,18 @@ function Stage({ guildId, state, permission }: { guildId: string; state: PlayerS
           </>
         ) : (
           <div className={styles.idle}>
+            {state.recovering ? (
+              <p className={styles.label} data-testid="recovering" role="status">
+                กำลังกู้คิวหลังบอทรีสตาร์ท…
+              </p>
+            ) : null}
+            <VoiceLine voice={voice} />
+            {/* An Idle Player (spec #27): the queue ended and 24/7 keeps the Bot in voice. */}
+            {!state.recovering && state.twentyFourSeven && state.voiceChannelId ? (
+              <p className={styles.label} data-testid="idle-247">
+                24/7 · บอทรออยู่ในห้องเสียง
+              </p>
+            ) : null}
             <h1 id="now-title" className={styles.title}>
               ยังไม่มีเพลงเล่นอยู่
             </h1>
@@ -146,6 +182,7 @@ export function NowPlaying({ guildId, userId }: { guildId: string; userId: strin
       <Stage
         guildId={guildId}
         permission={view.permission}
+        voice={view.voice}
         state={
           state ?? {
             guildId,

@@ -45,6 +45,8 @@ export const PlayerStateSchema = z.object({
   /** When the last seek happened (same clock as `syncedAt`); lets clients show a small rewind (spec #103). */
   lastSeekAt: z.number().int().nonnegative().nullable(),
   voiceChannelId: snowflake.nullable(),
+  /** Queue Recovery (#103) is restoring this Player after a Bot restart; cleared once it plays. */
+  recovering: z.boolean().optional(),
 });
 export type PlayerState = z.infer<typeof PlayerStateSchema>;
 

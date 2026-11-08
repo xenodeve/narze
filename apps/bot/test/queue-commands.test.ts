@@ -44,6 +44,7 @@ function music(queue: Track[], over: Partial<Music> = {}): Music {
     clear: mock(async () => true),
     setLoop: mock(async (_g: string, mode: string | null) => mode ?? "track"),
     playNow: mock(async () => "ok"),
+    setTwentyFourSeven: mock(async () => true),
     ...over,
   } as unknown as Music;
 }
@@ -173,5 +174,21 @@ describe("/playnext, /playat, /playqueue, /skipplay (spec #7)", () => {
     const reply = await command("skipplay").run(ctx({ query: "x" }), idle);
     expect(reply.notice.color).toBe(COLOR_FAILURE);
     expect(text(reply)).toBe("> `❌` ไม่มีเพลงก่อนหน้า");
+  });
+});
+
+describe("/247 (spec #10)", () => {
+  test("toggles 24/7 with v5's replies", async () => {
+    expect(text(await command("247").run(ctx(), music([])))).toBe("> `🌕` | *โหมด 24/7 :* ` เปิดการใช้งาน `");
+    const off = music([], { setTwentyFourSeven: mock(async () => false) as never });
+    expect(text(await command("247").run(ctx(), off))).toBe("> `🌙` | *โหมด 24/7 :* ` ปิดการใช้งาน `");
+    expect(command("247").data.description).toBe("Toggle 24/7 mode - keeps bot online in voice channel");
+  });
+
+  test("needs the Bot, and the member in its voice channel", async () => {
+    const none = music([], { status: mock(() => null) as never });
+    expect(text(await command("247").run(ctx(), none))).toBe("> `❌` ไม่มีบอทในห้อง");
+    const elsewhere = { ...ctx(), memberVoiceChannelId: "99" };
+    expect(text(await command("247").run(elsewhere, music([])))).toBe("> `❌` คุณต้องอยู่ในห้องเดียวกับบอท");
   });
 });
