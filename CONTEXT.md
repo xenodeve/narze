@@ -47,7 +47,7 @@ Glossary for the whole repo (single-context). When a term appears in **bold**, u
 
 **Server Owner** — the Discord guild owner. **Bot Owner** — the user who invited the Bot (audit log), stored in guild settings; falls back to the Server Owner.
 
-**Admin / Developer** — dashboard roles from the **Admin Whitelist** (Supabase, keyed by Discord ID), enforced by the **Backend**. Both reach the Admin area; only Developer manages the whitelist.
+**Admin / Developer** — Dashboard roles from the **Admin Whitelist** (`admin_whitelist` in Supabase, keyed by Discord ID, #110), enforced by the **Backend**: one guard on every `/api/admin` route and on the admin socket room. Both reach the admin area (stats, the Bot's live log); only a Developer manages the whitelist. `NARZE_DEVELOPER_IDS` (env) are always Developers: the way in on a fresh database, not changeable from the Dashboard.
 
 **Mutual Guild** — a **Guild** both the signed-in user and the **Bot** are in: the user's guild snapshot (taken from Discord at sign-in, `public.user_guilds`) intersected with the Bot's guild set in Redis. The Dashboard lists only these.
 
@@ -141,7 +141,7 @@ Dashboard ──REST/Socket.io──▶ Backend ──Redis pub/sub──▶ Bot
 
 **Server Owner** — เจ้าของ guild ใน Discord **Bot Owner** — คนที่เชิญ Bot เข้ามา (ดูจาก audit log) เก็บไว้ในค่าตั้งของ guild ถ้าหาไม่เจอใช้ Server Owner แทน
 
-**Admin / Developer** — บทบาทใน dashboard ที่มาจาก **Admin Whitelist** (อยู่ใน Supabase ใช้ Discord ID เป็นคีย์) และ **Backend** เป็นตัวบังคับ ทั้งสองบทบาทเข้าส่วน Admin ได้ แต่มีแค่ Developer ที่จัดการ whitelist ได้
+**Admin / Developer** — บทบาทใน Dashboard จาก **Admin Whitelist** (`admin_whitelist` ใน Supabase ใช้ Discord ID เป็นกุญแจ, #110) **Backend** เป็นผู้บังคับใช้ ด้วย guard ตัวเดียวที่ครอบทุก route ใต้ `/api/admin` และห้อง socket ของ admin ทั้งสองบทบาทเข้าหน้า admin ได้ (สถิติ, log สดของ Bot) แต่เฉพาะ Developer ที่จัดการ whitelist ได้ ส่วน `NARZE_DEVELOPER_IDS` (env) เป็น Developer เสมอ เป็นทางเดียวที่จะเข้าได้เมื่อฐานข้อมูลยังว่าง และแก้จาก Dashboard ไม่ได้
 
 **Mutual Guild** — **Guild** ที่ทั้งผู้ใช้ที่ login อยู่และ **Bot** อยู่ด้วยกัน คือ snapshot รายชื่อ guild ของผู้ใช้ (ดึงจาก Discord ตอน login เก็บใน `public.user_guilds`) ตัดกับชุด guild ของ Bot ใน Redis Dashboard แสดงเฉพาะ guild กลุ่มนี้
 
