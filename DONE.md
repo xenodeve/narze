@@ -6,6 +6,34 @@
 
 ---
 
+## #113 Voice Commands (2026-11-08, branch `feat/113-voice-commands`) — AC5 pending
+
+**Goal:** say a player command on the Dashboard; voice is never the only path (#113).
+
+**Shipped:**
+- **Intent grammar** (`packages/shared/src/voice-intent.ts`): an utterance maps to the same PlayerActions the buttons send (play, skip, previous, pause, resume, volume, loop modes, shuffle), in Thai and English. Numbers can be digits, Thai digits, Thai words or English words. It also handles real recognizer output: spaces between Thai words, punctuation, percent, polite particles. Voice volume stops at 100, like the slider.
+- **Dashboard:**
+  - **VoicePill:** supplied, vendored, coloured from tokens, with no waveform of its own. It sits in the top bar on guild pages.
+  - **Speech:** the Web Speech API, th-TH first, en-US if there is no Thai model.
+  - **The sheet:** it shows Strands while listening (the flat wash without WebGL), the live words, "sending", then either done or Control Permission's reason. It takes focus, and Escape closes it.
+  - **One animated canvas:** the Aurora pauses while the sheet is open.
+  - **Unsupported browsers:** they say so and keep every button.
+  - **Cancel:** a cancel (slide, Escape, blur, close) aborts, so nothing is sent.
+
+**Validated:**
+- `bun run verify` exit 0 (shared 102, bot 223, backend 97 pass); `test/voice-intent.test.ts` 8/8, written red first.
+- `bun run e2e` 40/40, including `e2e/voice.spec.ts` 3/3 with a fake recognizer:
+  - the unsupported browser, with no page errors;
+  - a refusal explained;
+  - an allowed volume command reaching the Bot;
+  - an unknown phrase;
+  - the Aurora pausing and resuming;
+  - closing mid-sentence sends nothing (red first).
+- Screenshots at desktop width and 390 px.
+- **Not done: AC5**, a manual check in Chrome with Thai speech. It needs a person with a microphone, so #113 stays open for it.
+
+---
+
 ## #112 Operator console (2026-11-08, branch `feat/112-operator-console`)
 
 **Goal:** run the Bot from its own terminal, quietly (spec #119).
