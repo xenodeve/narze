@@ -2,6 +2,7 @@ export * from "./channels";
 export * from "./commands";
 export * from "./guilds";
 export * from "./json";
+export * from "./library";
 export * from "./player";
 export * from "./progress";
 export * from "./queue";
