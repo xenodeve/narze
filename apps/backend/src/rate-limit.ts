@@ -4,7 +4,7 @@ export interface Limit {
   windowMs: number;
 }
 
-/** The limits the Backend applies (#142); tests pass small ones. */
+/** The limits the Backend applies, and whose forwarded address it believes (#142); tests pass small limits. */
 export interface RateLimits {
   /** REST calls per client address: each one runs `auth.getUser`. */
   api: Limit;
@@ -12,6 +12,8 @@ export interface RateLimits {
   handshake: Limit;
   /** Playlist previews per user: one can read up to 50 Spotify pages. */
   import: Limit;
+  /** Proxies besides this machine whose X-Forwarded-For is believed (TRUSTED_PROXIES). */
+  trustedProxies: string[];
 }
 
 /**
@@ -56,16 +58,22 @@ export class RateLimiter {
 }
 
 /**
- * The client's address. X-Forwarded-For counts only when the connection itself comes from this
- * machine (a proxy such as cloudflared on the same host), and then only its last entry — the one
- * that proxy added; the rest is whatever the client sent. Matches Express `trust proxy: "loopback"`.
+ * The client's address. X-Forwarded-For counts only when the connection comes from a trusted proxy —
+ * this machine (cloudflared on the same host), or an address in `trusted` (a proxy in Docker or on
+ * another host) — and then only its last entry, the one that proxy added; anything before it is
+ * whatever the client sent. One proxy hop, unlike Express's trust walk.
  */
-export function clientAddress(remote: string | undefined, forwarded: string | string[] | undefined): string {
+export function clientAddress(
+  remote: string | undefined,
+  forwarded: string | string[] | undefined,
+  trusted: readonly string[],
+): string {
   const direct = remote ?? "";
-  const loopback = direct === "::1" || direct.startsWith("127.") || direct.startsWith("::ffff:127.");
+  const plain = direct.startsWith("::ffff:") ? direct.slice(7) : direct;
+  const proxy = plain === "::1" || plain.startsWith("127.") || trusted.includes(plain);
   const header = Array.isArray(forwarded) ? forwarded.join(",") : forwarded;
   const last = header?.split(",").at(-1)?.trim();
-  return loopback && last ? last : direct;
+  return proxy && last ? last : direct;
 }
 
 /**
@@ -76,4 +84,5 @@ export const DEFAULT_RATE_LIMITS: RateLimits = {
   api: { max: 3000, windowMs: 60_000 },
   handshake: { max: 500, windowMs: 60_000 },
   import: { max: 10, windowMs: 60_000 },
+  trustedProxies: [],
 };

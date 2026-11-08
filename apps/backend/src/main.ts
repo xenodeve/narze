@@ -1,5 +1,6 @@
 import { DEFAULT_REDIS_URL, DiscordIdSchema } from "@narze/shared";
 import { createApp } from "./app";
+import { DEFAULT_RATE_LIMITS } from "./rate-limit";
 
 const env = process.env;
 const required = (name: string) => {
@@ -29,6 +30,14 @@ const app = await createApp({
   },
   youtubeApiKey: env.YOUTUBE_API_KEY,
   chartsUrl: env.CHARTS_URL || undefined,
+  // A proxy on another address than this machine (cloudflared in Docker): its X-Forwarded-For is believed (#142).
+  rateLimits: {
+    ...DEFAULT_RATE_LIMITS,
+    trustedProxies: (env.TRUSTED_PROXIES ?? "")
+      .split(",")
+      .map((a) => a.trim())
+      .filter(Boolean),
+  },
   developerIds: (env.NARZE_DEVELOPER_IDS ?? "")
     .split(",")
     .map((id) => id.trim())

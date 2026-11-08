@@ -178,15 +178,21 @@ export async function createApp(options: AppOptions): Promise<INestApplication> 
   });
   // A 5000-track playlist (the Library's limit) is about 1.5 MB of JSON; express allows 100 KB.
   app.useBodyParser("json", { limit: "4mb" });
+  // CORS first: it answers preflights itself (they cost no Supabase call, so they are not counted),
+  // and a 429 needs its headers or the browser hides it behind a network error.
+  app.enableCors({ origin: options.dashboardOrigin });
   // Every REST call costs a Supabase Auth round trip: a flood from one address is refused first (#142).
-  const api = new RateLimiter((options.rateLimits ?? DEFAULT_RATE_LIMITS).api);
+  const limits = options.rateLimits ?? DEFAULT_RATE_LIMITS;
+  const api = new RateLimiter(limits.api);
   app.use("/api", (req: IncomingMessage, res: ServerResponse, next: () => void) => {
-    const { ok, retryAfterMs } = api.hit(clientAddress(req.socket.remoteAddress, req.headers["x-forwarded-for"]));
+    const address = clientAddress(req.socket.remoteAddress, req.headers["x-forwarded-for"], limits.trustedProxies);
+    const { ok, retryAfterMs } = api.hit(address);
     if (ok) return next();
-    res.writeHead(429, { "retry-after": String(Math.ceil(retryAfterMs / 1000)), "content-type": "application/json" });
+    res.statusCode = 429;
+    res.setHeader("retry-after", String(Math.ceil(retryAfterMs / 1000)));
+    res.setHeader("content-type", "application/json");
     res.end(JSON.stringify({ statusCode: 429, message: "Too Many Requests" }));
   });
-  app.enableCors({ origin: options.dashboardOrigin });
   app.useWebSocketAdapter(new CorsIoAdapter(app, options.dashboardOrigin));
   app.enableShutdownHooks();
   return app;

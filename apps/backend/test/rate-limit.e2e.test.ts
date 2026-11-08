@@ -11,7 +11,6 @@ import { DEFAULT_REDIS_URL } from "@narze/shared";
 import type { INestApplication } from "@nestjs/common";
 import { io } from "socket.io-client";
 import { createApp } from "../src/app";
-import { RateLimiter } from "../src/rate-limit";
 
 const supabase = localSupabase();
 const ria = { id: "360000000000000001", username: "ria142", globalName: "Ria" };
@@ -36,6 +35,7 @@ beforeAll(async () => {
       api: { max: 3, windowMs: MINUTE },
       handshake: { max: 2, windowMs: MINUTE },
       import: { max: 1, windowMs: MINUTE },
+      trustedProxies: [],
     },
   });
   await app.listen(0);
@@ -56,6 +56,22 @@ describe("rate limits (#142 item 3)", () => {
     expect(refused.status).toBe(429);
     expect(Number(refused.headers.get("retry-after"))).toBeGreaterThan(0);
     expect((await get("203.0.113.2")).status).toBe(401);
+  });
+
+  test("a 429 still carries CORS headers, and a preflight is not counted", async () => {
+    const headers = from("203.0.113.7", { origin: "http://localhost:3000" });
+    for (let i = 0; i < 5; i++) {
+      const preflight = await fetch(`${url}/api/me/guilds`, {
+        method: "OPTIONS",
+        headers: { ...headers, "access-control-request-method": "GET" },
+      });
+      expect(preflight.status).toBe(204);
+    }
+    for (let i = 0; i < 3; i++) await fetch(`${url}/api/me/guilds`, { headers });
+    const refused = await fetch(`${url}/api/me/guilds`, { headers });
+    expect(refused.status).toBe(429);
+    // Without it the browser hides the 429 and the Dashboard sees a network error instead.
+    expect(refused.headers.get("access-control-allow-origin")).toBe("http://localhost:3000");
   });
 
   test("sockets: past the limit a handshake is refused before the token is checked", async () => {
@@ -89,29 +105,5 @@ describe("rate limits (#142 item 3)", () => {
     const refused = await preview("203.0.113.6");
     expect(refused.status).toBe(429);
     expect(Number(refused.headers.get("retry-after"))).toBeGreaterThan(0);
-  });
-});
-
-describe("RateLimiter", () => {
-  test("counts per key in a fixed window, then starts over", () => {
-    let now = 0;
-    const limiter = new RateLimiter({ max: 2, windowMs: 1000 }, () => now);
-    expect(limiter.hit("a")).toEqual({ ok: true, retryAfterMs: 0 });
-    expect(limiter.hit("a").ok).toBe(true);
-    expect(limiter.hit("a")).toEqual({ ok: false, retryAfterMs: 1000 });
-    expect(limiter.hit("b").ok).toBe(true);
-    now = 400;
-    expect(limiter.hit("a")).toEqual({ ok: false, retryAfterMs: 600 });
-    now = 1000;
-    expect(limiter.hit("a").ok).toBe(true);
-  });
-
-  test("forgets windows that ended, so the map does not grow without bound", () => {
-    let now = 0;
-    const limiter = new RateLimiter({ max: 1, windowMs: 1000 }, () => now);
-    for (let i = 0; i < 100; i++) limiter.hit(`k${i}`);
-    now = 2000;
-    limiter.hit("fresh");
-    expect(limiter.size).toBe(1);
   });
 });

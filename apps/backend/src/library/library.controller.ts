@@ -103,12 +103,13 @@ export class LibraryController {
     @Res({ passthrough: true }) res: { setHeader(name: string, value: string): void },
   ) {
     const { discordId } = await this.auth.require(authorization);
+    // A malformed body costs nothing downstream, so only a well-formed one is counted.
+    const { url } = parse(z.object({ url: z.string().max(500) }), body);
     const { ok, retryAfterMs } = this.imports.hit(discordId);
     if (!ok) {
       res.setHeader("retry-after", String(Math.ceil(retryAfterMs / 1000)));
       throw new HttpException("Too Many Requests", HttpStatus.TOO_MANY_REQUESTS);
     }
-    const { url } = parse(z.object({ url: z.string().max(500) }), body);
     try {
       return await this.importer(url);
     } catch (error) {

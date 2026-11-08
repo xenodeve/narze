@@ -21,6 +21,10 @@ export function getSocket(): Promise<Socket> {
     });
     // The Backend asks for the current token when the handshake's expires (#142).
     s.on(SocketEvents.sessionToken, (ack: (token: string | null) => void) => ack(signedIn?.accessToken ?? null));
+    // A handshake refused for rate (#142) is not retried by socket.io-client; this tab tries again later.
+    s.on("connect_error", (error) => {
+      if (error.message === "rate-limited") setTimeout(() => s.connect(), 10_000);
+    });
     // socket.io-client does not reconnect after the server closes a socket; this tab still wants one.
     s.on("disconnect", (reason) => {
       if (reason === "io server disconnect") setTimeout(() => s.connect(), 1000);

@@ -87,9 +87,11 @@ export class UserGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     @Inject(RATE_LIMITS) limits: RateLimits,
   ) {
     this.handshakes = new RateLimiter(limits.handshake);
+    this.trustedProxies = limits.trustedProxies;
   }
 
   private readonly handshakes: RateLimiter;
+  private readonly trustedProxies: string[];
 
   async onModuleInit(): Promise<void> {
     await this.presence.reset();
@@ -104,7 +106,8 @@ export class UserGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   afterInit(server: Server): void {
     server.use((client, next) => {
       // Before any Supabase call: a flood of handshakes from one address is refused first (#142).
-      const address = clientAddress(client.request.socket.remoteAddress, client.request.headers["x-forwarded-for"]);
+      const { remoteAddress } = client.request.socket;
+      const address = clientAddress(remoteAddress, client.request.headers["x-forwarded-for"], this.trustedProxies);
       if (!this.handshakes.hit(address).ok) return next(new Error("rate-limited"));
       const token: unknown = client.handshake.auth?.token;
       if (token === undefined) return next();
