@@ -8,6 +8,7 @@ import { GuildAvatar } from "@/components/guild-avatar";
 import { LikeButton, libraryTrack } from "@/components/like-button";
 import { MoodAurora } from "@/components/mood-aurora";
 import { QueuePanel } from "@/components/queue-panel";
+import { TopPlayedPanel } from "@/components/top-played";
 import { explain, sendCommand } from "@/lib/control";
 import { moodFromArtwork, moodFromText } from "@/lib/mood";
 import { useTrackNotifications } from "@/lib/notifications";
@@ -159,6 +160,7 @@ function Stage({
             </h1>
             <p className={styles.author}>ใช้ /play ใน Discord หรือเพิ่มเพลงจากตรงนี้ แล้วเพลงจะขึ้นทันที</p>
             <Controls guildId={guildId} state={null} permission={permission} />
+            <TopPlayedPanel guildId={guildId} />
           </div>
         )}
         <div className={styles.avatar} aria-hidden="true">
