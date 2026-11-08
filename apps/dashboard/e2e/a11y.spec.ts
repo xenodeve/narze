@@ -149,9 +149,23 @@ test("keyboard only: Tab reaches playback and queue controls, they show focus, a
     }),
   );
   await redis.set(RedisKeys.playerSummary(G), JSON.stringify({ playing: true, queueLength: 1, voiceChannelId: "94" }));
+  // The Backend serves its hot cache, filled by Bot events (ADR-0006): announce the state as the Bot does.
+  const { GuildEventTypes } = await import("@narze/shared");
+  await redis.publish(
+    Channels.guildEvents,
+    JSON.stringify({
+      type: GuildEventTypes.playerState,
+      guildId: G,
+      revision: 9000,
+      sequence: 9000,
+      ts: Date.now(),
+      data: JSON.parse((await redis.get(RedisKeys.playerState(G))) ?? "null"),
+    }),
+  );
   await signedIn(page);
   await page.goto(`/guilds/${G}`);
-  await expect(page.getByTestId("toggle-pause")).toBeVisible();
+  // The controls unlock once Control Permission has loaded; a disabled button takes no focus.
+  await expect(page.getByTestId("toggle-pause")).toBeEnabled();
 
   /** Tabs forward until `target` has focus (at most 80 stops), then checks a focus ring is drawn. */
   const tabTo = async (target: ReturnType<Page["locator"]>) => {

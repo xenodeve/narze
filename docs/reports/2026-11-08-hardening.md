@@ -51,7 +51,25 @@ Caveats:
 
 ## Security review (AC3)
 
-A whole-system review of the auth, permission and admin boundaries. Findings and their status are in the PR for #114 and in the issues it files. `docker-compose.yml` now publishes Redis (6379) and Lavalink (2333) on 127.0.0.1 only. Redis has no password, and anyone who can publish to it could forge Bot events (ledger row).
+A whole-system review (not a diff) of authentication, Control Permission, the admin boundary, RLS and functions, Redis IPC, Dashboard XSS sinks, and the Bot. The full findings are in #141 and #142.
+
+| Severity | Finding | Status |
+|---|---|---|
+| MEDIUM | Server ownership and membership come from the sign-in snapshot (`user_guilds.is_owner`), so a former owner keeps owner rights and a kicked member keeps reads until they sign in again | Filed: #141 |
+| LOW | The admin audit lines (channel reads, restart/shutdown) used `logger.log`, which the Backend's logger levels drop | **Fixed here:** written as `warn` with an `audit:` prefix |
+| LOW | Sockets are verified only at the handshake: after sign-out an open tab keeps receiving guild events (and an admin, the live log) | Filed: #142 |
+| LOW | Lavalink's `http` source can be pointed at internal addresses through DNS or redirects | Filed: #142 (egress filtering or `http: false` in production) |
+| LOW | No rate limiting; every request costs a Supabase Auth call | Filed: #142 |
+| condition | Redis has no password: anyone who can publish to it bypasses every check | **Fixed for local work here** (127.0.0.1 only); production needs `requirepass`/ACLs, #142 |
+
+Checked and found safe:
+- **Identity:** it comes only from the Discord identity. The sync rejects a foreign provider token.
+- **Route guards:** every REST controller requires auth or the AdminGuard.
+- **Row scoping:** library and history rows are scoped to their owner or participants.
+- **Supabase:** RLS is on for all 8 tables, `anon` is fully revoked, and every function is `security invoker` with EXECUTE revoked.
+- **XSS:** the only `dangerouslySetInnerHTML` is a static pre-paint script. Markdown links are http(s) only. `postMessage` is pinned to the page's own origin.
+- **CORS and CSRF:** CORS allows one origin, and bearer tokens mean CSRF does not apply.
+- **Bot commands:** `/setchannel` checks owner or Bot Owner.
 
 ## E2E as a required check (AC4)
 
