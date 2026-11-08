@@ -6,6 +6,32 @@
 
 ---
 
+## #101 Dashboard control with server-side Control Permission (2026-11-08, branch `feat/101-dashboard-control`)
+
+**Goal:** control playback from the web, with the permission ladder enforced on the server even for a direct socket call, live permission changes, a voice-channel picker and optimistic UI that reverts.
+
+**Shipped:**
+- **Contract:** `player:command`, which fails closed. The token is re-verified per command, with the tab's current token. The command must target a Mutual Guild and pass the ladder, then is relayed over Redis with the Acting User and paired with the Bot's result by id (ADR-0008).
+- **Live permission:** `permission:update` is sent after every voice or Player change.
+- **Bot:** a command bus; previous, loop, shuffle and play-next; the Spotify oEmbed fallback (#70); and a public voice-channel list, debounced.
+- **Dashboard:** the controls (volume sends on release, seek is drag-safe), a lock that shows the reason, the picker, and the app shell with the supplied `BranchedMenu` (#76).
+
+**Validation:**
+- `bun run verify` exit 0: 158 tests.
+- `bun run e2e` 12 passed: two users, one allowed and one refused; the controls turn on within 2 s of joining voice; a refusal reverts; the picker starts playback in the chosen channel.
+- Mutation probe: removing the server check turned the backend e2e red.
+- Screenshots: 1280 and 390, with the stage laid out by a container query.
+- **Not run:** CI (#116), real Discord (#121).
+
+**Lessons:**
+- A socket verified only at handshake outlives its token.
+- socket.io-client never reconnects after the server closes the socket.
+- Anything a server sends to "every member" has to respect Discord channel visibility.
+
+**Next:** #102.
+
+---
+
 ## #100 Play from Discord, read-only Now Playing, Hot Cache (2026-11-08, branch `feat/100-play-and-now-playing`)
 
 **Goal:** `/play` and the core commands drive Lavalink; every change reaches every open Dashboard tab within 1 s, and a page load never asks the Bot.
