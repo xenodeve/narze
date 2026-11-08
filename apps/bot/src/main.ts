@@ -41,7 +41,9 @@ client.once("clientReady", async (ready) => {
 });
 client.on("guildCreate", (guild) => void registry?.add(presenceOf(guild)).catch(logFailure("guild registry")));
 client.on("guildDelete", (guild) => void registry?.remove(guild.id).catch(logFailure("guild registry")));
-client.on("voiceStateUpdate", (_old, state) => {
+client.on("voiceStateUpdate", (old, state) => {
+  // Mute, deafen and stream toggles fire this too; only a channel change matters here.
+  if (old.channelId === state.channelId) return;
   void registry?.voice(state.guild.id, state.id, state.channelId).catch(logFailure("voice registry"));
 });
 

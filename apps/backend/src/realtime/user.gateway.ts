@@ -1,5 +1,12 @@
-import { Channels, GuildEventSchema, GuildEventTypes, PlayerSummarySchema, SocketEvents } from "@narze/shared";
-import { Inject, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
+import {
+  Channels,
+  GuildEventSchema,
+  GuildEventTypes,
+  PlayerSummarySchema,
+  parseJson,
+  SocketEvents,
+} from "@narze/shared";
+import { Inject, type OnModuleInit } from "@nestjs/common";
 import {
   type OnGatewayConnection,
   type OnGatewayDisconnect,
@@ -10,9 +17,9 @@ import {
 import type Redis from "ioredis";
 import type { Server, Socket } from "socket.io";
 import { Authenticator, type Identity } from "../auth/authenticator";
-import { GuildDirectory } from "../guilds/guild-directory";
+import { GuildDirectory, summarize } from "../guilds/guild-directory";
 import { Presence } from "../presence/presence";
-import { REDIS, REDIS_SUBSCRIBER } from "../tokens";
+import { REDIS_SUBSCRIBER } from "../tokens";
 import { type StoredGuild, UserStore } from "../users/user-store";
 
 interface SessionData {
@@ -28,9 +35,7 @@ const guildRoom = (guildId: string) => `guild:${guildId}`;
  * counted for Presence. A socket without a token stays anonymous and only receives Bot status.
  */
 @WebSocketGateway()
-export class UserGateway
-  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect, OnModuleInit, OnModuleDestroy
-{
+export class UserGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect, OnModuleInit {
   @WebSocketServer() private server!: Server;
 
   constructor(
@@ -38,7 +43,6 @@ export class UserGateway
     @Inject(UserStore) private readonly store: UserStore,
     @Inject(GuildDirectory) private readonly directory: GuildDirectory,
     @Inject(Presence) private readonly presence: Presence,
-    @Inject(REDIS) private readonly redis: Redis,
     @Inject(REDIS_SUBSCRIBER) private readonly subscriber: Redis,
   ) {}
 
@@ -48,10 +52,6 @@ export class UserGateway
       if (channel === Channels.guildEvents) void this.onGuildEvent(message);
     });
     await this.subscriber.subscribe(Channels.guildEvents);
-  }
-
-  async onModuleDestroy(): Promise<void> {
-    await this.redis.quit();
   }
 
   /** Refuses a bad token during the handshake, so the client gets `connect_error` and no socket. */
@@ -92,23 +92,20 @@ export class UserGateway
     if (identity && guilds) await this.presence.close(identity.discordId);
   }
 
+  /** One HMGET for every listener's voice channel, then each tab gets its own user's summary. */
   private async onGuildEvent(message: string): Promise<void> {
-    let raw: unknown;
-    try {
-      raw = JSON.parse(message);
-    } catch {
-      return;
-    }
-    const event = GuildEventSchema.safeParse(raw);
-    if (!event.success || event.data.type !== GuildEventTypes.playerSummary) return;
-    const player = PlayerSummarySchema.safeParse(event.data.data);
+    const event = parseJson(GuildEventSchema, message);
+    if (event?.type !== GuildEventTypes.playerSummary) return;
+    const player = PlayerSummarySchema.safeParse(event.data);
     if (!player.success) return;
-    const { guildId } = event.data;
-    for (const socket of await this.server.in(guildRoom(guildId)).fetchSockets()) {
+    const listeners = (await this.server.in(guildRoom(event.guildId)).fetchSockets()).flatMap((socket) => {
       const { identity, guilds } = socket.data as SessionData;
-      const guild = guilds?.get(guildId);
-      if (!identity || !guild) continue;
-      socket.emit(SocketEvents.guildSummary, await this.directory.summary(identity.discordId, guild, player.data));
+      const guild = guilds?.get(event.guildId);
+      return identity && guild ? [{ socket, discordId: identity.discordId, guild }] : [];
+    });
+    const voices = await this.directory.voiceChannels(event.guildId, [...new Set(listeners.map((l) => l.discordId))]);
+    for (const { socket, discordId, guild } of listeners) {
+      socket.emit(SocketEvents.guildSummary, summarize(guild, player.data, voices.get(discordId) ?? null));
     }
   }
 }

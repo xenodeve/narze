@@ -1,10 +1,10 @@
 "use client";
 
 import type { Socket } from "socket.io-client";
-import { BACKEND_URL } from "./supabase";
+import { BACKEND_URL } from "./config";
 
 let socket: Promise<Socket> | undefined;
-let accessToken: string | null = null;
+let signedIn: { userId: string; accessToken: string } | null = null;
 
 /**
  * One Socket.io connection per tab, shared by every component (ADR-0007).
@@ -16,18 +16,45 @@ export function getSocket(): Promise<Socket> {
     io(BACKEND_URL, {
       transports: ["websocket"],
       withCredentials: true,
-      auth: (send) => send(accessToken ? { token: accessToken } : {}),
+      auth: (send) => send(signedIn ? { token: signedIn.accessToken } : {}),
     }),
   );
   return socket;
 }
 
-/** Signs the shared socket in or out: a new token means a new handshake. */
-export function setSocketToken(token: string | null): void {
-  if (token === accessToken) return;
-  accessToken = token;
+/**
+ * Who the socket should be. Signing in, out or as someone else re-handshakes; a refreshed token
+ * for the same user is only kept for the next handshake, since the open socket is already verified.
+ */
+export function setSocketUser(next: { userId: string; accessToken: string } | null): void {
+  const sameUser = next?.userId === signedIn?.userId;
+  signedIn = next;
+  if (sameUser) return;
   void socket?.then((s) => {
     s.disconnect();
     s.connect();
   });
+}
+
+/** The disconnect setSocketUser causes on purpose; it is not a lost connection. */
+export const isRehandshake = (reason: string) => reason === "io client disconnect";
+
+type Handler = (...args: never[]) => void;
+
+/** Subscribes to socket events once the shared socket exists; the returned function unsubscribes. */
+export function onSocketEvents(handlers: Record<string, Handler>): () => void {
+  let detached = false;
+  let off = () => {};
+  void getSocket().then((s) => {
+    if (detached) return;
+    const entries = Object.entries(handlers) as Array<[string, (...args: unknown[]) => void]>;
+    for (const [event, handler] of entries) s.on(event, handler);
+    off = () => {
+      for (const [event, handler] of entries) s.off(event, handler);
+    };
+  });
+  return () => {
+    detached = true;
+    off();
+  };
 }

@@ -121,13 +121,12 @@ GitHub Actions cannot start any job (account billing lock), so **no check ever r
 
 - **A merged PR means "the author ran verify", not "CI passed".** Nothing in the merge distinguishes the two.
 - The T4 gate's `verify` (`.claude/t4.json`) is the **full** suite — `bun install --frozen-lockfile`,
-  `bun run verify`, `bun run e2e` — and the gate already runs it in a fresh `git worktree` of the PR head
+  `bun run infra:up` (starts or reuses Redis + Supabase local, applies migrations), `bun run verify`, `bun run e2e` — and the gate already runs it in a fresh `git worktree` of the PR head
   (`.claude/hooks/t4-gate:173`), which stands in for CI's clean machine.
 - `code-review` and `scrutinize` run on every PR before merge and are recorded in `T4-Gates:`. This is
   discipline, not a mechanical block: `check-gate-ledger` refuses silence but accepts `not-run`.
 - **Unverified while this lasts:** `t4-codeql` (CodeQL has no local equivalent here).
-- The gate's `verify` and `e2e` need the local Redis and Supabase (`bun run infra:up`); with either stopped
-  the gate denies the merge (fails closed). Playwright never reuses a running server, so a stale dev server
+- The gate starts Redis and Supabase itself (`infra:up`); with Docker stopped it denies the merge (fails closed). Playwright never reuses a running server, so a stale dev server
   cannot make old code pass.
 - `requireGreenCI` stays `false` (with no checks it would deny every merge).
 - **Ceiling:** none of this binds a human merging on the GitHub web UI.

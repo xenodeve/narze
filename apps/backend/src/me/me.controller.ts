@@ -33,32 +33,26 @@ export class MeController {
    * must belong to the signed-in user, so nobody can store another user's guild list as their own.
    */
   @Post("sync")
-  @HttpCode(200)
-  async sync(
-    @Headers("authorization") authorization: string | undefined,
-    @Body() body: unknown,
-  ): Promise<GuildSummary[]> {
+  @HttpCode(204)
+  async sync(@Headers("authorization") authorization: string | undefined, @Body() body: unknown): Promise<void> {
     const identity = await this.auth.require(authorization);
     const parsed = SyncBodySchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException("providerToken is required");
-    const owner = await this.discord.me(parsed.data.providerToken);
+    const [owner, guilds] = await Promise.all([
+      this.discord.me(parsed.data.providerToken),
+      this.discord.guilds(parsed.data.providerToken),
+    ]);
     if (owner?.id !== identity.discordId) throw new ForbiddenException("the Discord token belongs to another user");
-    const guilds = await this.discord.guilds(parsed.data.providerToken);
     await this.store.upsertUser(identity);
     await this.store.replaceGuilds(
       identity.discordId,
       guilds.map((g) => ({ id: g.id, name: g.name, iconUrl: guildIconUrl(g), isOwner: g.owner })),
     );
-    return this.listFor(identity.discordId);
   }
 
   @Get("guilds")
   async guilds(@Headers("authorization") authorization: string | undefined): Promise<GuildSummary[]> {
-    const identity = await this.auth.require(authorization);
-    return this.listFor(identity.discordId);
-  }
-
-  private async listFor(discordId: string): Promise<GuildSummary[]> {
+    const { discordId } = await this.auth.require(authorization);
     const mutual = await this.directory.mutual(await this.store.guildsOf(discordId));
     return this.directory.summaries(discordId, mutual);
   }

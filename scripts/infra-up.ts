@@ -5,16 +5,17 @@
  * credentials. See supabase/README.md.
  */
 import { spawnSync } from "node:child_process";
+import { FAKE_DISCORD_DOCKER_URL, FAKE_DISCORD_PORT } from "../packages/fake-discord/src/index";
 
 const FAKE_DISCORD = {
   SUPABASE_AUTH_EXTERNAL_DISCORD_CLIENT_ID: "narze-fake-client",
   SUPABASE_AUTH_EXTERNAL_DISCORD_SECRET: "narze-fake-secret",
-  SUPABASE_AUTH_EXTERNAL_DISCORD_URL: "http://host.docker.internal:4599",
+  SUPABASE_AUTH_EXTERNAL_DISCORD_URL: FAKE_DISCORD_DOCKER_URL,
 };
 
 const realDiscord = Object.keys(FAKE_DISCORD).every((name) => process.env[name]);
 const env = realDiscord ? process.env : { ...process.env, ...FAKE_DISCORD };
-console.log(`[infra] Supabase Auth → ${realDiscord ? "Discord from your shell environment" : "fake Discord on :4599"}`);
+console.log(`[infra] Supabase Auth → ${realDiscord ? "Discord from your shell environment" : `fake Discord on :${FAKE_DISCORD_PORT}`}`);
 
 function run(command: string, args: string[]): void {
   const result = spawnSync(command, args, { stdio: "inherit", env });

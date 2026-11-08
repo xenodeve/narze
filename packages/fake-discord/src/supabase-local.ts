@@ -1,9 +1,8 @@
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import type { FakeDiscordGuild, FakeDiscordUser } from "./index";
+import { FAKE_DISCORD_PORT, type FakeDiscordGuild, type FakeDiscordUser, setFakeDiscordUser } from "./index";
 
-/** The port Supabase Auth is configured to reach the fake Discord on (supabase/README.md). */
-export const FAKE_DISCORD_PORT = 4599;
+export { FAKE_DISCORD_PORT };
 
 export interface LocalSupabase {
   url: string;
@@ -14,7 +13,7 @@ export interface LocalSupabase {
 // Node APIs only: this also runs inside Playwright's config, which Node executes.
 const REPO_ROOT = fileURLToPath(new URL("../../..", import.meta.url));
 /** Bun itself under `bun test`; under Playwright (Node), the Bun that `bun run` recorded. */
-const BUN = process.env.BUN_BIN ?? (process.versions.bun ? process.execPath : process.env.npm_execpath) ?? "bun";
+export const BUN = process.env.BUN_BIN ?? (process.versions.bun ? process.execPath : process.env.npm_execpath) ?? "bun";
 
 function supabaseCli(...args: string[]): string {
   const run = spawnSync(BUN, ["x", "supabase@3", ...args, "--workdir", REPO_ROOT], { encoding: "utf8" });
@@ -24,16 +23,22 @@ function supabaseCli(...args: string[]): string {
   return run.stdout;
 }
 
+/** Set by the first caller in a process tree, so Playwright workers and specs do not spawn the CLI again. */
+const CACHE_ENV = "NARZE_LOCAL_SUPABASE";
+
 /**
- * Keys of the running Supabase local, read from the CLI so no key is written into the repo, after
- * applying any migration the checkout has that the database does not (idempotent).
+ * URL and keys of the running Supabase local, read from the CLI so no key is written into the
+ * repo. Read-only: `bun run infra:up` starts the stack and applies migrations.
  */
-export function prepareLocalSupabase(): LocalSupabase {
-  supabaseCli("migration", "up");
+export function localSupabase(): LocalSupabase {
+  const cached = process.env[CACHE_ENV];
+  if (cached) return JSON.parse(cached) as LocalSupabase;
   const status = JSON.parse(supabaseCli("status", "-o", "json")) as Record<string, string>;
   const { API_URL, PUBLISHABLE_KEY, SECRET_KEY } = status;
   if (!API_URL || !PUBLISHABLE_KEY || !SECRET_KEY) throw new Error("supabase status is missing API_URL or keys");
-  return { url: API_URL, publishableKey: PUBLISHABLE_KEY, secretKey: SECRET_KEY };
+  const local = { url: API_URL, publishableKey: PUBLISHABLE_KEY, secretKey: SECRET_KEY };
+  process.env[CACHE_ENV] = JSON.stringify(local);
+  return local;
 }
 
 export interface FakeSession {
@@ -65,14 +70,15 @@ export async function signInWithFakeDiscord(
   supabase: LocalSupabase,
   user: FakeDiscordUser,
   guilds: FakeDiscordGuild[],
+  redirectTo = "http://localhost:3000/auth/callback",
 ): Promise<FakeSession> {
   const fake = `http://127.0.0.1:${FAKE_DISCORD_PORT}`;
-  await fetch(`${fake}/__fake/user`, { method: "POST", body: JSON.stringify({ user, guilds }) });
+  await setFakeDiscordUser(user, guilds);
   const { verifier, challenge } = await pkcePair();
   const authorize = new URL(`${supabase.url}/auth/v1/authorize`);
   authorize.search = new URLSearchParams({
     provider: "discord",
-    redirect_to: "http://localhost:3100/auth/callback",
+    redirect_to: redirectTo,
     scopes: "identify guilds",
     code_challenge: challenge,
     code_challenge_method: "s256",

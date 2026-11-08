@@ -5,6 +5,7 @@ import {
   type BotStatusPayload,
   botStatusAt,
   HEARTBEAT_TTL_MS,
+  parseJson,
 } from "@narze/shared";
 
 type Listener = (payload: BotStatusPayload) => void;
@@ -20,15 +21,9 @@ export class BotStatusTracker {
   constructor(private readonly now: () => number = Date.now) {}
 
   receive(raw: string): void {
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      return;
-    }
-    const result = BotHeartbeatSchema.safeParse(parsed);
-    if (!result.success) return;
-    this.last = result.data;
+    const beat = parseJson(BotHeartbeatSchema, raw);
+    if (!beat) return;
+    this.last = beat;
     this.lastReceivedAt = this.now();
     this.tick();
   }

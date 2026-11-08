@@ -1,11 +1,11 @@
-import { FAKE_DISCORD_PORT, prepareLocalSupabase } from "@narze/fake-discord/supabase-local";
+import { FAKE_DISCORD_PORT, localSupabase } from "@narze/fake-discord/supabase-local";
 import { defineConfig, devices } from "@playwright/test";
 import { BUN } from "./e2e/bun-bin";
 
 const BACKEND_PORT = 4100;
 const DASHBOARD_PORT = 3100;
 // Keys come from the running Supabase local (bun run infra:up), never from the repo.
-const supabase = prepareLocalSupabase();
+const supabase = localSupabase();
 
 export default defineConfig({
   testDir: "./e2e",

@@ -1,4 +1,5 @@
-import { FAKE_DISCORD_PORT, prepareLocalSupabase } from "@narze/fake-discord/supabase-local";
+import { setFakeDiscordUser } from "@narze/fake-discord";
+import { localSupabase } from "@narze/fake-discord/supabase-local";
 import {
   Channels,
   DEFAULT_REDIS_URL,
@@ -9,12 +10,13 @@ import {
 } from "@narze/shared";
 import { expect, type Page, test } from "@playwright/test";
 import Redis from "ioredis";
+import { AUTH_STORAGE_KEY } from "../src/lib/supabase";
 
 const BACKEND = "http://localhost:4100";
 const G_OWNED = "930000000000000001";
 const G_MEMBER = "930000000000000002";
 const G_WITHOUT_BOT = "930000000000000003";
-const supabase = prepareLocalSupabase();
+const supabase = localSupabase();
 const redis = new Redis(process.env.REDIS_URL ?? DEFAULT_REDIS_URL);
 
 const carol = { id: "400000000000000001", username: "carol", globalName: "Carol" };
@@ -27,10 +29,7 @@ const carolGuilds = [
 test.beforeAll(async () => {
   await redis.sadd(RedisKeys.botGuilds, G_OWNED, G_MEMBER);
   await redis.del(RedisKeys.playerSummary(G_MEMBER), RedisKeys.voiceStates(G_MEMBER));
-  await fetch(`http://127.0.0.1:${FAKE_DISCORD_PORT}/__fake/user`, {
-    method: "POST",
-    body: JSON.stringify({ user: carol, guilds: carolGuilds }),
-  });
+  await setFakeDiscordUser(carol, carolGuilds);
 });
 
 test.afterAll(async () => {
@@ -40,7 +39,7 @@ test.afterAll(async () => {
 });
 
 async function storedAccessToken(page: Page): Promise<string> {
-  const raw = await page.evaluate(() => window.localStorage.getItem("narze-auth"));
+  const raw = await page.evaluate((key) => window.localStorage.getItem(key), AUTH_STORAGE_KEY);
   return (JSON.parse(raw ?? "{}") as { access_token: string }).access_token;
 }
 
@@ -109,5 +108,5 @@ test("a forged OAuth state is refused by Supabase Auth", async ({ request }) => 
 test("a callback with a code this browser did not start is rejected and stays signed out", async ({ page }) => {
   await page.goto("/auth/callback?code=forged-code");
   await expect(page.getByRole("heading", { name: "เข้าสู่ระบบไม่สำเร็จ" })).toBeVisible();
-  expect(await page.evaluate(() => window.localStorage.getItem("narze-auth"))).toBeNull();
+  expect(await page.evaluate((key) => window.localStorage.getItem(key), AUTH_STORAGE_KEY)).toBeNull();
 });

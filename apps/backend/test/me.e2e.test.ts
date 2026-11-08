@@ -5,7 +5,7 @@ import {
   FAKE_DISCORD_PORT,
   type FakeSession,
   type LocalSupabase,
-  prepareLocalSupabase,
+  localSupabase,
   signInWithFakeDiscord,
 } from "@narze/fake-discord/supabase-local";
 import {
@@ -55,7 +55,7 @@ const api = (path: string, init: RequestInit & { token?: string } = {}) =>
 const db = () => createClient(supabase.url, supabase.secretKey, { auth: { persistSession: false } });
 
 beforeAll(async () => {
-  supabase = prepareLocalSupabase();
+  supabase = localSupabase();
   discord = await startFakeDiscord({ port: FAKE_DISCORD_PORT, hostname: "0.0.0.0" });
   app = await createApp({
     redisUrl: REDIS_URL,
@@ -88,8 +88,8 @@ function sync(session: FakeSession, body: Record<string, unknown> = {}) {
 
 describe("signing in and listing servers (#99)", () => {
   test("sync stores the user and answers only Mutual Guilds, with permission badges", async () => {
-    const res = await sync(aliceSession);
-    expect(res.status).toBe(200);
+    expect((await sync(aliceSession)).status).toBe(204);
+    const res = await api("/api/me/guilds", { token: aliceSession.access_token });
     const guilds = (await res.json()) as GuildSummary[];
     expect(guilds.map((g) => [g.id, g.badge])).toEqual([
       [G_OWNED, "owner"],

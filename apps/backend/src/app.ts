@@ -1,5 +1,5 @@
 import "reflect-metadata";
-import { type DynamicModule, type INestApplication, Module } from "@nestjs/common";
+import { type DynamicModule, type INestApplication, Inject, Module, type OnApplicationShutdown } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { IoAdapter } from "@nestjs/platform-socket.io";
 import { createClient } from "@supabase/supabase-js";
@@ -43,7 +43,17 @@ class CorsIoAdapter extends IoAdapter {
 }
 
 @Module({})
-class AppModule {
+class AppModule implements OnApplicationShutdown {
+  constructor(
+    @Inject(REDIS) private readonly redis: Redis,
+    @Inject(REDIS_SUBSCRIBER) private readonly subscriber: Redis,
+  ) {}
+
+  /** The module that creates both Redis connections closes them, after every gateway has stopped. */
+  async onApplicationShutdown(): Promise<void> {
+    await Promise.all([this.redis.quit(), this.subscriber.quit()]);
+  }
+
   static forRoot(options: AppOptions): DynamicModule {
     return {
       module: AppModule,

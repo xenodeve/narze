@@ -3,8 +3,9 @@
 import type { GuildSummary } from "@narze/shared";
 import { SocketEvents } from "@narze/shared/channels";
 import { useEffect, useState } from "react";
-import { getSocket } from "./socket";
-import { BACKEND_URL } from "./supabase";
+import { BACKEND_URL } from "./config";
+import { currentAccessToken } from "./session";
+import { onSocketEvents } from "./socket";
 
 export type GuildsView = { status: "loading" } | { status: "failed" } | { status: "ready"; guilds: GuildSummary[] };
 
@@ -16,19 +17,19 @@ function isGuildSummary(value: unknown): value is GuildSummary {
 
 /**
  * Mutual Guilds of the signed-in user, kept live: a Player change arrives as one GuildSummary and
- * replaces its row; a re-handshake (reconnect, new token) refetches the whole list.
+ * replaces its row; a new handshake (reconnect after a drop) refetches the list. Keyed on the user,
+ * so an hourly token refresh does not refetch.
  */
-export function useGuilds(accessToken: string): GuildsView {
+export function useGuilds(userId: string): GuildsView {
   const [view, setView] = useState<GuildsView>({ status: "loading" });
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a different user must refetch; the token is read at fetch time
   useEffect(() => {
     let cancelled = false;
-    let detach = () => {};
-
     const load = async () => {
       try {
         const res = await fetch(`${BACKEND_URL}/api/me/guilds`, {
-          headers: { authorization: `Bearer ${accessToken}` },
+          headers: { authorization: `Bearer ${currentAccessToken() ?? ""}` },
         });
         if (!res.ok) throw new Error(String(res.status));
         const guilds = (await res.json()) as GuildSummary[];
@@ -37,31 +38,23 @@ export function useGuilds(accessToken: string): GuildsView {
         if (!cancelled) setView({ status: "failed" });
       }
     };
-    const onSummary = (summary: unknown) => {
-      if (!isGuildSummary(summary)) return;
-      setView((current) =>
-        current.status === "ready"
-          ? { status: "ready", guilds: current.guilds.map((g) => (g.id === summary.id ? summary : g)) }
-          : current,
-      );
-    };
-    const onReady = () => void load();
-
     void load();
-    void getSocket().then((socket) => {
-      if (cancelled) return;
-      socket.on(SocketEvents.guildSummary, onSummary);
-      socket.on(SocketEvents.sessionReady, onReady);
-      detach = () => {
-        socket.off(SocketEvents.guildSummary, onSummary);
-        socket.off(SocketEvents.sessionReady, onReady);
-      };
+    const off = onSocketEvents({
+      [SocketEvents.guildSummary]: (summary: unknown) => {
+        if (!isGuildSummary(summary)) return;
+        setView((current) =>
+          current.status === "ready"
+            ? { status: "ready", guilds: current.guilds.map((g) => (g.id === summary.id ? summary : g)) }
+            : current,
+        );
+      },
+      [SocketEvents.sessionReady]: () => void load(),
     });
     return () => {
       cancelled = true;
-      detach();
+      off();
     };
-  }, [accessToken]);
+  }, [userId]);
 
   return view;
 }

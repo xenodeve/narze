@@ -51,8 +51,8 @@ function GuildRow({ guild }: { guild: GuildSummary }) {
 }
 
 /** The signed-in user's Mutual Guilds with live Player badges (#99). */
-export function ServerList({ accessToken }: { accessToken: string }) {
-  const view = useGuilds(accessToken);
+export function ServerList({ userId }: { userId: string }) {
+  const view = useGuilds(userId);
 
   return (
     <section className={styles.section} aria-labelledby="servers-title" aria-busy={view.status === "loading"}>

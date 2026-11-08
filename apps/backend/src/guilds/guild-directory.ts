@@ -3,6 +3,7 @@ import {
   type GuildSummary,
   type PlayerSummary,
   PlayerSummarySchema,
+  parseJson,
   RedisKeys,
 } from "@narze/shared";
 import { Inject, Injectable } from "@nestjs/common";
@@ -10,15 +11,24 @@ import type Redis from "ioredis";
 import { REDIS } from "../tokens";
 import type { StoredGuild } from "../users/user-store";
 
-const parseSummary = (raw: string | null): PlayerSummary | null => {
-  if (!raw) return null;
-  try {
-    const parsed = PlayerSummarySchema.safeParse(JSON.parse(raw));
-    return parsed.success ? parsed.data : null;
-  } catch {
-    return null;
-  }
-};
+/** A GuildSummary from parts already read: the stored guild, its Player and the user's voice channel. */
+export function summarize(guild: StoredGuild, player: PlayerSummary | null, userVoice: string | null): GuildSummary {
+  const { badge } = controlPermission({
+    isServerOwner: guild.isOwner,
+    isBotOwner: false,
+    hasPlayer: player !== null,
+    userVoiceChannelId: userVoice,
+    botVoiceChannelId: player?.voiceChannelId ?? null,
+  });
+  return {
+    id: guild.id,
+    name: guild.name,
+    iconUrl: guild.iconUrl,
+    playing: player?.playing ?? false,
+    queueLength: player?.queueLength ?? 0,
+    badge,
+  };
+}
 
 /** Joins a user's guild snapshot with what the Bot publishes on Redis (ADR-0002). */
 @Injectable()
@@ -32,30 +42,24 @@ export class GuildDirectory {
     return guilds.filter((_, i) => flags[i] === 1);
   }
 
+  /** One MGET for every Player summary and one pipelined round trip for the user's voice channels. */
   async summaries(discordId: string, guilds: StoredGuild[]): Promise<GuildSummary[]> {
-    return Promise.all(guilds.map((guild) => this.summary(discordId, guild)));
+    if (guilds.length === 0) return [];
+    const voice = this.redis.pipeline();
+    for (const guild of guilds) voice.hget(RedisKeys.voiceStates(guild.id), discordId);
+    const [players, voices] = await Promise.all([
+      this.redis.mget(guilds.map((g) => RedisKeys.playerSummary(g.id))),
+      voice.exec(),
+    ]);
+    return guilds.map((guild, i) =>
+      summarize(guild, parseJson(PlayerSummarySchema, players[i]), (voices?.[i]?.[1] as string | null) ?? null),
+    );
   }
 
-  /** `player` may be passed when the caller already holds it (a Guild event), saving a read. */
-  async summary(discordId: string, guild: StoredGuild, player?: PlayerSummary | null): Promise<GuildSummary> {
-    const [current, userVoice] = await Promise.all([
-      player === undefined ? this.redis.get(RedisKeys.playerSummary(guild.id)).then(parseSummary) : player,
-      this.redis.hget(RedisKeys.voiceStates(guild.id), discordId),
-    ]);
-    const { badge } = controlPermission({
-      isServerOwner: guild.isOwner,
-      isBotOwner: false,
-      hasPlayer: current !== null,
-      userVoiceChannelId: userVoice,
-      botVoiceChannelId: current?.voiceChannelId ?? null,
-    });
-    return {
-      id: guild.id,
-      name: guild.name,
-      iconUrl: guild.iconUrl,
-      playing: current?.playing ?? false,
-      queueLength: current?.queueLength ?? 0,
-      badge,
-    };
+  /** Each listed user's voice channel in one Guild, in one HMGET. */
+  async voiceChannels(guildId: string, discordIds: string[]): Promise<Map<string, string | null>> {
+    if (discordIds.length === 0) return new Map();
+    const channels = await this.redis.hmget(RedisKeys.voiceStates(guildId), ...discordIds);
+    return new Map(discordIds.map((id, i) => [id, channels[i] ?? null]));
   }
 }

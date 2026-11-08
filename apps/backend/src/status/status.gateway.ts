@@ -34,9 +34,8 @@ export class StatusGateway implements OnGatewayConnection, OnModuleInit, OnModul
     client.emit(SocketEvents.botStatus, this.tracker.snapshot());
   }
 
-  async onModuleDestroy(): Promise<void> {
+  onModuleDestroy(): void {
     clearTimeout(this.expiryTimer);
-    await this.subscriber.quit();
   }
 
   /** One timer per heartbeat instead of a forever-running interval: wakes only when a Bot can go silent. */

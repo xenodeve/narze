@@ -4,6 +4,14 @@
  * GoTrue calls /api/oauth2/* and /api/users/@me; the Backend calls /api/v10/users/@me[/guilds].
  */
 
+/** The port Supabase Auth is configured to reach the fake Discord on (supabase/README.md). */
+export const FAKE_DISCORD_PORT = 4599;
+/**
+ * The fake as Supabase Auth (in Docker) names it. A browser on the host cannot always reach that
+ * name, so the Playwright config maps host.docker.internal to loopback.
+ */
+export const FAKE_DISCORD_DOCKER_URL = `http://host.docker.internal:${FAKE_DISCORD_PORT}`;
+
 export interface FakeDiscordUser {
   id: string;
   username: string;
@@ -38,6 +46,14 @@ const DEFAULT_ACCOUNT: Account = {
   user: { id: "100000000000000001", username: "narze-tester", globalName: "Narze Tester" },
   guilds: [],
 };
+
+/** Sets the user (and guilds) the running fake's next authorization signs in as. */
+export async function setFakeDiscordUser(user: FakeDiscordUser, guilds: FakeDiscordGuild[]): Promise<void> {
+  await fetch(`http://127.0.0.1:${FAKE_DISCORD_PORT}/__fake/user`, {
+    method: "POST",
+    body: JSON.stringify({ user, guilds }),
+  });
+}
 
 export async function startFakeDiscord(options: FakeDiscordOptions = {}): Promise<FakeDiscord> {
   let next = DEFAULT_ACCOUNT;

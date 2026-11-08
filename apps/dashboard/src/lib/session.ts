@@ -1,8 +1,8 @@
 "use client";
 
-import type { Session } from "@supabase/supabase-js";
+import type { Session, SupabaseClient } from "@supabase/supabase-js";
 import { useSyncExternalStore } from "react";
-import { setSocketToken } from "./socket";
+import { setSocketUser } from "./socket";
 import { getSupabase, hasStoredSession } from "./supabase";
 
 export interface SessionUser {
@@ -13,7 +13,7 @@ export interface SessionUser {
 export type SessionView =
   | { status: "loading" }
   | { status: "signed-out" }
-  | { status: "signed-in"; user: SessionUser; accessToken: string };
+  | { status: "signed-in"; userId: string; user: SessionUser; accessToken: string };
 
 /** postMessage type the /auth/callback popup sends its opener. */
 export const SIGNED_IN_MESSAGE = "narze:signed-in";
@@ -24,11 +24,11 @@ const SIGNED_OUT: SessionView = { status: "signed-out" };
 let view: SessionView = LOADING;
 const listeners = new Set<() => void>();
 let started = false;
-let listening = false;
+let following: Promise<SupabaseClient> | undefined;
 
 function publish(next: SessionView): void {
   view = next;
-  setSocketToken(next.status === "signed-in" ? next.accessToken : null);
+  setSocketUser(next.status === "signed-in" ? { userId: next.userId, accessToken: next.accessToken } : null);
   for (const listener of listeners) listener();
 }
 
@@ -40,18 +40,23 @@ function toView(session: Session | null): SessionView {
   const name = [claims.global_name, meta.full_name].find((v): v is string => typeof v === "string" && v.length > 0);
   return {
     status: "signed-in",
+    userId: session.user.id,
     accessToken: session.access_token,
     user: { name: name ?? "Discord", avatarUrl: typeof meta.avatar_url === "string" ? meta.avatar_url : null },
   };
 }
 
-/** Reads the stored session and follows it from then on (token refresh, sign-out in another tab). */
-async function refresh(): Promise<void> {
-  const supabase = await getSupabase();
-  if (!listening) {
-    listening = true;
+/** The client, subscribed once to session changes (token refresh, sign-out in another tab). */
+function follow(): Promise<SupabaseClient> {
+  following ??= getSupabase().then((supabase) => {
     supabase.auth.onAuthStateChange((_event, session) => publish(toView(session)));
-  }
+    return supabase;
+  });
+  return following;
+}
+
+async function refresh(): Promise<void> {
+  const supabase = await follow();
   const { data } = await supabase.auth.getSession();
   publish(toView(data.session));
 }

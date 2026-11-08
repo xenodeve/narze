@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { BACKEND_URL } from "@/lib/config";
 import { SIGNED_IN_MESSAGE } from "@/lib/session";
-import { BACKEND_URL, getSupabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 import styles from "./callback.module.css";
 
 type Step = "working" | "failed";

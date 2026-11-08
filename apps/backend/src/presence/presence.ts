@@ -36,8 +36,7 @@ export class Presence {
 
   /** On start: every socket of the previous process is gone. */
   async reset(): Promise<void> {
-    await this.redis.del(RedisKeys.presence);
-    await this.store.deactivateAll();
+    await Promise.all([this.redis.del(RedisKeys.presence), this.store.deactivateAll()]);
   }
 
   private serial(discordId: string, task: () => Promise<void>): Promise<void> {

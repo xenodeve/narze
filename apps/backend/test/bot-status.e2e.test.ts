@@ -1,6 +1,6 @@
 import "reflect-metadata";
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { prepareLocalSupabase } from "@narze/fake-discord/supabase-local";
+import { localSupabase } from "@narze/fake-discord/supabase-local";
 import { type BotHeartbeat, type BotStatusPayload, Channels, DEFAULT_REDIS_URL, SocketEvents } from "@narze/shared";
 import type { INestApplication } from "@nestjs/common";
 import Redis from "ioredis";
@@ -19,7 +19,7 @@ beforeAll(async () => {
   app = await createApp({
     redisUrl: REDIS_URL,
     dashboardOrigin: "http://localhost:3000",
-    supabase: prepareLocalSupabase(),
+    supabase: localSupabase(),
     discordApiUrl: "http://127.0.0.1:9/unused",
   });
   await app.listen(0);
