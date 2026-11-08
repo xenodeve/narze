@@ -15,6 +15,7 @@
 .stage {
   position: relative;
   isolation: isolate;
+  container-type: inline-size;
   overflow: hidden;
   min-height: 360px;
   border: 1px solid var(--line);
@@ -44,9 +45,11 @@
   padding: clamp(20px, 3.5vw, 40px);
 }
 
-@media (max-width: 640px) {
+/* The stage, not the viewport, decides: beside a sidebar it can be narrow on a wide screen. */
+@container (max-width: 680px) {
   .content {
     grid-template-columns: minmax(0, 1fr);
+    align-items: start;
   }
 }
 
