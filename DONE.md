@@ -6,6 +6,45 @@
 
 ---
 
+## #114 Hardening (2026-11-08, branch `chore/114-hardening`) — AC4 blocked by #116
+
+**Goal:** measure, then fix or file: performance, accessibility, security (#114).
+
+**Shipped:**
+- **`docs/reports/2026-11-08-hardening.md`:** every number with its device, browser, build, network and cache state.
+- **Accessibility, in the gate (`e2e/a11y.spec.ts`):**
+  - **axe:** 0 violations on 20 routes with seeded content plus the signed-out landing page, in light and dark.
+  - **Overflow:** none at 390, 1024 and 1440 px, light and dark.
+  - **Motion and WebGL:** reduced motion, `?fx=0` and no WebGL each draw the flat wash with no page errors.
+  - **Keyboard only:** Tab reaches the pause toggle and a queue row's "play now"; Space and Enter reach the Bot.
+- **Fixes the audits found:**
+  - **Contrast:** inactive side-menu items; primary buttons are now ink-filled and 44 px (white on the dark accent was 2.6:1); `--ink-3` text moves to `--ink-2`; success text in light `--ok` is darkened; badges; mentions.
+  - **SwipeRow drawer:** text was white on the dark theme's red. It now gets the theme's hex.
+  - **Progress bar:** it had the seek slider nested inside it; a seekable track now exposes only the slider.
+  - **Player page at 1024 px:** two grids with an implicit column made it 10 px too wide.
+- **Security (whole system):**
+  - **Fixed:** the admin audit lines were dropped by the Backend's log level; they are now written as warnings.
+  - **Filed:** #141 (MEDIUM: owner and membership from the sign-in snapshot), #142 (LOW: sockets after sign-out, Lavalink SSRF, rate limits, Redis and Supabase exposure in production).
+  - **Local binding:** Redis and Lavalink now publish on 127.0.0.1 only.
+- **Test isolation:** Bot tests use Redis database 2. The Bot and Backend test runs used to race on the Bot guild set in parallel.
+
+**Validated:**
+- `bun run verify` exit 0 (shared 102, bot 223, backend 97).
+- `bun run e2e` 48 passed and 3 skipped (the opt-in `PERF=1` runs), with Redis recreated on 127.0.0.1.
+- **Performance, 3 runs** (`PERF=1`):
+  - **LCP:** 208–260 ms unthrottled and 680–884 ms with 4× CPU and a throttled network (warm cache).
+  - **INP:** 56–72 ms and 128–152 ms.
+  - **CLS:** 0.002.
+  - **Player JS:** **392.8 KB gzip** signed in with a cold cache, over the 180 KB target. That is #140.
+
+**Not done:**
+- AC4 (e2e as a required check) is blocked by #116.
+- A screen-reader pass needs a person.
+- The th/en matrix does not apply yet: there is no English locale.
+- The player JS target is not met (#140).
+
+---
+
 ## #113 Voice Commands (2026-11-08, branch `feat/113-voice-commands`) — AC5 pending
 
 **Goal:** say a player command on the Dashboard; voice is never the only path (#113).
