@@ -69,10 +69,23 @@ export class GuildDirectory {
   ) {}
 
   /** Mutual Guilds: the user's guilds that the Bot is also in. */
-  async mutual(guilds: StoredGuild[]): Promise<StoredGuild[]> {
+  /**
+   * The user's guilds the Bot is in, with Server Owner as the Bot sees it now (#141): the sign-in
+   * snapshot keeps a former owner's rights until they sign in again. Only a guild the Bot has
+   * published no owner for (an older Bot) still uses the snapshot.
+   */
+  async mutual(guilds: StoredGuild[], discordId: string): Promise<StoredGuild[]> {
     if (guilds.length === 0) return [];
-    const flags = await this.redis.smismember(RedisKeys.botGuilds, ...guilds.map((g) => g.id));
-    return guilds.filter((_, i) => flags[i] === 1);
+    const ids = guilds.map((g) => g.id);
+    const [flags, owners] = await Promise.all([
+      this.redis.smismember(RedisKeys.botGuilds, ...ids),
+      this.redis.hmget(RedisKeys.botGuildOwners, ...ids),
+    ]);
+    return guilds.flatMap((guild, i) => {
+      if (flags[i] !== 1) return [];
+      const owner = owners[i];
+      return [owner ? { ...guild, isOwner: owner === discordId } : guild];
+    });
   }
 
   /** One MGET for the Player summaries, one HMGET for member counts, one pipeline for voice channels. */

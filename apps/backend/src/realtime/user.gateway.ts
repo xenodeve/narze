@@ -119,7 +119,7 @@ export class UserGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
 
   private async signIn(client: Socket, identity: Identity): Promise<void> {
     const data = client.data as SessionData;
-    const guilds = await this.directory.mutual(await this.store.guildsOf(identity.discordId));
+    const guilds = await this.directory.mutual(await this.store.guildsOf(identity.discordId), identity.discordId);
     // The tab may have closed while we were verifying; counting it now would leak a Presence tab.
     if (client.disconnected) return;
     data.guilds = new Map(guilds.map((g) => [g.id, g]));

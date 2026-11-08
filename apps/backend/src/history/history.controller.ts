@@ -40,7 +40,7 @@ export class HistoryController {
     const { discordId } = await this.auth.require(authorization);
     const rows = Math.min(50, Math.max(1, Number.parseInt(limit ?? "", 10) || 20));
     if (guildId) {
-      const mutual = await this.directory.mutual(await this.users.guildsOf(discordId));
+      const mutual = await this.directory.mutual(await this.users.guildsOf(discordId), discordId);
       if (!mutual.some((g) => g.id === guildId)) throw new ForbiddenException("not a member of this server");
       return this.history.top(guildId, "", rows);
     }

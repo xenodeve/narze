@@ -56,7 +56,7 @@ export class MeController {
   @Get("play-permissions")
   async playPermissions(@Headers("authorization") authorization: string | undefined): Promise<PlayPermission[]> {
     const { discordId } = await this.auth.require(authorization);
-    const mutual = await this.directory.mutual(await this.store.guildsOf(discordId));
+    const mutual = await this.directory.mutual(await this.store.guildsOf(discordId), discordId);
     return Promise.all(
       mutual.map(async (guild) => {
         const { canControl, reason } = await this.directory.permission(discordId, guild);
@@ -68,7 +68,7 @@ export class MeController {
   @Get("guilds")
   async guilds(@Headers("authorization") authorization: string | undefined): Promise<GuildSummary[]> {
     const { discordId } = await this.auth.require(authorization);
-    const mutual = await this.directory.mutual(await this.store.guildsOf(discordId));
+    const mutual = await this.directory.mutual(await this.store.guildsOf(discordId), discordId);
     return this.directory.summaries(discordId, mutual);
   }
 }

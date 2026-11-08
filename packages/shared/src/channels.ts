@@ -37,6 +37,8 @@ export const RedisKeys = {
   playerSummary: (guildId: string) => `player:summary:${guildId}`,
   /** Hash guildId → member count, for the server list (spec #79). */
   botMemberCounts: "bot:member-counts",
+  /** Hash guildId → the owner's Discord ID, as the Bot sees it now (#141): ownership follows a change of hands. */
+  botGuildOwners: "bot:guild-owners",
   /**
    * JSON PlayerState of one Guild; absent when there is no Player. Set before the `player:state`
    * Guild event, like the summary. The Backend's Hot Cache sits in front of it (ADR-0006).

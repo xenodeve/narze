@@ -12,6 +12,8 @@ import type Redis from "ioredis";
 export interface GuildVoiceSnapshot {
   id: string;
   memberCount: number;
+  /** The Server Owner now (#141): the Backend trusts this over the user's sign-in snapshot. */
+  ownerId: string;
   voice: Array<[userId: string, channelId: string]>;
 }
 
@@ -23,6 +25,7 @@ export function createGuildRegistry(redis: Redis) {
   const writeGuild = (tx: ReturnType<Redis["multi"]>, guild: GuildVoiceSnapshot) => {
     tx.sadd(RedisKeys.botGuilds, guild.id);
     tx.hset(RedisKeys.botMemberCounts, guild.id, guild.memberCount);
+    tx.hset(RedisKeys.botGuildOwners, guild.id, guild.ownerId);
     tx.del(RedisKeys.voiceStates(guild.id));
     if (guild.voice.length > 0) tx.hset(RedisKeys.voiceStates(guild.id), Object.fromEntries(guild.voice));
   };
@@ -31,7 +34,7 @@ export function createGuildRegistry(redis: Redis) {
     /** On ready: the cache is the truth, so anything left from a previous run goes. */
     async replace(guilds: GuildVoiceSnapshot[]): Promise<void> {
       const previous = await redis.smembers(RedisKeys.botGuilds);
-      const tx = redis.multi().del(RedisKeys.botGuilds, RedisKeys.botMemberCounts);
+      const tx = redis.multi().del(RedisKeys.botGuilds, RedisKeys.botMemberCounts, RedisKeys.botGuildOwners);
       for (const id of previous) tx.del(RedisKeys.voiceStates(id));
       for (const guild of guilds) writeGuild(tx, guild);
       await tx.exec();
@@ -46,8 +49,13 @@ export function createGuildRegistry(redis: Redis) {
         .multi()
         .srem(RedisKeys.botGuilds, guildId)
         .hdel(RedisKeys.botMemberCounts, guildId)
+        .hdel(RedisKeys.botGuildOwners, guildId)
         .del(RedisKeys.voiceStates(guildId), RedisKeys.voiceChannels(guildId), RedisKeys.textChannels(guildId))
         .exec();
+    },
+    /** A guild changed hands (guildUpdate): the new owner's rights apply at once, the old one's end. */
+    async owner(guildId: string, ownerId: string): Promise<void> {
+      await redis.hset(RedisKeys.botGuildOwners, guildId, ownerId);
     },
     /** The Guild's voice channels and who is in them, for the picker; key first, then the event. */
     async voiceChannels(guildId: string, list: VoiceChannelList): Promise<void> {
