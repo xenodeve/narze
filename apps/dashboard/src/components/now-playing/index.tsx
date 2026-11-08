@@ -3,6 +3,7 @@
 import type { AvatarOutfit, PlayerState, Track } from "@narze/shared";
 import dynamic from "next/dynamic";
 import { type CSSProperties, useEffect, useState } from "react";
+import { ChartPanel } from "@/components/charts";
 import { Controls } from "@/components/controls";
 import { GuildAvatar } from "@/components/guild-avatar";
 import { LikeButton, libraryTrack } from "@/components/like-button";
@@ -161,6 +162,7 @@ function Stage({
             <p className={styles.author}>ใช้ /play ใน Discord หรือเพิ่มเพลงจากตรงนี้ แล้วเพลงจะขึ้นทันที</p>
             <Controls guildId={guildId} state={null} permission={permission} />
             <TopPlayedPanel guildId={guildId} />
+            <ChartPanel guildId={guildId} />
           </div>
         )}
         <div className={styles.avatar} aria-hidden="true">

@@ -29,6 +29,7 @@ const app = await createApp({
   },
   youtubeApiKey: env.YOUTUBE_API_KEY,
   chartsUrl: env.CHARTS_URL || undefined,
+  chartsKeyPrefix: env.CHARTS_KEY_PREFIX || undefined,
 });
 await app.listen(Number(env.BACKEND_PORT ?? 4000));
 console.log(`[backend] listening on ${await app.getUrl()}`);

@@ -56,6 +56,9 @@ export default defineConfig({
         SPOTIFY_CLIENT_SECRET: "e2e",
         SPOTIFY_API_URL: "http://127.0.0.1:4611/v1",
         SPOTIFY_ACCOUNTS_URL: "http://127.0.0.1:4611",
+        // Charts (#109) from the fake feed, under their own keys: a dev Backend's real copy is untouched.
+        CHARTS_URL: "http://127.0.0.1:4611/charts",
+        CHARTS_KEY_PREFIX: "e2e:",
       },
       // Never reuse: in no-CI mode the T4 gate runs e2e locally, and a stale server on this port
       // would test old code (#116).
