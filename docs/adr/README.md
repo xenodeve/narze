@@ -7,8 +7,7 @@ codebase** (unless marked *pending*), so a new maintainer — human or agent —
 
 > 0001–0003 were written during v6 and carried into `v7` as-is. Their paths (`discordjs/`, `nestjs/`)
 > name the v6 layout; in v7 the same roles are `apps/bot` / `apps/backend`. 0002 and 0003 are implemented in #98
-> (Redis heartbeat, runtime-mode detection); 0001 is implemented for `bot:status` in #98. 0006
-> is reserved for #100 (Hot Cache) per PRD #97.
+> (Redis heartbeat, runtime-mode detection); 0001 is implemented for `bot:status` in #98.
 
 | # | Title | Area | Status |
 |---|-------|------|--------|
@@ -17,7 +16,7 @@ codebase** (unless marked *pending*), so a new maintainer — human or agent —
 | [0003](0003-bot-two-mode-architecture.md) | Bot two-mode architecture (Connected / Standalone) | bot | Accepted — mode detection implemented (#98) |
 | [0004](0004-lavalink-client.md) | `lavalink-client` as the Bot's Lavalink client (`closeOnError: false` on Bun) | bot | Accepted (#98) |
 | [0005](0005-supabase-auth-discord.md) | Supabase Auth with Discord; the Backend derives identity from a verified session | backend · dashboard · infra | Accepted — implemented (#99) |
-| 0006 | _reserved — two-tier Hot Cache (#100)_ | backend | — |
+| [0006](0006-hot-cache.md) | Two-tier Hot Cache for Player State — in-process LRU in front of Redis | bot · backend · dashboard | Accepted — Player State tier implemented (#100) |
 | [0007](0007-realtime-event-contract.md) | Realtime event contract — revision, sequence, one socket per tab | shared · backend · dashboard | Accepted (#98 schemas) |
 
 ## Conventions

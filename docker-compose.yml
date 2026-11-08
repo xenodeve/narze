@@ -20,5 +20,9 @@ services:
     environment:
       SERVER_PORT: 2333
       LAVALINK_SERVER_PASSWORD: ${LAVALINK_PASSWORD:-youshallnotpass}
+      # Spotify search (LavaSrc) only when credentials are set in your shell (spec #55).
+      PLUGINS_LAVASRC_SOURCES_SPOTIFY: ${LAVASRC_SPOTIFY_ENABLED:-false}
+      PLUGINS_LAVASRC_SPOTIFY_CLIENTID: ${LAVASRC_SPOTIFY_CLIENT_ID:-}
+      PLUGINS_LAVASRC_SPOTIFY_CLIENTSECRET: ${LAVASRC_SPOTIFY_CLIENT_SECRET:-}
     volumes:
       - ./infra/lavalink/application.yml:/opt/Lavalink/application.yml:ro
