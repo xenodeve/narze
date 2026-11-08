@@ -20,7 +20,7 @@ export interface LavalinkLoad {
   loadType: string;
   data: unknown;
 }
-interface LavalinkTrackData {
+export interface LavalinkTrackData {
   info: {
     identifier?: string;
     title?: string;

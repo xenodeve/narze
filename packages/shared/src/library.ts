@@ -28,6 +28,13 @@ export type Playlist = z.infer<typeof PlaylistSchema>;
 export const PlaylistSummarySchema = PlaylistSchema.omit({ tracks: true }).extend({ trackCount: z.number() });
 export type PlaylistSummary = z.infer<typeof PlaylistSummarySchema>;
 
+/** Where an imported playlist came from. */
+export const ImportPlatformSchema = z.enum(["spotify", "youtube"]);
+export type ImportPlatform = z.infer<typeof ImportPlatformSchema>;
+
+/** The `library:update` playlistId that means "the likes changed". */
+export const LIKED_PLAYLIST = "liked";
+
 const name = z.string().trim().min(1).max(100);
 const description = z.string().trim().max(300).nullable();
 
@@ -35,7 +42,7 @@ export const NewPlaylistSchema = z.object({
   name,
   description: description.optional(),
   tracks: z.array(PlaylistTrackSchema).max(5000).default([]),
-  sourcePlatform: z.enum(["spotify", "youtube"]).nullable().optional(),
+  sourcePlatform: ImportPlatformSchema.nullable().optional(),
   sourceUrl: z.string().url().nullable().optional(),
 });
 export type NewPlaylist = z.infer<typeof NewPlaylistSchema>;
@@ -52,7 +59,7 @@ export type PlaylistChange = z.infer<typeof PlaylistChangeSchema>;
 
 /** Spec #71: what an import preview shows before saving. */
 export const ImportPreviewSchema = z.object({
-  platform: z.enum(["spotify", "youtube"]),
+  platform: ImportPlatformSchema,
   playlist: z.object({
     name: z.string(),
     thumbnail: z.string().nullable(),
@@ -67,7 +74,7 @@ export type ImportPreview = z.infer<typeof ImportPreviewSchema>;
  * Which service a playlist link belongs to; null for anything else. Only these hosts are ever
  * loaded (v5 loaded any URL as "unknown", letting a user make the server fetch an arbitrary address).
  */
-export function importPlatform(link: string): "spotify" | "youtube" | null {
+export function importPlatform(link: string): ImportPlatform | null {
   let url: URL;
   try {
     url = new URL(link);

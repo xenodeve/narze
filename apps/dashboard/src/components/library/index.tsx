@@ -1,14 +1,20 @@
 "use client";
 
-import type { ImportPreview, Playlist, PlaylistSummary, PlaylistTrack } from "@narze/shared";
+import {
+  type ImportPreview,
+  LIKED_PLAYLIST,
+  type Playlist,
+  type PlaylistSummary,
+  type PlaylistTrack,
+} from "@narze/shared";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { SignedIn } from "@/components/catalog/browse";
 import { Thinking } from "@/components/catalog/thinking";
 import { LikeButton } from "@/components/like-button";
 import { formatTime } from "@/components/now-playing/progress";
-import { type PlayTarget, SelectServer } from "@/components/select-server";
 import {
   changePlaylist,
   createPlaylist,
@@ -19,26 +25,17 @@ import {
   useLibraryUpdates,
   useLikes,
 } from "@/lib/library";
-import { useSession } from "@/lib/session";
 import styles from "./library.module.css";
 
 // The supplied LatticeLoader (DESIGN.md): a timed operation with an outcome — here, the import.
 const LatticeLoader = dynamic(() => import("@/components/vendor/lattice-loader/LatticeLoader"), { ssr: false });
 
-function SignedIn({ children }: { children: ReactNode }) {
-  const session = useSession();
-  if (session.status === "loading") return null;
-  if (session.status === "signed-out") return <p role="status">เข้าสู่ระบบด้วย Discord ก่อน แล้วจะเห็นคลังเพลงของคุณ</p>;
-  return <>{children}</>;
-}
+const SIGNED_OUT = "เข้าสู่ระบบด้วย Discord ก่อน แล้วจะเห็นคลังเพลงของคุณ";
+type Play = (target: { title: string; query: string }) => void;
 
 /** The Library grid (#107, spec #89): the user's playlists, Liked, and import. */
 export function LibraryPage() {
-  return (
-    <SignedIn>
-      <LibraryGrid />
-    </SignedIn>
-  );
+  return <SignedIn signedOut={SIGNED_OUT}>{() => <LibraryGrid />}</SignedIn>;
 }
 
 function LibraryGrid() {
@@ -48,7 +45,14 @@ function LibraryGrid() {
     void listPlaylists().then((list) => setPlaylists(list ?? "failed"));
   }, []);
   useEffect(load, [load]);
-  useLibraryUpdates(load);
+  useLibraryUpdates(
+    useCallback(
+      (changed: string) => {
+        if (changed !== LIKED_PLAYLIST) load();
+      },
+      [load],
+    ),
+  );
   return (
     <div className={styles.page}>
       <header className={styles.head}>
@@ -174,7 +178,7 @@ function ImportDialog({ open, onClose, onSaved }: { open: boolean; onClose: () =
             label="กำลังโหลด Playlist"
             doneLabel="โหลดเสร็จใน"
             errorLabel="ไม่สำเร็จหลัง"
-            status={status === "working" ? "working" : status === "done" ? "done" : "error"}
+            status={status}
             color="var(--ink-2)"
           />
         )}
@@ -269,17 +273,12 @@ function TrackRows({
 
 /** A playlist (#107, spec #89): play all, play a track, rename, edit tracks, delete. */
 export function PlaylistPage({ id }: { id: string }) {
-  return (
-    <SignedIn>
-      <PlaylistBody id={id} />
-    </SignedIn>
-  );
+  return <SignedIn signedOut={SIGNED_OUT}>{(play) => <PlaylistBody id={id} play={play} />}</SignedIn>;
 }
 
-function PlaylistBody({ id }: { id: string }) {
+function PlaylistBody({ id, play }: { id: string; play: Play }) {
   const router = useRouter();
   const [playlist, setPlaylist] = useState<Playlist | "missing" | "failed" | null>(null);
-  const [target, setTarget] = useState<PlayTarget | null>(null);
   const [renaming, setRenaming] = useState(false);
   const [name, setName] = useState("");
   const [confirming, setConfirming] = useState(false);
@@ -311,7 +310,7 @@ function PlaylistBody({ id }: { id: string }) {
   // Play all: the source playlist when it came from one, else the first track.
   const playAll = () => {
     const query = playlist.sourceUrl ?? playlist.tracks[0]?.uri;
-    if (query) setTarget({ title: playlist.name, query });
+    if (query) play({ title: playlist.name, query });
   };
 
   return (
@@ -364,12 +363,11 @@ function PlaylistBody({ id }: { id: string }) {
       ) : null}
       <TrackRows
         tracks={playlist.tracks}
-        onPlay={(t) => setTarget({ title: t.title, query: t.uri })}
+        onPlay={(t) => play({ title: t.title, query: t.uri })}
         onRemove={(index) =>
           void save({ tracks: playlist.tracks.filter((_, i) => i !== index) }, "ลบเพลงออกจาก Playlist แล้ว")
         }
       />
-      <SelectServer target={target} onClose={() => setTarget(null)} />
       <ConfirmDelete
         open={confirming}
         onClose={() => setConfirming(false)}
@@ -409,16 +407,11 @@ function ConfirmDelete({ open, onClose, onConfirm }: { open: boolean; onClose: (
 
 /** The Liked playlist: every track the user liked, newest first (AC4). */
 export function LikedPage() {
-  return (
-    <SignedIn>
-      <LikedBody />
-    </SignedIn>
-  );
+  return <SignedIn signedOut={SIGNED_OUT}>{(play) => <LikedBody play={play} />}</SignedIn>;
 }
 
-function LikedBody() {
+function LikedBody({ play }: { play: Play }) {
   const likes = useLikes();
-  const [target, setTarget] = useState<PlayTarget | null>(null);
   return (
     <div className={styles.page}>
       <h1 className={styles.title}>เพลงที่ถูกใจ</h1>
@@ -427,9 +420,8 @@ function LikedBody() {
       ) : likes.length === 0 ? (
         <p className={styles.meta}>ยังไม่มีเพลงที่ถูกใจ กดหัวใจที่เพลงไหนก็ได้เพื่อเก็บไว้ที่นี่</p>
       ) : (
-        <TrackRows tracks={likes} onPlay={(t) => setTarget({ title: t.title, query: t.uri })} />
+        <TrackRows tracks={likes} onPlay={(t) => play({ title: t.title, query: t.uri })} />
       )}
-      <SelectServer target={target} onClose={() => setTarget(null)} />
     </div>
   );
 }

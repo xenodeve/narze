@@ -135,8 +135,7 @@ export class UserGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     if (identity && guilds) await this.presence.close(identity.discordId).catch(report("disconnect"));
   }
 
-  /** One HMGET for every listener's voice channel, then each tab gets its own user's summary. */
-  /** #107: a playlist or the likes changed; the user's other tabs refetch. */
+  /** #107: a playlist (or the likes, as LIKED_PLAYLIST) changed; the user's other tabs refetch. */
   pushLibrary(discordId: string, playlistId: string): void {
     this.server.to(userRoom(discordId)).emit(SocketEvents.libraryUpdate, { playlistId });
   }
@@ -147,6 +146,7 @@ export class UserGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     void this.pushPermissions(guildId).catch(report("push permissions"));
   }
 
+  /** One HMGET for every listener's voice channel, then each tab gets its own user's summary. */
   private async onGuildEvent(message: string): Promise<void> {
     const event = parseJson(GuildEventSchema, message);
     if (!event) return;

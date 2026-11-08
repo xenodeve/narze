@@ -45,6 +45,9 @@ const check = (what: string, error: { message: string } | null) => {
   if (error) throw new Error(`${what}: ${error.message}`);
 };
 
+/** Playlist ids are uuids; anything else is no playlist (and would be a Postgres cast error). */
+const isId = (id: string) => /^[0-9a-f-]{36}$/i.test(id);
+
 /**
  * The Library in Supabase (#107). Every read and write names the owner, so another user's
  * playlist is simply not found (a 404, never a 403 that would confirm it exists).
@@ -67,7 +70,7 @@ export class LibraryStore {
   }
 
   async get(ownerId: string, id: string): Promise<Playlist | null> {
-    if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
+    if (!isId(id)) return null;
     const { data, error } = await this.db
       .from("playlists")
       .select(COLUMNS)
@@ -106,21 +109,28 @@ export class LibraryStore {
 
   /** Only name, description and tracks change; null when the owner has no such playlist. */
   async change(ownerId: string, id: string, change: PlaylistChange): Promise<Playlist | null> {
-    if (!(await this.get(ownerId, id))) return null;
+    if (!isId(id)) return null;
     const fields: Record<string, unknown> = { updated_at: new Date().toISOString() };
     if (change.name !== undefined) fields.name = change.name;
     if (change.description !== undefined) fields.description = change.description;
-    const { error } = await this.db.from("playlists").update(fields).eq("id", id).eq("owner_id", ownerId);
+    // The owner filter is the existence check: another user's playlist updates no row.
+    const { data, error } = await this.db
+      .from("playlists")
+      .update(fields)
+      .eq("id", id)
+      .eq("owner_id", ownerId)
+      .select("id");
     check("change playlist", error);
+    if (!data?.length) return null;
     if (change.tracks) await this.replaceTracks(id, change.tracks);
     return this.get(ownerId, id);
   }
 
   async remove(ownerId: string, id: string): Promise<boolean> {
-    if (!(await this.get(ownerId, id))) return false;
-    const { error } = await this.db.from("playlists").delete().eq("id", id).eq("owner_id", ownerId);
+    if (!isId(id)) return false;
+    const { data, error } = await this.db.from("playlists").delete().eq("id", id).eq("owner_id", ownerId).select("id");
     check("delete playlist", error);
-    return true;
+    return Boolean(data?.length);
   }
 
   private async replaceTracks(id: string, tracks: PlaylistTrack[]): Promise<void> {

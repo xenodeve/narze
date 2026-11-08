@@ -1,4 +1,4 @@
-import { NewPlaylistSchema, PlaylistChangeSchema, PlaylistTrackSchema } from "@narze/shared";
+import { LIKED_PLAYLIST, NewPlaylistSchema, PlaylistChangeSchema, PlaylistTrackSchema } from "@narze/shared";
 import {
   BadRequestException,
   Body,
@@ -107,7 +107,7 @@ export class LibraryController {
   async like(@Headers("authorization") authorization: string | undefined, @Body() body: unknown) {
     const { discordId } = await this.auth.require(authorization);
     await this.library.like(discordId, parse(PlaylistTrackSchema, body));
-    this.gateway.pushLibrary(discordId, "liked");
+    this.gateway.pushLibrary(discordId, LIKED_PLAYLIST);
   }
 
   @Delete("likes")
@@ -116,6 +116,6 @@ export class LibraryController {
     const { discordId } = await this.auth.require(authorization);
     if (!uri) throw new BadRequestException("uri is required");
     await this.library.unlike(discordId, uri);
-    this.gateway.pushLibrary(discordId, "liked");
+    this.gateway.pushLibrary(discordId, LIKED_PLAYLIST);
   }
 }

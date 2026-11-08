@@ -1,20 +1,11 @@
 import { type ImportPreview, importPlatform, type PlaylistTrack } from "@narze/shared";
 import type { SpotifyApi } from "@narze/shared/spotify-api";
-import type { LavalinkLoad } from "../search/search-service";
+import type { LavalinkLoad, LavalinkTrackData } from "../search/search-service";
 
 interface LoadedPlaylist {
   info?: { name?: string; author?: string | null };
   pluginInfo?: { author?: string; artworkUrl?: string | null };
-  tracks?: Array<{
-    info: {
-      identifier?: string;
-      title?: string;
-      author?: string;
-      length?: number;
-      uri?: string | null;
-      artworkUrl?: string | null;
-    };
-  }>;
+  tracks?: LavalinkTrackData[];
 }
 interface SpotifyItem {
   added_at?: string | null;
@@ -56,12 +47,14 @@ export function createImporter({
   return async (link: string): Promise<ImportPreview> => {
     const platform = importPlatform(link);
     if (!platform) throw new ImportRefused("only Spotify or YouTube playlist links can be imported");
-    const load = await loadTracks(link);
-    if (load.loadType !== "playlist") throw new ImportRefused("not a playlist, or it is empty");
+    // Spotify's own details (album, added-at, owner) load alongside the tracks.
+    const [load, details] = await Promise.all([
+      loadTracks(link),
+      platform === "spotify" ? spotifyDetails(link) : Promise.resolve(null),
+    ]);
     const data = load.data as LoadedPlaylist;
-    const loaded = data.tracks ?? [];
+    const loaded = load.loadType === "playlist" ? (data.tracks ?? []).filter((t) => t.info.uri) : [];
     if (loaded.length === 0) throw new ImportRefused("not a playlist, or it is empty");
-    const details = platform === "spotify" ? await spotifyDetails(link) : null;
     const now = new Date().toISOString();
     const tracks: PlaylistTrack[] = loaded.map((t) => {
       const extra = t.info.identifier ? details?.items.get(t.info.identifier) : undefined;
@@ -83,7 +76,7 @@ export function createImporter({
         trackCount: tracks.length,
         owner: details?.owner ?? data.pluginInfo?.author ?? tracks[0]?.artist ?? "Unknown",
       },
-      tracks: tracks.filter((t) => t.uri),
+      tracks,
     };
   };
 }
