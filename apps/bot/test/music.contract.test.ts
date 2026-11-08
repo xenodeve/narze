@@ -1131,4 +1131,66 @@ describe("silent playback from the operator console (#112, spec #119)", () => {
     await Bun.sleep(200);
     expect(mine).toEqual([]);
   });
+
+  test("a console play that finds nothing leaves a Discord session announcing as before", async () => {
+    for (const event of ["trackStart", "queueEnd", "playerDestroy", "playerSocketClosed"] as const) {
+      lavalink.removeAllListeners(event);
+    }
+    const mine: typeof notices = [];
+    music = createMusic({
+      lavalink,
+      publisher: createPlayerPublisher(redis),
+      announce: async (channelId, notice) => {
+        mine.push({ channelId, notice });
+      },
+      now: () => clock,
+    });
+    await play("lemon");
+    await eventually(stored, (s) => s?.current?.title === "Lemon");
+    const typo = await music.play({
+      guildId: GUILD,
+      voiceChannelId: VOICE,
+      textChannelId: TEXT,
+      query: "no such song",
+      requester: dee,
+      silent: true,
+    });
+    expect(typo).toEqual({ kind: "error", reason: "not-found" });
+    await play("idol");
+    fake.finishTrack(GUILD);
+    await eventually(
+      () => mine.length,
+      (n) => n > 0,
+    );
+    expect(mine[0]?.notice.description).toContain("**Idol**");
+  });
+
+  test("a silent playlist posts nothing as its tracks go by", async () => {
+    for (const event of ["trackStart", "queueEnd", "playerDestroy", "playerSocketClosed"] as const) {
+      lavalink.removeAllListeners(event);
+    }
+    const mine: typeof notices = [];
+    music = createMusic({
+      lavalink,
+      publisher: createPlayerPublisher(redis),
+      announce: async (channelId, notice) => {
+        mine.push({ channelId, notice });
+      },
+      now: () => clock,
+    });
+    const result = await music.play({
+      guildId: GUILD,
+      voiceChannelId: VOICE,
+      textChannelId: TEXT,
+      query: PLAYLIST_URL,
+      requester: dee,
+      silent: true,
+    });
+    expect(result).toMatchObject({ kind: "playlist" });
+    const first = (await eventually(stored, (s) => Boolean(s?.current)))?.current?.title;
+    fake.finishTrack(GUILD);
+    await eventually(stored, (s) => Boolean(s?.current) && s?.current?.title !== first);
+    await Bun.sleep(200);
+    expect(mine).toEqual([]);
+  });
 });

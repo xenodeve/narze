@@ -20,7 +20,7 @@ export function startRepl({
   output?: NodeJS.WritableStream;
 }): Interface | null {
   if (!input.isTTY) {
-    console.log("[console] stdin is not a terminal: the operator console is off");
+    console.log("[console] stdin ไม่ใช่ terminal: ไม่เปิด console");
     return null;
   }
   const rl = createInterface({ input, output, prompt: "narze> " });
@@ -36,7 +36,7 @@ export function startRepl({
     const command = parseCommand(line);
     if (command.kind === "exit") {
       rl.close();
-      console.log("[console] closed; the Bot keeps running");
+      console.log("[console] ปิด console แล้ว บอทยังทำงานต่อ");
       return;
     }
     queue = queue
@@ -47,7 +47,7 @@ export function startRepl({
       });
   });
   events.on("SIGINT", interrupt);
-  console.log("[console] พิมพ์ help เพื่อดูคำสั่ง (exit ปิดแค่ console)");
+  console.log("[console] พิมพ์ help เพื่อดูคำสั่ง (exit ปิดแค่ console, Ctrl+C ปิดบอท)");
   rl.prompt();
   return rl;
 }

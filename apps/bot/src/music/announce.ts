@@ -12,7 +12,6 @@ export interface AnnounceFlags {
   /** /playnext or /playat started this track immediately. */
   dontShow: boolean;
   /** Playback started from the operator console: log only. */
-  terminal: boolean;
   /** Loop mode is "track", so this start is a repeat. */
   trackLoop: boolean;
 }
@@ -22,13 +21,12 @@ export const NO_FLAGS: AnnounceFlags = {
   skipplay: false,
   skip: false,
   dontShow: false,
-  terminal: false,
   trackLoop: false,
 };
 
-/** v5's rule (spec #24), with terminal playback never announced. */
+/** v5's rule (spec #24). A silent console session (#112) is checked by the engine, not here. */
 export function shouldAnnounce(flags: AnnounceFlags, queueSize: number): boolean {
-  if (flags.terminal || flags.dontShow || flags.skipplay) return false;
+  if (flags.dontShow || flags.skipplay) return false;
   const actualFirst = flags.firstFromCommand && queueSize === 0;
   if (actualFirst) return false;
   return !flags.trackLoop || flags.skip;

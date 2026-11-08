@@ -14,6 +14,9 @@ describe("the console's words (#112, spec #119)", () => {
     expect(tokenize(`play "say \\"hi\\"" 1 2`)).toEqual(["play", 'say "hi"', "1", "2"]);
     expect(tokenize(`  status   `)).toEqual(["status"]);
     expect(tokenize(`find guild ""`)).toEqual(["find", "guild", ""]);
+    // An apostrophe inside a word is part of the name, not a quote.
+    expect(tokenize(`play rock'n'roll 1 2`)).toEqual(["play", "rock'n'roll", "1", "2"]);
+    expect(tokenize(`play don't 1 2`)).toEqual(["play", "don't", "1", "2"]);
   });
 
   test("every command and argument form", () => {
@@ -42,6 +45,7 @@ describe("the console's words (#112, spec #119)", () => {
     }
     expect(parseCommand("status")).toEqual({ kind: "status", guild: null });
     expect(parseCommand(`status "Admin Club"`)).toEqual({ kind: "status", guild: "Admin Club" });
+    expect(parseCommand("status Admin Club")).toMatchObject({ kind: "usage", command: "status" });
     expect(parseCommand("list")).toEqual({ kind: "list" });
     expect(parseCommand("guilds")).toEqual({ kind: "list" });
     expect(parseCommand("find guild lou")).toEqual({ kind: "find", what: "guild", name: "lou" });
@@ -70,6 +74,7 @@ const guilds = [
     name: "Lounge",
     channels: [
       { id: "200", name: "Music Room", kind: "voice" as const, canSend: false },
+      { id: "203", name: "Lobby", kind: "voice" as const, canSend: false },
       { id: "201", name: "general", kind: "text" as const, canSend: false },
       { id: "202", name: "music-chat", kind: "text" as const, canSend: true },
     ],
@@ -124,7 +129,8 @@ function harness(over: Partial<ConsoleDeps> = {}) {
   const deps: ConsoleDeps = {
     guilds: () => guilds,
     music: music as unknown as ConsoleDeps["music"],
-    bot: { id: "900000000000000001", name: "Narze", avatarUrl: null },
+    bot: () => ({ id: "900000000000000001", name: "Narze", avatarUrl: null }),
+    ready: () => true,
     print: (line) => printed.push(line),
     clear: mock(() => {}),
     ...over,
@@ -146,6 +152,27 @@ describe("running console commands (#112, spec #119)", () => {
     });
     expect(printed.join("\n")).toContain("Lemon");
     expect(printed.join("\n")).toContain("music-chat");
+  });
+
+  test("a Bot already in another voice room of that server says where it is and plays nothing", async () => {
+    const { console: run, music, printed } = harness();
+    await run.run(parseCommand("play lemon lounge lobby"));
+    expect(music.play).not.toHaveBeenCalled();
+    expect(printed.at(-1)).toContain("Music Room");
+  });
+
+  test("Lavalink not ready yet: plays nothing and says so", async () => {
+    const { console: run, music, printed } = harness({ ready: () => false });
+    await run.run(parseCommand("play lemon lounge music"));
+    expect(music.play).not.toHaveBeenCalled();
+    expect(printed.at(-1)).toContain("Lavalink");
+  });
+
+  test("no text channel the Bot can post in: a silent session needs none, so it plays", async () => {
+    const quiet = guilds.map((g) => ({ ...g, channels: g.channels.filter((c) => c.kind === "voice") }));
+    const { console: run, music } = harness({ guilds: () => quiet });
+    await run.run(parseCommand("play lemon lounge music"));
+    expect(music.play).toHaveBeenCalledWith(expect.objectContaining({ voiceChannelId: "200", textChannelId: "200" }));
   });
 
   test("a name that does not resolve plays nothing and says why", async () => {
@@ -192,13 +219,16 @@ describe("running console commands (#112, spec #119)", () => {
     expect(printed.join("\n")).toContain("help");
   });
 
-  test("works in Standalone Mode: nothing it needs comes from Redis or the Backend", async () => {
-    // ConsoleDeps has no Redis or Backend: the same commands run with Discord and Lavalink only.
+  test("a named text channel the Bot cannot post in is refused; a Bot not yet logged in plays nothing", async () => {
     const { console: run, music } = harness();
     await run.run(parseCommand("play lemon 100000000000000001 200 201"));
     expect(music.play).toHaveBeenCalledTimes(0);
     await run.run(parseCommand("play lemon 100000000000000001 200"));
     expect(music.play).toHaveBeenCalledTimes(1);
+    const early = harness({ bot: () => null });
+    await early.console.run(parseCommand("play lemon 100000000000000001 200"));
+    expect(early.music.play).not.toHaveBeenCalled();
+    expect(early.printed.at(-1)).toContain("login");
   });
 });
 

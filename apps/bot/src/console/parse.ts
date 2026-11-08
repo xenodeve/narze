@@ -22,6 +22,7 @@ export const USAGE = {
   stop: "stop <เซิร์ฟเวอร์>",
   skip: "skip <เซิร์ฟเวอร์>",
   leave: "leave <เซิร์ฟเวอร์>",
+  status: "status [เซิร์ฟเวอร์]",
   find: "find guild <ชื่อ> | find voice <เซิร์ฟเวอร์> <ชื่อ> | find text <เซิร์ฟเวอร์> <ชื่อ>",
 } as const;
 
@@ -37,9 +38,10 @@ export function tokenize(line: string): string[] | null {
     } else if (quote) {
       if (c === quote) quote = null;
       else current = (current ?? "") + c;
-    } else if (c === '"' || c === "'") {
+    } else if ((c === '"' || c === "'") && current === null) {
+      // Only at the start of a word: rock'n'roll and don't are names, not quotes.
       quote = c;
-      current = current ?? "";
+      current = "";
     } else if (/\s/.test(c)) {
       if (current !== null) tokens.push(current);
       current = null;
@@ -56,7 +58,8 @@ const usage = (command: keyof typeof USAGE): ConsoleCommand => ({ kind: "usage",
 
 export function parseCommand(line: string): ConsoleCommand {
   const tokens = tokenize(line);
-  if (tokens === null) return { kind: "usage", command: "quote", message: "เครื่องหมายคำพูดยังไม่ปิด" };
+  if (tokens === null)
+    return { kind: "usage", command: "quote", message: 'ปิดเครื่องหมายคำพูดให้ครบ เช่น play "ชื่อเพลง" ...' };
   const [first, ...args] = tokens;
   if (first === undefined) return { kind: "empty" };
   const word = first.toLowerCase();
@@ -71,7 +74,7 @@ export function parseCommand(line: string): ConsoleCommand {
     case "leave":
       return args.length === 1 ? { kind: word, guild: args[0] as string } : usage(word);
     case "status":
-      return { kind: "status", guild: args[0] ?? null };
+      return args.length <= 1 ? { kind: "status", guild: args[0] ?? null } : usage("status");
     case "list":
     case "guilds":
       return { kind: "list" };
