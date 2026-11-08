@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { DiscordIdSchema } from "./admin";
+import { SessionSummarySchema, TopPlayedSchema } from "./history";
 
 /**
  * What the admin area reads from Discord (#111, spec #110–#112). Only the Bot holds the Discord token
@@ -167,3 +168,13 @@ export function startOfDayBangkok(at: number): number {
   const day = 24 * 60 * 60 * 1000;
   return Math.floor((at + BANGKOK_OFFSET_MS) / day) * day - BANGKOK_OFFSET_MS;
 }
+
+/** GET /api/admin/users/:id (spec #114). */
+export const AdminUserDetailSchema = z.object({
+  history: z.array(TopPlayedSchema),
+  sessions: z.array(SessionSummarySchema),
+});
+export type AdminUserDetail = z.infer<typeof AdminUserDetailSchema>;
+
+/** admin:presence (#111): the Discord IDs with a Dashboard tab open. */
+export const AdminPresenceSchema = z.object({ online: z.array(z.string()) });
