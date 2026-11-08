@@ -8,16 +8,21 @@ import {
   Get,
   Headers,
   HttpCode,
+  HttpException,
+  HttpStatus,
   Inject,
   NotFoundException,
   Param,
   Post,
   Put,
   Query,
+  Res,
 } from "@nestjs/common";
 import { z } from "zod";
 import { Authenticator } from "../auth/authenticator";
+import { RateLimiter, type RateLimits } from "../rate-limit";
 import { UserGateway } from "../realtime/user.gateway";
+import { RATE_LIMITS } from "../tokens";
 import { type Importer, ImportRefused } from "./library-importer";
 import { LibraryStore } from "./library-store";
 
@@ -37,7 +42,13 @@ export class LibraryController {
     @Inject(LibraryStore) private readonly library: LibraryStore,
     @Inject(IMPORTER) private readonly importer: Importer,
     @Inject(UserGateway) private readonly gateway: UserGateway,
-  ) {}
+    @Inject(RATE_LIMITS) limits: RateLimits,
+  ) {
+    this.imports = new RateLimiter(limits.import);
+  }
+
+  /** One preview can read up to 50 Spotify pages: limited per user, wherever they call from (#142). */
+  private readonly imports: RateLimiter;
 
   @Get("playlists")
   async list(@Headers("authorization") authorization: string | undefined) {
@@ -86,8 +97,17 @@ export class LibraryController {
   /** Spec #50, #71: the preview of a Spotify or YouTube playlist before it is saved. */
   @Post("import")
   @HttpCode(200)
-  async preview(@Headers("authorization") authorization: string | undefined, @Body() body: unknown) {
-    await this.auth.require(authorization);
+  async preview(
+    @Headers("authorization") authorization: string | undefined,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) res: { setHeader(name: string, value: string): void },
+  ) {
+    const { discordId } = await this.auth.require(authorization);
+    const { ok, retryAfterMs } = this.imports.hit(discordId);
+    if (!ok) {
+      res.setHeader("retry-after", String(Math.ceil(retryAfterMs / 1000)));
+      throw new HttpException("Too Many Requests", HttpStatus.TOO_MANY_REQUESTS);
+    }
     const { url } = parse(z.object({ url: z.string().max(500) }), body);
     try {
       return await this.importer(url);

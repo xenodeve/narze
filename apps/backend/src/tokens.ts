@@ -10,3 +10,5 @@ export const DEVELOPER_IDS = Symbol("DEVELOPER_IDS");
 export const DISCORD_API_URL = Symbol("DISCORD_API_URL");
 /** Injection token for how long the Backend waits for the Bot to answer an AdminQuery (#111). */
 export const ADMIN_QUERY_TIMEOUT_MS = Symbol("ADMIN_QUERY_TIMEOUT_MS");
+/** Injection token for the Backend's rate limits (#142). */
+export const RATE_LIMITS = Symbol("RATE_LIMITS");

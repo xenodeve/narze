@@ -5,6 +5,7 @@ import type { Socket } from "socket.io";
 import { type Authenticator, expiryOf, type Identity } from "../src/auth/authenticator";
 import type { GuildDirectory } from "../src/guilds/guild-directory";
 import type { Presence } from "../src/presence/presence";
+import { DEFAULT_RATE_LIMITS } from "../src/rate-limit";
 import { UserGateway } from "../src/realtime/user.gateway";
 import type { UserStore } from "../src/users/user-store";
 
@@ -32,6 +33,7 @@ function gateway(overrides: {
     {} as never,
     {} as never,
     {} as never,
+    DEFAULT_RATE_LIMITS,
   );
 }
 
