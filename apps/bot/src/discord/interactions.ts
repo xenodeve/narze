@@ -16,6 +16,17 @@ import { commands } from "../commands";
 import type { CommandContext, Reply } from "../commands/types";
 import { COLOR_FAILURE, type Notice } from "../music/format";
 import type { Music } from "../music/music";
+import type { GuildSettingsCache } from "../settings/guild-settings";
+import { auditNotice, promoNotice, shouldPromo } from "./audit";
+
+/** What a command run may reach beyond the music engine (#106). */
+export interface InteractionOptions {
+  settings?: GuildSettingsCache;
+  /** Spec #13: where every command use is logged (`LOG_GUILD_ID` / `LOG_CHANNEL_ID`). */
+  log?: { guildId: string; channelId: string };
+  /** Spec #34: the Dashboard the promo points at. */
+  dashboardUrl?: string;
+}
 
 export function toEmbed(notice: Notice): EmbedBuilder {
   const embed = new EmbedBuilder().setColor(notice.color);
@@ -43,7 +54,12 @@ const NOT_READY = "The bot is not ready yet. Please try again later.";
 const FAILED = "There was an error while executing this command!";
 
 /** Routes slash commands to their handlers; DMs get no response (v5). */
-export function handleInteractions(client: Client, music: Music, isReady: () => boolean): void {
+export function handleInteractions(
+  client: Client,
+  music: Music,
+  isReady: () => boolean,
+  options: InteractionOptions = {},
+): void {
   client.on("interactionCreate", async (interaction) => {
     if (interaction.isAutocomplete() && interaction.inCachedGuild()) {
       await suggest(interaction, music).catch(() => {});
@@ -56,9 +72,10 @@ export function handleInteractions(client: Client, music: Music, isReady: () => 
       await interaction.reply({ content: NOT_READY, flags: MessageFlags.Ephemeral }).catch(() => {});
       return;
     }
+    let succeeded = false;
     try {
       if (command.slow) await interaction.deferReply();
-      const reply = await command.run(contextOf(interaction), music);
+      const reply = await command.run(contextOf(interaction, options.settings), music);
       const embeds = [toEmbed(reply.notice)];
       if (reply.pager) {
         await page(interaction, reply.notice, reply.pager);
@@ -71,6 +88,7 @@ export function handleInteractions(client: Client, music: Music, isReady: () => 
       } else {
         await interaction.editReply({ embeds });
       }
+      succeeded = true;
     } catch (error) {
       console.warn(`[bot] /${interaction.commandName}: ${error instanceof Error ? error.message : String(error)}`);
       const answer = { content: FAILED, flags: MessageFlags.Ephemeral } as const;
@@ -78,7 +96,31 @@ export function handleInteractions(client: Client, music: Music, isReady: () => 
         interaction.replied || interaction.deferred ? interaction.followUp(answer) : interaction.reply(answer);
       await send.catch(() => {});
     }
+    await afterCommand(interaction, succeeded, options);
   });
+}
+
+/** Spec #13, #34: every use is logged; a successful music command sometimes points at the Dashboard. */
+async function afterCommand(
+  interaction: ChatInputCommandInteraction<"cached">,
+  succeeded: boolean,
+  { log, dashboardUrl }: InteractionOptions,
+): Promise<void> {
+  if (succeeded && dashboardUrl && shouldPromo(interaction.commandName)) {
+    await interaction.channel?.send({ embeds: [toEmbed(promoNotice(dashboardUrl))] }).catch(() => {});
+  }
+  if (!log) return;
+  const channel = interaction.client.guilds.cache.get(log.guildId)?.channels.cache.get(log.channelId);
+  if (!channel?.isTextBased()) return;
+  const voice = interaction.member.voice.channel;
+  const notice = auditNotice({
+    user: { id: interaction.user.id, tag: interaction.user.tag, avatarUrl: interaction.user.displayAvatarURL() },
+    voice: voice ? { name: voice.name, id: voice.id } : null,
+    command: { name: interaction.commandName, id: interaction.commandId },
+    channel: { name: interaction.channel?.name ?? "?", id: interaction.channelId },
+    guild: { name: interaction.guild.name, id: interaction.guild.id, iconUrl: interaction.guild.iconURL() },
+  });
+  await channel.send({ embeds: [toEmbed(notice)] }).catch(() => {});
 }
 
 /** Autocomplete: the command builds suggestions for the focused option (Discord shows at most 25). */
@@ -152,7 +194,7 @@ async function page(
   });
 }
 
-function contextOf(interaction: ChatInputCommandInteraction<"cached">): CommandContext {
+function contextOf(interaction: ChatInputCommandInteraction<"cached">, settings?: GuildSettingsCache): CommandContext {
   const { guild, member, user } = interaction;
   return {
     guildId: guild.id,
@@ -168,6 +210,7 @@ function contextOf(interaction: ChatInputCommandInteraction<"cached">): CommandC
       return typeof option?.value === "string" || typeof option?.value === "number" ? option.value : null;
     },
     latencyMs: { reply: Date.now() - interaction.createdTimestamp, ws: interaction.client.ws.ping },
+    setMusicChannel: settings ? (channelId) => settings.setMusicChannel(guild.id, channelId) : undefined,
   };
 }
 

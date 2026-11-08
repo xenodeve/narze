@@ -1,4 +1,11 @@
-import { Channels, type GuildEvent, GuildEventTypes, RedisKeys, type VoiceChannelList } from "@narze/shared";
+import {
+  Channels,
+  type GuildEvent,
+  GuildEventTypes,
+  RedisKeys,
+  type TextChannelList,
+  type VoiceChannelList,
+} from "@narze/shared";
 import type Redis from "ioredis";
 
 /** One Guild as the Bot sees it: id plus who is in which voice channel ([userId, channelId]). */
@@ -39,7 +46,7 @@ export function createGuildRegistry(redis: Redis) {
         .multi()
         .srem(RedisKeys.botGuilds, guildId)
         .hdel(RedisKeys.botMemberCounts, guildId)
-        .del(RedisKeys.voiceStates(guildId), RedisKeys.voiceChannels(guildId))
+        .del(RedisKeys.voiceStates(guildId), RedisKeys.voiceChannels(guildId), RedisKeys.textChannels(guildId))
         .exec();
     },
     /** The Guild's voice channels and who is in them, for the picker; key first, then the event. */
@@ -57,6 +64,10 @@ export function createGuildRegistry(redis: Redis) {
         .set(RedisKeys.voiceChannels(guildId), JSON.stringify(list))
         .publish(Channels.guildEvents, JSON.stringify(event))
         .exec();
+    },
+    /** Text channels the Bot can post in, for the Music Channel picker and its check (#106). */
+    async textChannels(guildId: string, list: TextChannelList): Promise<void> {
+      await redis.set(RedisKeys.textChannels(guildId), JSON.stringify(list));
     },
     async voice(guildId: string, userId: string, channelId: string | null): Promise<void> {
       if (channelId) await redis.hset(RedisKeys.voiceStates(guildId), userId, channelId);

@@ -69,6 +69,8 @@ export interface MusicOptions {
   artwork?: Pick<Artwork, "trackArt" | "playlistArt" | "icon">;
   /** Spec #68 `use_playlist_url`: a playlist track's notice links to the playlist, not the track. */
   usePlaylistUrl?: boolean;
+  /** Spec #12: the Guild's Music Channel, where notices go instead of the command's channel. */
+  noticeChannel?: (guildId: string) => string | null;
   /** Spec #28: wait before reconnecting after a voice drop, then before seeking back. */
   voiceRetryMs?: [number, number];
 }
@@ -131,6 +133,7 @@ export function createMusic({
   voiceRetryMs = [1000, 500],
   artwork,
   usePlaylistUrl = false,
+  noticeChannel = () => null,
 }: MusicOptions) {
   /** Resolves a track's picture once (spec #62/#63); toTrack reads it from userData. */
   async function resolveArt(track: LavalinkTrack): Promise<void> {
@@ -269,9 +272,10 @@ export function createMusic({
     await player.setVolume(snapshot.volume);
     await player.setRepeatMode(snapshot.repeatMode);
     if (rest.length > 0) await player.queue.add(rest.map(fromStoredTrack));
-    if (snapshot.textChannelId) {
+    const recoveryChannel = noticeChannel(snapshot.guildId) ?? snapshot.textChannelId;
+    if (recoveryChannel) {
       const notice = recoveryNotice(current ? toTrack(current) : null, positionMs, rest.length);
-      await announce(snapshot.textChannelId, notice).catch(warn("recovery notice"));
+      await announce(recoveryChannel, notice).catch(warn("recovery notice"));
     }
     if (!current) {
       await commit(player);
@@ -369,7 +373,8 @@ export function createMusic({
     // The Dashboard first; the Discord notice is a slower round trip.
     await publish(player);
     if (shown && announceIt) {
-      const channel = player.get<string | undefined>(TEXT_CHANNEL) ?? player.textChannelId;
+      const channel =
+        noticeChannel(player.guildId) ?? player.get<string | undefined>(TEXT_CHANNEL) ?? player.textChannelId;
       if (channel) {
         const from = (track.userData as { playlist?: { url?: string; thumbnail?: string | null } } | undefined)
           ?.playlist;

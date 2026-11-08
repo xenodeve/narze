@@ -14,6 +14,8 @@ export interface CommandContext {
   canSpeakIn(channelId: string): boolean;
   option(name: string): string | number | null;
   latencyMs: { reply: number; ws: number };
+  /** /setchannel (#106): saves the Music Channel; absent where settings are not wired. */
+  setMusicChannel?: (channelId: string | null) => Promise<void>;
 }
 
 export interface Reply {

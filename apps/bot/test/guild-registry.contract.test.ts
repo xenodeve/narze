@@ -72,3 +72,12 @@ describe("voice channels for the Dashboard picker (spec #86)", () => {
     await listener.quit();
   });
 });
+
+describe("text channels for the Music Channel picker (#106)", () => {
+  test("the list is stored for the Backend to validate and offer, and dropped when the Bot leaves", async () => {
+    await registry.textChannels(G1, [{ id: "501", name: "music" }]);
+    expect(JSON.parse((await redis.get(RedisKeys.textChannels(G1))) ?? "null")).toEqual([{ id: "501", name: "music" }]);
+    await registry.remove(G1);
+    expect(await redis.get(RedisKeys.textChannels(G1))).toBeNull();
+  });
+});

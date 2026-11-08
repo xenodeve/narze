@@ -10,12 +10,13 @@ import { play } from "./play";
 import { playqueue } from "./playqueue";
 import { queue } from "./queue";
 import { seek } from "./seek";
+import { setchannel } from "./setchannel";
 import { skip } from "./skip";
 import { twentyFourSeven } from "./twenty-four-seven";
 import type { Command } from "./types";
 import { volume } from "./volume";
 
-/** The slash commands so far (spec #1): #100, #102, #103 and #104; /setchannel arrives with #106. */
+/** The slash commands (spec #1): all of v5's, #100–#106. */
 export const commands: Command[] = [
   play,
   pause,
@@ -34,4 +35,5 @@ export const commands: Command[] = [
   skipplay,
   twentyFourSeven,
   cache,
+  setchannel,
 ];

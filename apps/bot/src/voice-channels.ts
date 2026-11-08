@@ -1,4 +1,4 @@
-import type { VoiceChannelList } from "@narze/shared";
+import type { TextChannelList, VoiceChannelList } from "@narze/shared";
 import { ChannelType, type Guild, PermissionFlagsBits } from "discord.js";
 
 /**
@@ -21,17 +21,23 @@ export function publicVoiceChannels(guild: Guild): VoiceChannelList {
     }));
 }
 
-/** The first text channel the Bot may post in: where notices go for a Dashboard-started player (#106 adds the Music Channel). */
-export function firstSendableTextChannel(guild: Guild): string | null {
+/** Text channels the Bot may view and post in, in their sidebar order (#106 Music Channel picker). */
+export function sendableTextChannels(guild: Guild): TextChannelList {
   const me = guild.members.me;
-  if (!me) return null;
-  const channel = guild.channels.cache
+  if (!me) return [];
+  return guild.channels.cache
     .filter(
-      (c) => c.type === ChannelType.GuildText && Boolean(c.permissionsFor(me)?.has(PermissionFlagsBits.SendMessages)),
+      (c) =>
+        c.type === ChannelType.GuildText &&
+        Boolean(c.permissionsFor(me)?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages])),
     )
     .sort((a, b) => ("position" in a && "position" in b ? a.position - b.position : 0))
-    .first();
-  return channel?.id ?? null;
+    .map((c) => ({ id: c.id, name: c.name }));
+}
+
+/** The first text channel the Bot may post in: where notices go for a Dashboard-started player without a Music Channel. */
+export function firstSendableTextChannel(guild: Guild): string | null {
+  return sendableTextChannels(guild)[0]?.id ?? null;
 }
 
 /**
