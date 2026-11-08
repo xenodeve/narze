@@ -1,8 +1,11 @@
 import { DEFAULT_REDIS_URL } from "@narze/shared";
 import { Client, GatewayIntentBits, type Guild } from "discord.js";
+import { announcer, handleInteractions } from "./discord/interactions";
 import { createGuildRegistry, type GuildVoiceSnapshot } from "./guild-registry";
 import { startHeartbeat } from "./heartbeat";
 import { createLavalink } from "./lavalink";
+import { createMusic } from "./music/music";
+import { createPlayerPublisher, type PlayerPublisher } from "./music/player-state";
 import { detectRuntimeMode } from "./runtime-mode";
 
 const env = process.env;
@@ -25,9 +28,19 @@ lavalink.nodeManager.on("error", (node, error) => console.warn(`[bot] lavalink n
 
 client.on("raw", (packet) => lavalink.sendRawData(packet));
 
+// Standalone Mode plays without publishing: there is no Redis to publish to (ADR-0003).
+const silent: Pick<PlayerPublisher, "publish" | "gone"> = { publish: async () => {}, gone: async () => {} };
+const music = createMusic({
+  lavalink,
+  publisher: redis ? createPlayerPublisher(redis) : silent,
+  announce: announcer(client),
+});
+handleInteractions(client, music, () => lavalink.nodeManager.leastUsedNodes().length > 0);
+
 const registry = redis ? createGuildRegistry(redis) : null;
 const voiceSnapshotOf = (guild: Guild): GuildVoiceSnapshot => ({
   id: guild.id,
+  memberCount: guild.memberCount,
   voice: guild.voiceStates.cache
     .filter((v) => v.channelId)
     .map((v) => [v.id, v.channelId as string] as [string, string]),
@@ -38,6 +51,7 @@ client.once("clientReady", async (ready) => {
   console.log(`[bot] logged in as ${ready.user.tag}`);
   await lavalink.init({ id: ready.user.id, username: ready.user.username });
   await registry?.replace(ready.guilds.cache.map(voiceSnapshotOf)).catch(logFailure("guild registry"));
+  if (redis) await createPlayerPublisher(redis).sweep().catch(logFailure("sweep stale Player States"));
 });
 client.on("guildCreate", (guild) => void registry?.add(voiceSnapshotOf(guild)).catch(logFailure("guild registry")));
 client.on("guildDelete", (guild) => void registry?.remove(guild.id).catch(logFailure("guild registry")));

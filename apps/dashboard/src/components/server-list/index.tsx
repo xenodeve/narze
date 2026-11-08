@@ -25,7 +25,9 @@ function GuildRow({ guild }: { guild: GuildSummary }) {
         </span>
       )}
       <div className={styles.body}>
-        <p className={styles.name}>{guild.name}</p>
+        <a className={styles.name} href={`/guilds/${guild.id}`}>
+          {guild.name}
+        </a>
         <p className={styles.meta} data-testid="guild-player">
           {guild.playing ? (
             <>
@@ -40,6 +42,7 @@ function GuildRow({ guild }: { guild: GuildSummary }) {
             <span>ว่าง</span>
           )}
           {guild.queueLength > 0 ? <span className="num">คิว {guild.queueLength} เพลง</span> : null}
+          {guild.memberCount !== null ? <span className="num">{guild.memberCount} สมาชิก</span> : null}
         </p>
       </div>
       <span className={`mono ${styles.badge}`} data-tone={badge.tone} title={badge.meaning} data-testid="guild-badge">

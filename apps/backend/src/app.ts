@@ -8,6 +8,8 @@ import { Authenticator } from "./auth/authenticator";
 import { DiscordApi } from "./discord/discord-api";
 import { GuildDirectory } from "./guilds/guild-directory";
 import { MeController } from "./me/me.controller";
+import { PlayerController } from "./player/player.controller";
+import { PlayerCache } from "./player/player-cache";
 import { Presence } from "./presence/presence";
 import { UserGateway } from "./realtime/user.gateway";
 import { BotStatusTracker } from "./status/bot-status.tracker";
@@ -57,7 +59,7 @@ class AppModule implements OnApplicationShutdown {
   static forRoot(options: AppOptions): DynamicModule {
     return {
       module: AppModule,
-      controllers: [MeController],
+      controllers: [MeController, PlayerController],
       providers: [
         { provide: REDIS, useFactory: () => new Redis(options.redisUrl) },
         { provide: REDIS_SUBSCRIBER, useFactory: () => new Redis(options.redisUrl) },
@@ -75,6 +77,7 @@ class AppModule implements OnApplicationShutdown {
         UserStore,
         GuildDirectory,
         Presence,
+        PlayerCache,
         StatusGateway,
         UserGateway,
       ],

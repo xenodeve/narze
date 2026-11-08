@@ -7,6 +7,7 @@ export const RequesterSchema = z.object({
   name: z.string().min(1),
   avatarUrl: z.string().url().nullable(),
 });
+export type Requester = z.infer<typeof RequesterSchema>;
 
 export const TrackSourceSchema = z.enum(["spotify", "youtube", "youtubemusic", "soundcloud", "http"]);
 
@@ -36,6 +37,13 @@ export const PlayerStateSchema = z.object({
   twentyFourSeven: z.boolean(),
   queue: z.array(TrackSchema),
   revision: z.number().int().nonnegative(),
+  /**
+   * Identifies the Bot process that produced the state. Revisions restart when the Bot restarts,
+   * so a new epoch is applied even with a lower revision (ADR-0007).
+   */
+  epoch: z.string().min(1),
+  /** When the last seek happened (same clock as `syncedAt`); lets clients show a small rewind (spec #103). */
+  lastSeekAt: z.number().int().nonnegative().nullable(),
   voiceChannelId: snowflake.nullable(),
 });
 export type PlayerState = z.infer<typeof PlayerStateSchema>;

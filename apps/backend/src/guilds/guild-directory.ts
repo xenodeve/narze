@@ -11,8 +11,15 @@ import type Redis from "ioredis";
 import { REDIS } from "../tokens";
 import type { StoredGuild } from "../users/user-store";
 
-/** A GuildSummary from parts already read: the stored guild, its Player and the user's voice channel. */
-export function summarize(guild: StoredGuild, player: PlayerSummary | null, userVoice: string | null): GuildSummary {
+/** What the Bot publishes about one Guild for one user, read from Redis. */
+export interface GuildLive {
+  player: PlayerSummary | null;
+  userVoice: string | null;
+  memberCount: number | null;
+}
+
+/** A GuildSummary from parts already read: the stored guild and what the Bot reported about it. */
+export function summarize(guild: StoredGuild, { player, userVoice, memberCount }: GuildLive): GuildSummary {
   const { badge } = controlPermission({
     isServerOwner: guild.isOwner,
     isBotOwner: false,
@@ -24,11 +31,14 @@ export function summarize(guild: StoredGuild, player: PlayerSummary | null, user
     id: guild.id,
     name: guild.name,
     iconUrl: guild.iconUrl,
+    memberCount,
     playing: player?.playing ?? false,
     queueLength: player?.queueLength ?? 0,
     badge,
   };
 }
+
+const toCount = (raw: string | null | undefined) => (raw == null ? null : Number(raw));
 
 /** Joins a user's guild snapshot with what the Bot publishes on Redis (ADR-0002). */
 @Injectable()
@@ -42,18 +52,28 @@ export class GuildDirectory {
     return guilds.filter((_, i) => flags[i] === 1);
   }
 
-  /** One MGET for every Player summary and one pipelined round trip for the user's voice channels. */
+  /** One MGET for the Player summaries, one HMGET for member counts, one pipeline for voice channels. */
   async summaries(discordId: string, guilds: StoredGuild[]): Promise<GuildSummary[]> {
     if (guilds.length === 0) return [];
+    const ids = guilds.map((g) => g.id);
     const voice = this.redis.pipeline();
-    for (const guild of guilds) voice.hget(RedisKeys.voiceStates(guild.id), discordId);
-    const [players, voices] = await Promise.all([
-      this.redis.mget(guilds.map((g) => RedisKeys.playerSummary(g.id))),
+    for (const id of ids) voice.hget(RedisKeys.voiceStates(id), discordId);
+    const [players, counts, voices] = await Promise.all([
+      this.redis.mget(ids.map((id) => RedisKeys.playerSummary(id))),
+      this.redis.hmget(RedisKeys.botMemberCounts, ...ids),
       voice.exec(),
     ]);
     return guilds.map((guild, i) =>
-      summarize(guild, parseJson(PlayerSummarySchema, players[i]), (voices?.[i]?.[1] as string | null) ?? null),
+      summarize(guild, {
+        player: parseJson(PlayerSummarySchema, players[i]),
+        userVoice: (voices?.[i]?.[1] as string | null) ?? null,
+        memberCount: toCount(counts[i]),
+      }),
     );
+  }
+
+  async memberCount(guildId: string): Promise<number | null> {
+    return toCount(await this.redis.hget(RedisKeys.botMemberCounts, guildId));
   }
 
   /** Each listed user's voice channel in one Guild, in one HMGET. */

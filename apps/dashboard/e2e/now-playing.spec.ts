@@ -1,0 +1,107 @@
+import { setFakeDiscordUser } from "@narze/fake-discord";
+import {
+  Channels,
+  DEFAULT_REDIS_URL,
+  type GuildEvent,
+  GuildEventTypes,
+  type PlayerState,
+  RedisKeys,
+} from "@narze/shared";
+import { expect, test } from "@playwright/test";
+import Redis from "ioredis";
+import { signInThroughPopup } from "./support";
+
+const GUILD = "931000000000000001";
+const frank = { id: "410000000000000001", username: "frank", globalName: "Frank" };
+const redis = new Redis(process.env.REDIS_URL ?? DEFAULT_REDIS_URL);
+let revision = 100;
+
+const state = (title: string, over: Partial<PlayerState> = {}): PlayerState => ({
+  guildId: GUILD,
+  current: {
+    uri: `https://music.youtube.com/watch?v=${encodeURIComponent(title)}`,
+    source: "youtubemusic",
+    title,
+    author: "Narze Test",
+    durationMs: 200_000,
+    artworkUrl: null,
+    requester: { id: frank.id, name: "Frank", avatarUrl: null },
+  },
+  positionMs: 30_000,
+  syncedAt: Date.now(),
+  paused: false,
+  volume: 15,
+  loop: "off",
+  twentyFourSeven: false,
+  queue: [],
+  revision: ++revision,
+  epoch: "e2e",
+  lastSeekAt: null,
+  voiceChannelId: "90",
+  ...over,
+});
+
+/** What the Bot does on every change: set the key, then announce it (RedisKeys.playerState). */
+async function botPublishes(s: PlayerState): Promise<void> {
+  await redis.set(RedisKeys.playerState(GUILD), JSON.stringify(s));
+  const event: GuildEvent = {
+    type: GuildEventTypes.playerState,
+    guildId: GUILD,
+    revision: s.revision,
+    sequence: s.revision,
+    ts: Date.now(),
+    data: s,
+  };
+  await redis.publish(Channels.guildEvents, JSON.stringify(event));
+}
+
+test.beforeAll(async () => {
+  await redis.sadd(RedisKeys.botGuilds, GUILD);
+  await redis.del(RedisKeys.playerState(GUILD));
+  await setFakeDiscordUser(frank, [{ id: GUILD, name: "Now Playing Club", icon: null, owner: false }]);
+});
+
+test.afterAll(async () => {
+  await redis.srem(RedisKeys.botGuilds, GUILD);
+  await redis.del(RedisKeys.playerState(GUILD));
+  await redis.quit();
+});
+
+test("a track started elsewhere shows on every open tab within 1 s, and the server row leads here", async ({
+  page,
+  context,
+}) => {
+  await signInThroughPopup(page, "Frank");
+  await page.getByRole("link", { name: "Now Playing Club" }).click();
+  await expect(page).toHaveURL(`/guilds/${GUILD}`);
+  expect(await page.evaluate(() => sessionStorage.getItem("selectedGuildId"))).toBe(GUILD);
+  await expect(page.getByRole("heading", { name: "ยังไม่มีเพลงเล่นอยู่" })).toBeVisible();
+
+  const second = await context.newPage();
+  await second.goto(`/guilds/${GUILD}`);
+  await expect(second.getByRole("heading", { name: "ยังไม่มีเพลงเล่นอยู่" })).toBeVisible();
+
+  await botPublishes(state("Lemon"));
+  await expect(page.getByTestId("now-title")).toHaveText("Lemon", { timeout: 1000 });
+  await expect(second.getByTestId("now-title")).toHaveText("Lemon", { timeout: 1000 });
+  await expect(second.getByText("ขอโดย Frank")).toBeVisible();
+});
+
+test("a page load reads the Hot Cache: the state renders after its Redis key is gone", async ({ page }) => {
+  await signInThroughPopup(page, "Frank");
+  await botPublishes(state("Cached Song"));
+  await page.goto(`/guilds/${GUILD}`);
+  await expect(page.getByTestId("now-title")).toHaveText("Cached Song");
+  await redis.del(RedisKeys.playerState(GUILD));
+  await page.reload();
+  await expect(page.getByTestId("now-title")).toHaveText("Cached Song");
+});
+
+test("progress runs forward from the published position while playing", async ({ page }) => {
+  await signInThroughPopup(page, "Frank");
+  await botPublishes(state("Running", { positionMs: 61_000 }));
+  await page.goto(`/guilds/${GUILD}`);
+  const elapsed = page.getByTestId("elapsed");
+  await expect(elapsed).toHaveText(/^1:0[1-3]$/);
+  await expect(elapsed).toHaveText(/^1:0[3-6]$/, { timeout: 4000 });
+});

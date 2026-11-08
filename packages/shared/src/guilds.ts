@@ -18,6 +18,8 @@ export const GuildSummarySchema = z.object({
   id: snowflake,
   name: z.string(),
   iconUrl: z.string().url().nullable(),
+  /** Reported by the Bot; null until it has (spec #79). */
+  memberCount: z.number().int().nonnegative().nullable(),
   playing: z.boolean(),
   queueLength: z.number().int().nonnegative(),
   badge: PermissionBadgeSchema,

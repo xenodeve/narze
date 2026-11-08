@@ -1,6 +1,8 @@
 # Lavalink 4 for local development (docker compose --profile audio up -d lavalink).
-# Plugin versions match the ones v5.0.2 ran in production. Spotify via LavaSrc needs credentials
-# and lands with Track Resolution (#100); until then only YouTube / YouTube Music resolve here.
+# Plugin versions match the ones v5.0.2 ran in production. Spotify via LavaSrc is off unless
+# credentials come from the environment (never this file): PLUGINS_LAVASRC_SOURCES_SPOTIFY=true,
+# PLUGINS_LAVASRC_SPOTIFY_CLIENTID, PLUGINS_LAVASRC_SPOTIFY_CLIENTSECRET. The Bot searches Spotify
+# first only when the node reports a `spotify` source manager (#100, spec #55).
 server:
   port: 2333
   address: 0.0.0.0
@@ -42,6 +44,11 @@ plugins:
     providers:
       - 'ytsearch:"%ISRC%"'
       - "ytsearch:%QUERY%"
+    # Spec #56: market TH, playlists and albums up to 50 tracks.
+    spotify:
+      countryCode: "TH"
+      playlistLoadLimit: 50
+      albumLoadLimit: 50
     sources:
       spotify: false
       applemusic: false

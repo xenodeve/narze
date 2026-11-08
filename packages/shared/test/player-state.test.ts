@@ -22,6 +22,8 @@ const state = {
   twentyFourSeven: false,
   queue: [track],
   revision: 3,
+  epoch: "boot-1",
+  lastSeekAt: null,
   voiceChannelId: "222",
 };
 
@@ -43,6 +45,12 @@ describe("Player State", () => {
 
   test("loop accepts only off, track and queue", () => {
     expect(PlayerStateSchema.safeParse({ ...state, loop: "all" }).success).toBe(false);
+  });
+
+  test("a state carries the Bot process epoch and when it last seeked (ADR-0007, spec #103)", () => {
+    expect(PlayerStateSchema.parse({ ...state, lastSeekAt: 5 }).lastSeekAt).toBe(5);
+    const { epoch: _e, ...noEpoch } = state;
+    expect(PlayerStateSchema.safeParse(noEpoch).success).toBe(false);
   });
 });
 

@@ -59,8 +59,23 @@ describe("guild contracts", () => {
   });
 
   test("a guild summary rejects an unknown badge", () => {
-    const summary = { id: "1", name: "g", iconUrl: null, playing: false, queueLength: 0, badge: "admin" };
+    const summary = {
+      id: "1",
+      name: "g",
+      iconUrl: null,
+      memberCount: 4,
+      playing: false,
+      queueLength: 0,
+      badge: "admin",
+    };
     expect(GuildSummarySchema.safeParse(summary).success).toBe(false);
     expect(GuildSummarySchema.safeParse({ ...summary, badge: "view-only" }).success).toBe(true);
+  });
+
+  test("a guild summary carries the member count, or null when the Bot has not reported it", () => {
+    const summary = { id: "1", name: "g", iconUrl: null, playing: false, queueLength: 0, badge: "owner" };
+    expect(GuildSummarySchema.safeParse({ ...summary, memberCount: null }).success).toBe(true);
+    expect(GuildSummarySchema.safeParse({ ...summary, memberCount: -1 }).success).toBe(false);
+    expect(GuildSummarySchema.safeParse(summary).success).toBe(false);
   });
 });

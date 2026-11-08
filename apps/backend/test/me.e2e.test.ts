@@ -67,6 +67,7 @@ beforeAll(async () => {
   url = await app.getUrl();
   await redis.del(RedisKeys.voiceStates(G_MEMBER), RedisKeys.playerSummary(G_MEMBER), RedisKeys.playerSummary(G_OWNED));
   await redis.sadd(RedisKeys.botGuilds, G_OWNED, G_MEMBER);
+  await redis.hset(RedisKeys.botMemberCounts, G_OWNED, 12);
   aliceSession = await signInWithFakeDiscord(supabase, alice, aliceGuilds);
 }, 60_000);
 
@@ -74,6 +75,7 @@ afterAll(async () => {
   await app?.close();
   discord?.stop();
   await redis.srem(RedisKeys.botGuilds, G_OWNED, G_MEMBER);
+  await redis.hdel(RedisKeys.botMemberCounts, G_OWNED);
   await redis.del(RedisKeys.voiceStates(G_MEMBER), RedisKeys.playerSummary(G_MEMBER), RedisKeys.playerSummary(G_OWNED));
   await redis.quit();
 });
@@ -91,9 +93,9 @@ describe("signing in and listing servers (#99)", () => {
     expect((await sync(aliceSession)).status).toBe(204);
     const res = await api("/api/me/guilds", { token: aliceSession.access_token });
     const guilds = (await res.json()) as GuildSummary[];
-    expect(guilds.map((g) => [g.id, g.badge])).toEqual([
-      [G_OWNED, "owner"],
-      [G_MEMBER, "view-only"],
+    expect(guilds.map((g) => [g.id, g.badge, g.memberCount])).toEqual([
+      [G_OWNED, "owner", 12],
+      [G_MEMBER, "view-only", null],
     ]);
     const { data } = await db().from("users").select("discord_id, name").eq("discord_id", alice.id).single();
     expect(data).toEqual({ discord_id: alice.id, name: "Alice" });

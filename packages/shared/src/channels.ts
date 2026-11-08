@@ -20,6 +20,13 @@ export const RedisKeys = {
    * before publishing the matching `player:summary` Guild event, so a reader never sees the event first.
    */
   playerSummary: (guildId: string) => `player:summary:${guildId}`,
+  /** Hash guildId → member count, for the server list (spec #79). */
+  botMemberCounts: "bot:member-counts",
+  /**
+   * JSON PlayerState of one Guild; absent when there is no Player. Set before the `player:state`
+   * Guild event, like the summary. The Backend's Hot Cache sits in front of it (ADR-0006).
+   */
+  playerState: (guildId: string) => `player:state:${guildId}`,
   /** Hash discordId → number of open Dashboard tabs (Presence). */
   presence: "presence:tabs",
 } as const;
@@ -28,6 +35,10 @@ export const RedisKeys = {
 export const GuildEventTypes = {
   /** data: PlayerSummary. */
   playerSummary: "player:summary",
+  /** data: PlayerState. */
+  playerState: "player:state",
+  /** data: null — the Player was destroyed. */
+  playerGone: "player:gone",
 } as const;
 
 /** Socket.io event names shared by Backend and Dashboard (ADR-0001). */
@@ -37,4 +48,6 @@ export const SocketEvents = {
   sessionReady: "session:ready",
   /** Backend → one user's sockets: a GuildSummary that changed. */
   guildSummary: "guild:summary",
+  /** Backend → a Guild's room: the GuildEvent carrying a PlayerState (or `player:gone`). */
+  playerEvent: "player:event",
 } as const;

@@ -1,7 +1,9 @@
 import {
   Channels,
+  type GuildEvent,
   GuildEventSchema,
   GuildEventTypes,
+  PlayerStateSchema,
   PlayerSummarySchema,
   parseJson,
   SocketEvents,
@@ -18,6 +20,7 @@ import type Redis from "ioredis";
 import type { Server, Socket } from "socket.io";
 import { Authenticator, type Identity } from "../auth/authenticator";
 import { GuildDirectory, summarize } from "../guilds/guild-directory";
+import { PlayerCache } from "../player/player-cache";
 import { Presence } from "../presence/presence";
 import { REDIS_SUBSCRIBER } from "../tokens";
 import { type StoredGuild, UserStore } from "../users/user-store";
@@ -51,6 +54,7 @@ export class UserGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     @Inject(UserStore) private readonly store: UserStore,
     @Inject(GuildDirectory) private readonly directory: GuildDirectory,
     @Inject(Presence) private readonly presence: Presence,
+    @Inject(PlayerCache) private readonly players: PlayerCache,
     @Inject(REDIS_SUBSCRIBER) private readonly subscriber: Redis,
   ) {}
 
@@ -113,7 +117,12 @@ export class UserGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   /** One HMGET for every listener's voice channel, then each tab gets its own user's summary. */
   private async onGuildEvent(message: string): Promise<void> {
     const event = parseJson(GuildEventSchema, message);
-    if (event?.type !== GuildEventTypes.playerSummary) return;
+    if (!event) return;
+    if (event.type === GuildEventTypes.playerState || event.type === GuildEventTypes.playerGone) {
+      this.onPlayerEvent(event);
+      return;
+    }
+    if (event.type !== GuildEventTypes.playerSummary) return;
     const player = PlayerSummarySchema.safeParse(event.data);
     if (!player.success) return;
     const listeners = (await this.server.in(guildRoom(event.guildId)).fetchSockets()).flatMap((socket) => {
@@ -121,9 +130,25 @@ export class UserGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
       const guild = guilds?.get(event.guildId);
       return identity && guild ? [{ socket, discordId: identity.discordId, guild }] : [];
     });
-    const voices = await this.directory.voiceChannels(event.guildId, [...new Set(listeners.map((l) => l.discordId))]);
+    const [voices, memberCount] = await Promise.all([
+      this.directory.voiceChannels(event.guildId, [...new Set(listeners.map((l) => l.discordId))]),
+      this.directory.memberCount(event.guildId),
+    ]);
     for (const { socket, discordId, guild } of listeners) {
-      socket.emit(SocketEvents.guildSummary, summarize(guild, player.data, voices.get(discordId) ?? null));
+      const userVoice = voices.get(discordId) ?? null;
+      socket.emit(SocketEvents.guildSummary, summarize(guild, { player: player.data, userVoice, memberCount }));
     }
+  }
+
+  /** Keeps the Hot Cache current and relays the event as-is to the Guild's room (ADR-0006, ADR-0007). */
+  private onPlayerEvent(event: GuildEvent): void {
+    if (event.type === GuildEventTypes.playerGone) {
+      this.players.clear(event.guildId);
+    } else {
+      const state = PlayerStateSchema.safeParse(event.data);
+      // An event the cache rejected as stale is not relayed either.
+      if (!state.success || state.data.guildId !== event.guildId || !this.players.apply(state.data)) return;
+    }
+    this.server.to(guildRoom(event.guildId)).emit(SocketEvents.playerEvent, event);
   }
 }

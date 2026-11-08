@@ -6,6 +6,20 @@
 
 ---
 
+## #100 Play from Discord, read-only Now Playing, Hot Cache (2026-11-08, branch `feat/100-play-and-now-playing`)
+
+**Goal:** `/play` and the core commands drive Lavalink; every change reaches every open Dashboard tab within 1 s, and a page load never asks the Bot.
+
+**Shipped:** `apps/bot/src/music/*` (lavalink-client engine: self-deafened join, volume 15, Now-Playing rule for every spec case, stale re-resolve, Queue Revision, per-Guild /play lock, best-effort publishing), eight slash commands with v5 strings (`commands/*`, `/play` deferred), Player State + summary on Redis with an epoch and seek stamp, sweep on ready; Backend Hot Cache (`PlayerCache`, ADR-0006) and `GET /api/guilds/:id/player`; Dashboard `/guilds/[id]` Now Playing (crossfade, title swap, `progressAt` per frame, Aurora from mood, Bot Avatar), Up Next, member counts, guild selection; Fake Lavalink playback; LavaSrc market TH from env.
+
+**Validation:** `bun run verify` exit 0 (131 tests incl. lavalink-client against Fake Lavalink + real Redis); `bun run e2e` 9 passed (two tabs within 1 s; reload renders from the Hot Cache after the Redis key is gone; progress forward); mutation probes on volume, self-deaf, first-track flag, stale re-resolve and publish all red; real Lavalink 4 container: `ytmsearch:` resolves, LavaSrc loaded. **Not run:** real playback in a Discord guild (no token — acceptance box left open), Spotify search (no credentials), CI (#116).
+
+**Lessons:** stopping the Lavalink container during its first plugin download leaves a corrupt jar (`zip END header not found`); `--force-recreate` fixes it.
+
+**Next:** #101.
+
+---
+
 ## #99 Discord sign-in, Mutual Guild list, Presence (2026-11-08, branch `feat/99-discord-login`)
 
 **Goal:** sign in with Discord in a popup, list only the servers shared with the Bot with live badges, and count open tabs — with identity established by the Backend, never by the client (v5 trusted `req.body.user.discordId`).
