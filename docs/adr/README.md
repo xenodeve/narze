@@ -18,6 +18,7 @@ codebase** (unless marked *pending*), so a new maintainer — human or agent —
 | [0005](0005-supabase-auth-discord.md) | Supabase Auth with Discord; the Backend derives identity from a verified session | backend · dashboard · infra | Accepted — implemented (#99) |
 | [0006](0006-hot-cache.md) | Two-tier Hot Cache for Player State — in-process LRU in front of Redis | bot · backend · dashboard | Accepted — Player State tier implemented (#100) |
 | [0007](0007-realtime-event-contract.md) | Realtime event contract — revision, sequence, one socket per tab | shared · backend · dashboard | Accepted (#98 schemas) |
+| [0008](0008-control-relay.md) | Dashboard control: the Backend decides, then relays to the Bot over Redis | shared · bot · backend · dashboard | Accepted — implemented (#101) |
 
 ## Conventions
 
