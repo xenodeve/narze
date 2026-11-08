@@ -1,5 +1,5 @@
 import { DEFAULT_REDIS_URL } from "@narze/shared";
-import { ChannelType, Client, GatewayIntentBits, type Guild, PermissionFlagsBits } from "discord.js";
+import { Client, GatewayIntentBits, type Guild } from "discord.js";
 import { startCommandBus } from "./command-bus";
 import { announcer, handleInteractions } from "./discord/interactions";
 import { createGuildRegistry, type GuildVoiceSnapshot } from "./guild-registry";
@@ -8,6 +8,7 @@ import { createLavalink } from "./lavalink";
 import { createMusic } from "./music/music";
 import { createPlayerPublisher, type PlayerPublisher } from "./music/player-state";
 import { detectRuntimeMode } from "./runtime-mode";
+import { firstSendableTextChannel, perGuildDebounce, publicVoiceChannels } from "./voice-channels";
 
 const env = process.env;
 const VERSION = env.BOT_VERSION ?? "7.0.0-dev";
@@ -38,16 +39,9 @@ const music = createMusic({
 });
 handleInteractions(client, music, () => lavalink.nodeManager.leastUsedNodes().length > 0);
 
-/** The first text channel the Bot may post in: where notices go for a Dashboard-started player (#106 adds the Music Channel). */
 const textChannelFor = (guildId: string): string | null => {
   const guild = client.guilds.cache.get(guildId);
-  const me = guild?.members.me;
-  if (!guild || !me) return null;
-  const channel = guild.channels.cache
-    .filter((c) => c.type === ChannelType.GuildText && c.permissionsFor(me)?.has(PermissionFlagsBits.SendMessages))
-    .sort((a, b) => ("position" in a && "position" in b ? a.position - b.position : 0))
-    .first();
-  return channel?.id ?? null;
+  return guild ? firstSendableTextChannel(guild) : null;
 };
 if (redis) {
   await startCommandBus({ subscriber: redis.duplicate(), redis, music, textChannelFor }).catch((error: Error) =>
@@ -55,30 +49,11 @@ if (redis) {
   );
 }
 
-/** The picker's view of one Guild: voice channels and the people (not bots) in each (spec #86). */
-const voiceChannelsOf = (guild: Guild) =>
-  guild.channels.cache
-    .filter((c) => c.isVoiceBased())
-    .map((c) => ({
-      id: c.id,
-      name: c.name,
-      members: c.members
-        .filter((m) => !m.user.bot)
-        .map((m) => ({ id: m.id, name: m.displayName, avatarUrl: m.displayAvatarURL({ size: 64 }) })),
-    }));
-
-/** One voice:update per Guild per second at most, carrying the latest state (trailing, unlike v5's drop). */
-const pendingVoice = new Map<string, ReturnType<typeof setTimeout>>();
-const publishVoiceChannels = (guild: Guild) => {
-  if (!registry || pendingVoice.has(guild.id)) return;
-  pendingVoice.set(
-    guild.id,
-    setTimeout(() => {
-      pendingVoice.delete(guild.id);
-      void registry.voiceChannels(guild.id, voiceChannelsOf(guild)).catch(logFailure("voice channels"));
-    }, 1000),
-  );
-};
+const voiceLists = perGuildDebounce(async (guildId) => {
+  const guild = client.guilds.cache.get(guildId);
+  if (guild && registry) await registry.voiceChannels(guildId, publicVoiceChannels(guild));
+});
+const publishVoiceChannels = (guild: Guild) => voiceLists.schedule(guild.id);
 
 const registry = redis ? createGuildRegistry(redis) : null;
 const voiceSnapshotOf = (guild: Guild): GuildVoiceSnapshot => ({
@@ -98,7 +73,10 @@ client.once("clientReady", async (ready) => {
   for (const guild of ready.guilds.cache.values()) publishVoiceChannels(guild);
 });
 client.on("guildCreate", (guild) => void registry?.add(voiceSnapshotOf(guild)).catch(logFailure("guild registry")));
-client.on("guildDelete", (guild) => void registry?.remove(guild.id).catch(logFailure("guild registry")));
+client.on("guildDelete", (guild) => {
+  voiceLists.cancel(guild.id);
+  void registry?.remove(guild.id).catch(logFailure("guild registry"));
+});
 client.on("voiceStateUpdate", (old, state) => {
   // Mute, deafen and stream toggles fire this too; only a channel change matters here.
   if (old.channelId === state.channelId) return;

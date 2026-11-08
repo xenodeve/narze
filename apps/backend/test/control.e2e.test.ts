@@ -56,14 +56,18 @@ const voiceUpdate = async (list: VoiceChannelList) => {
   await redis.publish(Channels.guildEvents, JSON.stringify(event));
 };
 
+const tokens = new WeakMap<Socket, string>();
+
 async function signedIn(session: FakeSession): Promise<Socket> {
   const socket = io(url, { transports: ["websocket"], auth: { token: session.access_token } });
   await new Promise((resolve) => socket.once(SocketEvents.sessionReady, resolve));
+  tokens.set(socket, session.access_token);
   return socket;
 }
 
-const command = (socket: Socket, body: unknown) =>
-  socket.timeout(6000).emitWithAck(SocketEvents.playerCommand, { guildId: GUILD, command: body }) as Promise<{
+/** Like the Dashboard: every command carries the tab's current access token (it refreshes hourly). */
+const command = (socket: Socket, body: unknown, token = tokens.get(socket)) =>
+  socket.timeout(6000).emitWithAck(SocketEvents.playerCommand, { guildId: GUILD, command: body, token }) as Promise<{
     ok: boolean;
     reason?: string;
     error?: string;
@@ -148,10 +152,45 @@ describe("Control Permission on the server (#101)", () => {
   test("a malformed command or a guild outside the user's Mutual Guilds is refused", async () => {
     const socket = await signedIn(ownerSession);
     expect(await command(socket, { action: "volume", volume: 5000 })).toMatchObject({ ok: false, error: "invalid" });
-    const other = (await socket
-      .timeout(6000)
-      .emitWithAck(SocketEvents.playerCommand, { guildId: OTHER, command: { action: "pause" } })) as { ok: boolean };
+    const other = (await socket.timeout(6000).emitWithAck(SocketEvents.playerCommand, {
+      guildId: OTHER,
+      command: { action: "pause" },
+      token: ownerSession.access_token,
+    })) as { ok: boolean };
     expect(other).toMatchObject({ ok: false, error: "forbidden" });
+    socket.close();
+  });
+
+  test("an expired or wrong token is refused without dropping the socket; the fresh one works", async () => {
+    const socket = await signedIn(ownerSession);
+    expect(await command(socket, { action: "volume", volume: 30 }, "expired.jwt.token")).toEqual({
+      ok: false,
+      error: "unauthorized",
+    });
+    expect(socket.connected).toBe(true);
+    expect(await command(socket, { action: "volume", volume: 30 })).toEqual({ ok: true });
+    expect(await command(socket, { action: "volume", volume: 30 }, memberSession.access_token)).toMatchObject({
+      ok: false,
+      error: "unauthorized",
+    });
+    socket.close();
+  });
+
+  test("with no Player, a member in voice may start playback in their own channel, and nothing else", async () => {
+    await redis.del(RedisKeys.playerSummary(GUILD));
+    await redis.hset(RedisKeys.voiceStates(GUILD), member.id, "81");
+    const socket = await signedIn(memberSession);
+    const before = relayed.length;
+    expect(await command(socket, { action: "pause" })).toEqual({ ok: false, error: "no-player" });
+    expect(await command(socket, { action: "play", query: "x", next: false, voiceChannelId: "82" })).toEqual({
+      ok: false,
+      reason: "own-voice-only",
+    });
+    expect(relayed.length).toBe(before);
+    expect(await command(socket, { action: "play", query: "x", next: false, voiceChannelId: null })).toEqual({
+      ok: true,
+    });
+    expect(relayed.at(-1)?.command).toMatchObject({ action: "play", voiceChannelId: "81" });
     socket.close();
   });
 

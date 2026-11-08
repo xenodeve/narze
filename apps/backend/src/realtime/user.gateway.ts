@@ -1,11 +1,11 @@
 import {
   Channels,
+  type ControlAck,
+  ControlRequestSchema,
   type GuildEvent,
   GuildEventSchema,
   GuildEventTypes,
-  PlayerActionSchema,
   PlayerStateSchema,
-  type PlayerSummary,
   PlayerSummarySchema,
   parseJson,
   SocketEvents,
@@ -24,7 +24,6 @@ import {
 } from "@nestjs/websockets";
 import type Redis from "ioredis";
 import type { Server, Socket } from "socket.io";
-import { z } from "zod";
 import { Authenticator, type Identity } from "../auth/authenticator";
 import { CommandRelay } from "../control/command-relay";
 import { GuildDirectory, permissionOf, summarize } from "../guilds/guild-directory";
@@ -33,18 +32,13 @@ import { Presence } from "../presence/presence";
 import { REDIS_SUBSCRIBER } from "../tokens";
 import { type StoredGuild, UserStore } from "../users/user-store";
 
-export interface SessionData {
+interface SessionData {
   identity?: Identity;
   /** Mutual Guilds at connect time, keyed by id. */
   guilds?: Map<string, StoredGuild>;
 }
 
 const guildRoom = (guildId: string) => `guild:${guildId}`;
-
-const ControlRequestSchema = z.object({ guildId: z.string().regex(/^\d+$/), command: PlayerActionSchema });
-
-/** The ack of `player:command`: allowed and done, refused with a ladder reason, or failed with a code. */
-export type ControlAck = { ok: true } | { ok: false; reason?: string; error?: string };
 
 /**
  * Nest calls socket handlers without awaiting them, and on Bun an unhandled rejection exits the
@@ -149,20 +143,27 @@ export class UserGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     if (event.type !== GuildEventTypes.playerSummary) return;
     const player = PlayerSummarySchema.safeParse(event.data);
     if (!player.success) return;
-    const listeners = (await this.server.in(guildRoom(event.guildId)).fetchSockets()).flatMap((socket) => {
-      const { identity, guilds } = socket.data as SessionData;
-      const guild = guilds?.get(event.guildId);
-      return identity && guild ? [{ socket, discordId: identity.discordId, guild }] : [];
-    });
+    const listeners = await this.listeners(event.guildId);
     const [voices, memberCount] = await Promise.all([
       this.directory.userVoices(event.guildId, [...new Set(listeners.map((l) => l.discordId))]),
       this.directory.memberCount(event.guildId),
     ]);
+    // One pass: a Player change moves both the row summary and who may control it.
     for (const { socket, discordId, guild } of listeners) {
       const userVoice = voices.get(discordId) ?? null;
       socket.emit(SocketEvents.guildSummary, summarize(guild, { player: player.data, userVoice, memberCount }));
+      const { canControl, reason } = permissionOf(guild, player.data, userVoice);
+      socket.emit(SocketEvents.permissionUpdate, { guildId: event.guildId, canControl, reason });
     }
-    await this.pushPermissions(event.guildId, player.data);
+  }
+
+  /** The signed-in tabs in a Guild's room, with who they are and their stored guild. */
+  private async listeners(guildId: string) {
+    return (await this.server.in(guildRoom(guildId)).fetchSockets()).flatMap((socket) => {
+      const { identity, guilds } = socket.data as SessionData;
+      const guild = guilds?.get(guildId);
+      return identity && guild ? [{ socket, discordId: identity.discordId, guild }] : [];
+    });
   }
 
   /** Keeps the Hot Cache current and relays the event as-is to the Guild's room (ADR-0006, ADR-0007). */
@@ -181,15 +182,11 @@ export class UserGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
    * Re-sends every tab in the Guild its Control Permission (#101): after a voice change or a Player
    * change, so controls turn on or off without a reload. One read for the Player, one HMGET for voices.
    */
-  private async pushPermissions(guildId: string, known?: PlayerSummary | null): Promise<void> {
-    const sockets = (await this.server.in(guildRoom(guildId)).fetchSockets()).flatMap((socket) => {
-      const { identity, guilds } = socket.data as SessionData;
-      const guild = guilds?.get(guildId);
-      return identity && guild ? [{ socket, discordId: identity.discordId, guild }] : [];
-    });
+  private async pushPermissions(guildId: string): Promise<void> {
+    const sockets = await this.listeners(guildId);
     if (sockets.length === 0) return;
     const [player, voices] = await Promise.all([
-      known === undefined ? this.directory.playerSummary(guildId) : known,
+      this.directory.playerSummary(guildId),
       this.directory.userVoices(guildId, [...new Set(sockets.map((s) => s.discordId))]),
     ]);
     for (const { socket, discordId, guild } of sockets) {
@@ -216,23 +213,30 @@ export class UserGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     if (!request.success) return { ok: false, error: "invalid" };
     const guild = guilds.get(request.data.guildId);
     if (!guild) return { ok: false, error: "forbidden" };
-    // The socket was verified at its handshake; a command re-verifies so a signed-out token cannot act (ADR-0005).
-    const token: unknown = client.handshake.auth?.token;
-    const still = typeof token === "string" ? await this.auth.verify(token) : null;
-    if (still?.discordId !== identity.discordId) {
-      client.disconnect(true);
+    // Every command re-verifies the tab's current token, so a signed-out session cannot act (ADR-0005).
+    // An expired token is refused but keeps the socket: the tab refreshes and retries. Another user's
+    // token on this socket is not a refresh, and closes it.
+    const actor = await this.auth.verify(request.data.token);
+    if (!actor) return { ok: false, error: "unauthorized" };
+    if (actor.discordId !== identity.discordId) {
+      // Close after the ack is on its way, so the tab still learns why.
+      setImmediate(() => client.disconnect(true));
       return { ok: false, error: "unauthorized" };
     }
     const permission = await this.directory.permission(identity.discordId, guild);
     if (!permission.canControl) return { ok: false, reason: permission.reason };
     let command = request.data.command;
+    const owner = permission.reason === "server-owner" || permission.reason === "bot-owner";
     if (command.action === "play") {
-      const owner = permission.reason === "server-owner" || permission.reason === "bot-owner";
-      // Only an owner may send the Bot to a channel they are not in (spec #86); others play where they are.
+      // Only an owner may send the Bot to a channel they are not in (spec #86); others start where they are.
       if (!owner && command.voiceChannelId !== null && command.voiceChannelId !== permission.userVoice) {
-        return { ok: false, reason: "other-voice" };
+        return { ok: false, reason: "own-voice-only" };
       }
-      command = { ...command, voiceChannelId: command.voiceChannelId ?? permission.userVoice };
+      // A non-owner's play always names their channel, so the Bot can refuse it if a Player appeared elsewhere.
+      command = { ...command, voiceChannelId: owner ? command.voiceChannelId : permission.userVoice };
+    } else if (permission.reason === "in-voice") {
+      // "No Player, member in voice" allows starting playback, not controlling a Player that is not there.
+      return { ok: false, error: "no-player" };
     }
     const result = await this.relay.send({
       id: crypto.randomUUID(),

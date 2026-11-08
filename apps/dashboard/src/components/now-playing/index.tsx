@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import { type CSSProperties, useEffect, useState } from "react";
 import { Controls } from "@/components/controls";
 import { MoodAurora } from "@/components/mood-aurora";
-import { sendCommand } from "@/lib/control";
+import { explain, sendCommand } from "@/lib/control";
 import { moodFromArtwork, moodFromText } from "@/lib/mood";
 import { type Permission, usePlayer } from "@/lib/use-player";
 import styles from "./now-playing.module.css";
@@ -62,6 +62,12 @@ function Artwork({ track }: { track: Track }) {
 }
 
 function Stage({ guildId, state, permission }: { guildId: string; state: PlayerState; permission: Permission }) {
+  const [seekError, setSeekError] = useState<string | null>(null);
+  /** A refused seek says why; the bar itself never moved, since it follows the server's state. */
+  const seek = async (positionMs: number) => {
+    setSeekError(null);
+    setSeekError(explain(await sendCommand(guildId, { action: "seek", positionMs })));
+  };
   const track = state.current;
   const mood = useMood(track);
   const avatarState = !track ? "default" : state.paused ? "default" : "working";
@@ -89,12 +95,13 @@ function Stage({ guildId, state, permission }: { guildId: string; state: PlayerS
               <Progress
                 key={track.uri}
                 state={state}
-                onSeek={
-                  permission.canControl
-                    ? (ms) => void sendCommand(guildId, { action: "seek", positionMs: ms })
-                    : undefined
-                }
+                onSeek={permission.canControl ? (ms) => void seek(ms) : undefined}
               />
+              {seekError ? (
+                <p role="alert" className={styles.seekError}>
+                  {seekError}
+                </p>
+              ) : null}
               <Controls guildId={guildId} state={state} permission={permission} />
             </div>
           </>

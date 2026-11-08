@@ -1,7 +1,9 @@
 import { z } from "zod";
 import { RequesterSchema } from "./player";
 
-const snowflake = z.string().regex(/^\d+$/);
+/** A Discord id. */
+export const SnowflakeSchema = z.string().regex(/^\d+$/);
+const snowflake = SnowflakeSchema;
 
 /** One playback action from the Dashboard (spec #107). Queue editing arrives with #102. */
 export const PlayerActionSchema = z.discriminatedUnion("action", [
@@ -34,6 +36,20 @@ export const PlayerCommandSchema = z.object({
   command: PlayerActionSchema,
 });
 export type PlayerCommand = z.infer<typeof PlayerCommandSchema>;
+
+/**
+ * Dashboard → Backend `player:command`. The tab sends its current access token with every command:
+ * the handshake token expires after an hour, the tab's token is refreshed (ADR-0005, ADR-0008).
+ */
+export const ControlRequestSchema = z.object({
+  guildId: snowflake,
+  command: PlayerActionSchema,
+  token: z.string().min(1),
+});
+export type ControlRequest = z.infer<typeof ControlRequestSchema>;
+
+/** The ack of `player:command`: done, refused with a Control Permission reason, or failed with an error code. */
+export type ControlAck = { ok: true } | { ok: false; reason?: string; error?: string };
 
 /** Bot → Backend: the outcome of one command, by id. `error` is a code the Dashboard maps to text. */
 export const CommandResultSchema = z.object({

@@ -12,13 +12,18 @@ let signedIn: { userId: string; accessToken: string } | null = null;
  * The handshake carries the current access token, if any; the Backend verifies it (ADR-0005).
  */
 export function getSocket(): Promise<Socket> {
-  socket ??= import("socket.io-client").then(({ io }) =>
-    io(BACKEND_URL, {
+  socket ??= import("socket.io-client").then(({ io }) => {
+    const s = io(BACKEND_URL, {
       transports: ["websocket"],
       withCredentials: true,
       auth: (send) => send(signedIn ? { token: signedIn.accessToken } : {}),
-    }),
-  );
+    });
+    // socket.io-client does not reconnect after the server closes a socket; this tab still wants one.
+    s.on("disconnect", (reason) => {
+      if (reason === "io server disconnect") setTimeout(() => s.connect(), 1000);
+    });
+    return s;
+  });
   return socket;
 }
 

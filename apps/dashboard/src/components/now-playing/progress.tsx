@@ -21,6 +21,12 @@ export function formatTime(ms: number): string {
  * width and the elapsed label are written straight to the DOM from `progressAt`.
  */
 export function Progress({ state, onSeek }: { state: PlayerState; onSeek?: (positionMs: number) => void }) {
+  /** Ends a drag wherever the pointer is released, even outside the bar (or the window). */
+  const release = (value: number) => {
+    if (dragging.current === null) return;
+    dragging.current = null;
+    onSeek?.(value);
+  };
   const fill = useRef<HTMLDivElement>(null);
   const elapsed = useRef<HTMLSpanElement>(null);
   const bar = useRef<HTMLDivElement>(null);
@@ -69,17 +75,16 @@ export function Progress({ state, onSeek }: { state: PlayerState; onSeek?: (posi
             min={0}
             max={duration}
             step={1000}
+            key={state.syncedAt}
             defaultValue={state.positionMs}
             aria-label="เลื่อนไปยังเวลา"
             onPointerDown={(e) => {
-              dragging.current = Number(e.currentTarget.value);
+              const input = e.currentTarget;
+              dragging.current = Number(input.value);
+              window.addEventListener("pointerup", () => release(Number(input.value)), { once: true });
             }}
             onChange={(e) => {
               if (dragging.current !== null) dragging.current = Number(e.currentTarget.value);
-            }}
-            onPointerUp={(e) => {
-              dragging.current = null;
-              onSeek(Number(e.currentTarget.value));
             }}
             onKeyUp={(e) => {
               if (e.key.startsWith("Arrow") || e.key === "Home" || e.key === "End")

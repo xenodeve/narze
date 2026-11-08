@@ -3,8 +3,7 @@
 import type { VoiceChannelList } from "@narze/shared";
 import { SocketEvents } from "@narze/shared/channels";
 import { useEffect, useRef, useState } from "react";
-import { BACKEND_URL } from "@/lib/config";
-import { currentAccessToken } from "@/lib/session";
+import { apiGet } from "@/lib/api";
 import { onSocketEvents } from "@/lib/socket";
 import styles from "./controls.module.css";
 
@@ -20,7 +19,7 @@ export function VoicePicker({
   onClose,
 }: {
   guildId: string;
-  onPick: (channelId: string) => void;
+  onPick: (channel: { id: string; name: string }) => void;
   onClose: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -29,9 +28,7 @@ export function VoicePicker({
 
   useEffect(() => {
     dialog.current?.showModal();
-    void fetch(`${BACKEND_URL}/api/guilds/${guildId}/voice-channels`, {
-      headers: { authorization: `Bearer ${currentAccessToken() ?? ""}` },
-    })
+    void apiGet(`/api/guilds/${guildId}/voice-channels`)
       .then((res) => (res.ok ? (res.json() as Promise<VoiceChannelList>) : Promise.reject(res.status)))
       .then(setChannels, () => setFailed(true));
     return onSocketEvents({
@@ -63,7 +60,7 @@ export function VoicePicker({
               <button
                 type="button"
                 className={styles.channel}
-                onClick={() => onPick(channel.id)}
+                onClick={() => onPick({ id: channel.id, name: channel.name })}
                 data-testid="voice-channel"
               >
                 <span className={styles.channelName}>{channel.name}</span>

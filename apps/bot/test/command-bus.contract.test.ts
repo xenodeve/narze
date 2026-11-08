@@ -112,6 +112,17 @@ describe("commands relayed from the Backend reach the engine (#101)", () => {
     expect(fake.player(GUILD)?.position).toBe(0);
   });
 
+  test("a play aimed at another channel than the Player's is refused (a Player started meanwhile)", async () => {
+    await send({ action: "play", query: "lemon", next: false, voiceChannelId: "70" });
+    expect(await send({ action: "play", query: "idol", next: false, voiceChannelId: "71" })).toMatchObject({
+      ok: false,
+      error: "other-voice",
+    });
+    expect(await send({ action: "play", query: "idol", next: false, voiceChannelId: null })).toMatchObject({
+      ok: true,
+    });
+  });
+
   test("an action with no player answers no-player", async () => {
     expect(await send({ action: "skip" })).toMatchObject({ ok: false, error: "no-player" });
   });

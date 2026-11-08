@@ -1,11 +1,10 @@
 "use client";
 
-import type { GuildEvent, PlayerState } from "@narze/shared";
+import type { ControlPermission, GuildEvent, PlayerState } from "@narze/shared";
 import { GuildEventTypes, SocketEvents } from "@narze/shared/channels";
 import { reconcile } from "@narze/shared/reconcile";
 import { useEffect, useRef, useState } from "react";
-import { BACKEND_URL } from "./config";
-import { currentAccessToken } from "./session";
+import { apiGet } from "./api";
 import { onSocketEvents } from "./socket";
 
 export type PlayerView =
@@ -16,10 +15,7 @@ export type PlayerView =
   | { status: "ready"; state: PlayerState | null; permission: Permission };
 
 /** The caller's Control Permission in this Guild, kept live by `permission:update` (#101). */
-export interface Permission {
-  canControl: boolean;
-  reason: string;
-}
+export type Permission = Pick<ControlPermission, "canControl" | "reason">;
 
 const UNKNOWN: Permission = { canControl: false, reason: "not-in-voice" };
 
@@ -55,9 +51,7 @@ export function usePlayer(guildId: string, userId: string): PlayerView {
     const load = async () => {
       const startedAt = applied.current;
       try {
-        const res = await fetch(`${BACKEND_URL}/api/guilds/${guildId}/player`, {
-          headers: { authorization: `Bearer ${currentAccessToken() ?? ""}` },
-        });
+        const res = await apiGet(`/api/guilds/${guildId}/player`);
         if (res.status === 403) {
           if (!cancelled) setView({ status: "forbidden" });
           return;

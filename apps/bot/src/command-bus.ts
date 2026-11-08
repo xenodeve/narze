@@ -23,6 +23,10 @@ export async function startCommandBus({ subscriber, redis, music, textChannelFor
   async function execute({ guildId, actor, command }: PlayerCommand): Promise<Outcome> {
     const status = music.status(guildId);
     if (command.action === "play") {
+      // The Backend names the requester's own channel for non-owners: if a Player started meanwhile in
+      // another channel, that request no longer holds (ADR-0008).
+      if (status && command.voiceChannelId && command.voiceChannelId !== status.voiceChannelId)
+        return fail("other-voice");
       const voiceChannelId = status?.voiceChannelId ?? command.voiceChannelId;
       if (!voiceChannelId) return fail("voice-channel-required");
       const textChannelId = textChannelFor(guildId) ?? voiceChannelId;

@@ -3,8 +3,7 @@
 import type { GuildSummary } from "@narze/shared";
 import { SocketEvents } from "@narze/shared/channels";
 import { useEffect, useState } from "react";
-import { BACKEND_URL } from "./config";
-import { currentAccessToken } from "./session";
+import { apiGet } from "./api";
 import { onSocketEvents } from "./socket";
 
 export type GuildsView = { status: "loading" } | { status: "failed" } | { status: "ready"; guilds: GuildSummary[] };
@@ -28,9 +27,7 @@ export function useGuilds(userId: string): GuildsView {
     let cancelled = false;
     const load = async () => {
       try {
-        const res = await fetch(`${BACKEND_URL}/api/me/guilds`, {
-          headers: { authorization: `Bearer ${currentAccessToken() ?? ""}` },
-        });
+        const res = await apiGet("/api/me/guilds");
         if (!res.ok) throw new Error(String(res.status));
         const guilds = (await res.json()) as GuildSummary[];
         if (!cancelled) setView({ status: "ready", guilds });

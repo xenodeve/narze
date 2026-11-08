@@ -68,6 +68,7 @@ describe("Control Permission ladder (CONTEXT.md)", () => {
       "in-bot-voice": "In same voice channel",
       "not-in-voice": "You must be in a voice channel to control the bot",
       "other-voice": "You must be in the same voice channel as the bot",
+      "own-voice-only": "You can only start playback in your own voice channel",
     });
   });
 });

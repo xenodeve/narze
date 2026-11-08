@@ -21,8 +21,10 @@ interface ControlsProps {
 export function Controls({ guildId, state, permission }: ControlsProps) {
   const [message, setMessage] = useState<string | null>(null);
   const [pausedOverride, setPausedOverride] = useState<boolean | null>(null);
-  const [volume, setVolume] = useState(Math.min(state?.volume ?? 15, 100));
-  const dragging = useRef(false);
+  const serverVolume = Math.min(state?.volume ?? 15, 100);
+  const [volume, setVolume] = useState(serverVolume);
+  /** The volume when a drag began: what a refused change goes back to. Null when not dragging. */
+  const dragStart = useRef<number | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const disabled = !permission.canControl;
   const playing = Boolean(state?.current);
@@ -32,8 +34,8 @@ export function Controls({ guildId, state, permission }: ControlsProps) {
   // biome-ignore lint/correctness/useExhaustiveDependencies: any new server state (pause or revision) replaces the optimistic guess
   useEffect(() => setPausedOverride(null), [state?.paused, state?.revision]);
   useEffect(() => {
-    if (!dragging.current && state) setVolume(Math.min(state.volume, 100));
-  }, [state]);
+    if (dragStart.current === null) setVolume(serverVolume);
+  }, [serverVolume]);
 
   const run = async (command: PlayerAction, revert?: () => void): Promise<ControlAck> => {
     setMessage(null);
@@ -51,20 +53,22 @@ export function Controls({ guildId, state, permission }: ControlsProps) {
     void run({ action: next ? "pause" : "resume" }, () => setPausedOverride(null));
   };
 
-  const sendVolume = (value: number) => {
+  const sendVolume = (value: number, before: number) => {
     clearTimeout(timer.current);
-    const before = Math.min(state?.volume ?? 15, 100);
     void run({ action: "volume", volume: value }, () => setVolume(before));
   };
+  // While dragging, nothing is sent: one command on release. Keys and clicks are debounced 300 ms.
   const onVolume = (value: number) => {
     setVolume(value);
+    if (dragStart.current !== null) return;
     clearTimeout(timer.current);
-    timer.current = setTimeout(() => sendVolume(value), VOLUME_DEBOUNCE_MS);
+    timer.current = setTimeout(() => sendVolume(value, serverVolume), VOLUME_DEBOUNCE_MS);
   };
   const endDrag = () => {
-    if (!dragging.current) return;
-    dragging.current = false;
-    sendVolume(volume);
+    const before = dragStart.current;
+    if (before === null) return;
+    dragStart.current = null;
+    sendVolume(volume, before);
   };
 
   return (
@@ -154,7 +158,7 @@ export function Controls({ guildId, state, permission }: ControlsProps) {
             value={volume}
             disabled={disabled || !playing}
             onPointerDown={() => {
-              dragging.current = true;
+              dragStart.current = volume;
             }}
             onPointerUp={endDrag}
             onPointerCancel={endDrag}
@@ -164,7 +168,12 @@ export function Controls({ guildId, state, permission }: ControlsProps) {
           <span className={`num ${styles.volumeValue}`}>{volume}</span>
         </label>
       </fieldset>
-      <AddTrack guildId={guildId} disabled={disabled} run={run} />
+      <AddTrack
+        guildId={guildId}
+        disabled={disabled}
+        run={run}
+        canPickChannel={!playing && (permission.reason === "server-owner" || permission.reason === "bot-owner")}
+      />
       {message ? (
         <p role="alert" className={styles.message} data-testid="control-message">
           {message}
@@ -178,16 +187,20 @@ function AddTrack({
   guildId,
   disabled,
   run,
+  canPickChannel,
 }: {
   guildId: string;
   disabled: boolean;
   run: (command: PlayerAction) => Promise<ControlAck>;
+  /** An owner with no Player may choose where the Bot goes before adding (spec #86). */
+  canPickChannel: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
   const [picking, setPicking] = useState<{ next: boolean } | null>(null);
+  const [target, setTarget] = useState<{ id: string; name: string } | null>(null);
 
-  const submit = async (next: boolean, voiceChannelId: string | null = null) => {
+  const submit = async (next: boolean, voiceChannelId: string | null = target?.id ?? null) => {
     if (!query.trim()) return;
     setBusy(true);
     const ack = await run({ action: "play", query, next, voiceChannelId });
@@ -206,6 +219,11 @@ function AddTrack({
           void submit(false);
         }}
       >
+        {canPickChannel ? (
+          <button type="button" className={styles.pill} onClick={() => setPicking({ next: false })} disabled={disabled}>
+            {target ? `ห้อง: ${target.name}` : "เลือกห้องเสียง"}
+          </button>
+        ) : null}
         <label className="sr-only" htmlFor="add-query">
           ชื่อเพลงหรือลิงก์
         </label>
@@ -234,10 +252,11 @@ function AddTrack({
         <VoicePicker
           guildId={guildId}
           onClose={() => setPicking(null)}
-          onPick={(channelId) => {
-            const { next } = picking;
+          onPick={(channel) => {
             setPicking(null);
-            void submit(next, channelId);
+            setTarget(channel);
+            // Picked after a failed add: retry it in the chosen channel. Picked up front: wait for a song.
+            if (query.trim()) void submit(picking.next, channel.id);
           }}
         />
       ) : null}

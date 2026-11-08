@@ -181,6 +181,12 @@
   font-size: 0.8125rem;
 }
 
+.seekError {
+  margin: 4px 0 0;
+  color: var(--danger);
+  font-size: 0.8125rem;
+}
+
 .idle {
   display: grid;
   gap: 8px;

@@ -42,7 +42,9 @@ export type ControlReason =
   | "join-voice"
   | "in-bot-voice"
   | "not-in-voice"
-  | "other-voice";
+  | "other-voice"
+  /** Not part of the ladder: a non-owner picked a channel other than their own to start in (#101). */
+  | "own-voice-only";
 
 /** v5's reason strings (spec #98, C.4). "No active player - can start playback" is a UI contract: it hides the idle banner. */
 export const CONTROL_REASON_TEXT: Record<ControlReason, string> = {
@@ -53,6 +55,7 @@ export const CONTROL_REASON_TEXT: Record<ControlReason, string> = {
   "in-bot-voice": "In same voice channel",
   "not-in-voice": "You must be in a voice channel to control the bot",
   "other-voice": "You must be in the same voice channel as the bot",
+  "own-voice-only": "You can only start playback in your own voice channel",
 };
 
 export interface ControlPermission {
