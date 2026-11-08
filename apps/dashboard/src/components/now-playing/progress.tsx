@@ -20,11 +20,13 @@ export function formatTime(ms: number): string {
  * Read-only progress (spec #103), drawn per animation frame without React re-renders: the bar's
  * width and the elapsed label are written straight to the DOM from `progressAt`.
  */
-export function Progress({ state }: { state: PlayerState }) {
+export function Progress({ state, onSeek }: { state: PlayerState; onSeek?: (positionMs: number) => void }) {
   const fill = useRef<HTMLDivElement>(null);
   const elapsed = useRef<HTMLSpanElement>(null);
   const bar = useRef<HTMLDivElement>(null);
   const shown = useRef(state.positionMs);
+  /** While the user drags the seek handle, the bar follows the handle, not the clock. */
+  const dragging = useRef<number | null>(null);
   const duration = state.current?.durationMs ?? 0;
 
   useEffect(() => {
@@ -37,12 +39,12 @@ export function Progress({ state }: { state: PlayerState }) {
       durationMs: duration,
     };
     const draw = () => {
-      shown.current = progressAt(clock, Date.now(), shown.current, lastSeekAt);
+      shown.current = dragging.current ?? progressAt(clock, Date.now(), shown.current, lastSeekAt);
       const ratio = duration > 0 ? shown.current / duration : 0;
       if (fill.current) fill.current.style.transform = `scaleX(${ratio})`;
       if (elapsed.current) elapsed.current.textContent = formatTime(shown.current);
       bar.current?.setAttribute("aria-valuenow", String(Math.round(shown.current / 1000)));
-      if (!state.paused) frame = requestAnimationFrame(draw);
+      if (!state.paused || dragging.current !== null) frame = requestAnimationFrame(draw);
     };
     draw();
     return () => cancelAnimationFrame(frame);
@@ -60,6 +62,32 @@ export function Progress({ state }: { state: PlayerState }) {
         aria-valuenow={Math.round(state.positionMs / 1000)}
       >
         <div ref={fill} className={styles.fill} />
+        {onSeek && duration > 0 ? (
+          <input
+            type="range"
+            className={styles.seek}
+            min={0}
+            max={duration}
+            step={1000}
+            defaultValue={state.positionMs}
+            aria-label="เลื่อนไปยังเวลา"
+            onPointerDown={(e) => {
+              dragging.current = Number(e.currentTarget.value);
+            }}
+            onChange={(e) => {
+              if (dragging.current !== null) dragging.current = Number(e.currentTarget.value);
+            }}
+            onPointerUp={(e) => {
+              dragging.current = null;
+              onSeek(Number(e.currentTarget.value));
+            }}
+            onKeyUp={(e) => {
+              if (e.key.startsWith("Arrow") || e.key === "Home" || e.key === "End")
+                onSeek(Number(e.currentTarget.value));
+            }}
+            data-testid="seek"
+          />
+        ) : null}
       </div>
       <p className={`num ${styles.times}`}>
         <span ref={elapsed} data-testid="elapsed">

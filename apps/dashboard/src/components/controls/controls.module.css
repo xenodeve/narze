@@ -1,0 +1,258 @@
+.controls {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.row {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.icon,
+.primary,
+.pill,
+.primaryPill,
+.channel {
+  font: inherit;
+  cursor: pointer;
+  border-radius: var(--r-pill);
+  transition:
+    background-color var(--t1) var(--ease),
+    border-color var(--t1) var(--ease),
+    opacity var(--t1) var(--ease);
+}
+
+.icon:active,
+.primary:active,
+.pill:active,
+.primaryPill:active {
+  transform: translateY(1px);
+}
+
+:is(.icon, .primary, .pill, .primaryPill):disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Icon buttons: 36px circles with a 44px hit area (DESIGN.md §8). */
+.icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+}
+
+.icon::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+}
+
+/* Primary = ink fill, not blue (DESIGN.md §2 rule 2). */
+.primary {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border: 1px solid var(--ink);
+  background: var(--ink);
+  color: var(--bg);
+}
+
+.pill,
+.primaryPill {
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
+.pill[aria-pressed="true"] {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--bg);
+}
+
+.primaryPill {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--bg);
+}
+
+@media (hover: hover) {
+  :is(.icon, .pill):hover:not(:disabled) {
+    border-color: var(--ink-3);
+  }
+}
+
+.volume {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  min-width: 140px;
+}
+
+.volume input {
+  flex: 1;
+  accent-color: var(--accent);
+}
+
+.volumeValue {
+  min-width: 3ch;
+  color: var(--ink-2);
+  font-size: 0.8125rem;
+  text-align: right;
+}
+
+.add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.field {
+  flex: 1 1 220px;
+  height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+
+@media (hover: hover) {
+  .field:hover:not(:disabled) {
+    border-color: var(--ink-3);
+  }
+}
+
+/* A refusal says why, next to an amber lock (v5's cue), in Thai. */
+.lock {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: color-mix(in srgb, var(--warn) 80%, var(--ink));
+  font-size: 0.875rem;
+}
+
+.message {
+  margin: 0;
+  color: var(--danger);
+  font-size: 0.875rem;
+}
+
+.dialog {
+  width: min(460px, calc(100vw - 32px));
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-window);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-window);
+}
+
+.dialog::backdrop {
+  background: rgb(0 0 0 / 0.35);
+  backdrop-filter: blur(4px);
+}
+
+.dialogTitle {
+  margin: 0 0 4px;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.dialogText {
+  margin: 0 0 16px;
+  color: var(--ink-2);
+  font-size: 0.875rem;
+}
+
+.channels {
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--line);
+}
+
+.channel {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 12px 8px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+}
+
+@media (hover: hover) {
+  .channel:hover {
+    background: var(--fill);
+  }
+}
+
+.channelName {
+  font-weight: 500;
+}
+
+.channelMembers {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-2);
+  font-size: 0.8125rem;
+}
+
+.faces {
+  display: inline-flex;
+}
+
+.faces img,
+.faceInitial {
+  width: 20px;
+  height: 20px;
+  margin-left: -4px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+}
+
+.faces > :first-child {
+  margin-left: 0;
+}
+
+.faceInitial {
+  display: inline-grid;
+  place-items: center;
+  background: var(--fill);
+  font-size: 0.625rem;
+}
+
+.faceMore {
+  margin-left: 4px;
+}
+
+.names {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
