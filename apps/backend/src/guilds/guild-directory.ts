@@ -1,10 +1,13 @@
 import {
+  type ControlPermission,
   controlPermission,
   type GuildSummary,
   type PlayerSummary,
   PlayerSummarySchema,
   parseJson,
   RedisKeys,
+  type VoiceChannelList,
+  VoiceChannelListSchema,
 } from "@narze/shared";
 import { Inject, Injectable } from "@nestjs/common";
 import type Redis from "ioredis";
@@ -18,15 +21,24 @@ export interface GuildLive {
   memberCount: number | null;
 }
 
-/** A GuildSummary from parts already read: the stored guild and what the Bot reported about it. */
-export function summarize(guild: StoredGuild, { player, userVoice, memberCount }: GuildLive): GuildSummary {
-  const { badge } = controlPermission({
+/** The ladder for one user from parts already read (Bot Owner joins with guild settings, #106). */
+export function permissionOf(
+  guild: StoredGuild,
+  player: PlayerSummary | null,
+  userVoice: string | null,
+): ControlPermission {
+  return controlPermission({
     isServerOwner: guild.isOwner,
     isBotOwner: false,
     hasPlayer: player !== null,
     userVoiceChannelId: userVoice,
     botVoiceChannelId: player?.voiceChannelId ?? null,
   });
+}
+
+/** A GuildSummary from parts already read: the stored guild and what the Bot reported about it. */
+export function summarize(guild: StoredGuild, { player, userVoice, memberCount }: GuildLive): GuildSummary {
+  const { badge } = permissionOf(guild, player, userVoice);
   return {
     id: guild.id,
     name: guild.name,
@@ -77,9 +89,27 @@ export class GuildDirectory {
   }
 
   /** Each listed user's voice channel in one Guild, in one HMGET. */
-  async voiceChannels(guildId: string, discordIds: string[]): Promise<Map<string, string | null>> {
+  async userVoices(guildId: string, discordIds: string[]): Promise<Map<string, string | null>> {
     if (discordIds.length === 0) return new Map();
     const channels = await this.redis.hmget(RedisKeys.voiceStates(guildId), ...discordIds);
     return new Map(discordIds.map((id, i) => [id, channels[i] ?? null]));
+  }
+
+  async playerSummary(guildId: string): Promise<PlayerSummary | null> {
+    return parseJson(PlayerSummarySchema, await this.redis.get(RedisKeys.playerSummary(guildId)));
+  }
+
+  /** Control Permission of one user in one Guild, plus the voice channel they are in. */
+  async permission(discordId: string, guild: StoredGuild): Promise<ControlPermission & { userVoice: string | null }> {
+    const [player, userVoice] = await Promise.all([
+      this.playerSummary(guild.id),
+      this.redis.hget(RedisKeys.voiceStates(guild.id), discordId),
+    ]);
+    return { ...permissionOf(guild, player, userVoice), userVoice };
+  }
+
+  /** The Guild's voice channels with members, as the Bot last published them (spec #86). */
+  async voiceChannelList(guildId: string): Promise<VoiceChannelList> {
+    return parseJson(VoiceChannelListSchema, await this.redis.get(RedisKeys.voiceChannels(guildId))) ?? [];
   }
 }

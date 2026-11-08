@@ -5,6 +5,7 @@ import { IoAdapter } from "@nestjs/platform-socket.io";
 import { createClient } from "@supabase/supabase-js";
 import Redis from "ioredis";
 import { Authenticator } from "./auth/authenticator";
+import { CommandRelay } from "./control/command-relay";
 import { DiscordApi } from "./discord/discord-api";
 import { GuildDirectory } from "./guilds/guild-directory";
 import { MeController } from "./me/me.controller";
@@ -78,6 +79,7 @@ class AppModule implements OnApplicationShutdown {
         GuildDirectory,
         Presence,
         PlayerCache,
+        CommandRelay,
         StatusGateway,
         UserGateway,
       ],
