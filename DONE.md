@@ -6,6 +6,26 @@
 
 ---
 
+## #112 Operator console (2026-11-08, branch `feat/112-operator-console`)
+
+**Goal:** run the Bot from its own terminal, quietly (spec #119).
+
+**Shipped:**
+- **Console** (`apps/bot/src/console/`): `play`, `stop`, `skip`, `leave`, `status`, `list`/`guilds`, `find guild|voice|text`, `help`, `clear`, `exit`. Arguments are quoted like a shell (`play "yoasobi idol" Lounge "Music Room"`) instead of v5's digit guess. Guilds and channels go by ID or name; a name must match exactly one. The first text channel the Bot can post in is used when none is named. `exit` closes only the console; Ctrl+C runs the normal shutdown, which closes the console first; without a terminal on stdin the console stays off. It needs only Discord and Lavalink, so it works in both Runtime Modes.
+- **Silent mode:** a console `play` marks the Player silent (`narze.silent`) once a track is actually added. The Player then posts nothing to Discord for the rest of its session, including a later Discord `/play` (v5's rule) and after a restart (the Queue Snapshot keeps `silent`, so no recovery notice is posted). The old per-track `terminal` flag is gone.
+- **Guards:** a Bot already in another room of that server stays there (ADR-0008), Lavalink not ready gets a message, unavailable guilds are skipped, and console replies go to stdout instead of the admin log ring.
+
+**Validated:**
+- `bun run verify` exit 0 (shared 94, bot 223, backend 97 pass).
+- `test/console.test.ts`: every command and argument form (AC1), resolution by ID, exact name and unique partial name, the auto text channel, the other-room guard, Lavalink not ready, the Bot not logged in, and the prompt with a fake terminal (that test caught a crash after `exit`).
+- `test/music.contract.test.ts` on Fake Lavalink (AC2): a silent session, a silent playlist, silence after a restart, and a failed console play that leaves a Discord session announcing. These were seen failing first.
+- `bun run e2e` 37/37.
+- Not checked: the console in a running Bot. Starting it would load the real `.env` and Discord token. Ctrl+C restoring the terminal under Bun was not checked by hand (#137).
+
+**Not done (#137):** decide whether a console play may silence a Discord session, the Ctrl+C check by hand, `reconnect`, a paged `list`, and redrawing the prompt after log lines.
+
+---
+
 ## #111 Admin II — guilds, channel viewer, users, sessions, restart/shutdown (2026-11-08, branch `feat/111-admin-ii`)
 
 **Goal:** an admin reads what the Bot sees in Discord, who uses Narze, and can restart or stop the Bot, behind the #110 guard (spec #51, #110–#112, #114, #118).
