@@ -6,6 +6,7 @@ import {
   GuildEventSchema,
   GuildEventTypes,
   type GuildSettings,
+  ListeningSessionSchema,
   PlayerStateSchema,
   PlayerSummarySchema,
   parseJson,
@@ -156,6 +157,14 @@ export class UserGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     }
     if (DRAWN_ONLY.has(event.type)) {
       this.server.to(guildRoom(event.guildId)).emit(SocketEvents.playerEvent, event);
+      return;
+    }
+    // #108, spec #42: a session goes to its participants' own tabs, never to the Guild's room.
+    if (event.type === GuildEventTypes.sessionUpdate || event.type === GuildEventTypes.sessionEnd) {
+      const session = ListeningSessionSchema.safeParse(event.data);
+      if (!session.success || session.data.participants.length === 0) return;
+      const name = event.type === GuildEventTypes.sessionEnd ? SocketEvents.sessionEnd : SocketEvents.sessionUpdate;
+      this.server.to(session.data.participants.map((p) => userRoom(p.id))).emit(name, session.data);
       return;
     }
     if (event.type === GuildEventTypes.voiceUpdate) {

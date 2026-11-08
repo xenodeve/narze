@@ -10,6 +10,8 @@ import { Authenticator } from "./auth/authenticator";
 import { CommandRelay } from "./control/command-relay";
 import { DiscordApi } from "./discord/discord-api";
 import { GuildDirectory } from "./guilds/guild-directory";
+import { HistoryController } from "./history/history.controller";
+import { HistoryStore } from "./history/history-store";
 import { IMPORTER, LibraryController } from "./library/library.controller";
 import { createImporter } from "./library/library-importer";
 import { LibraryStore } from "./library/library-store";
@@ -76,7 +78,14 @@ class AppModule implements OnApplicationShutdown {
   static forRoot(options: AppOptions): DynamicModule {
     return {
       module: AppModule,
-      controllers: [MeController, PlayerController, SearchController, SettingsController, LibraryController],
+      controllers: [
+        MeController,
+        PlayerController,
+        SearchController,
+        SettingsController,
+        LibraryController,
+        HistoryController,
+      ],
       providers: [
         { provide: REDIS, useFactory: () => new Redis(options.redisUrl) },
         { provide: REDIS_SUBSCRIBER, useFactory: () => new Redis(options.redisUrl) },
@@ -103,6 +112,7 @@ class AppModule implements OnApplicationShutdown {
         UserStore,
         SettingsStore,
         LibraryStore,
+        HistoryStore,
         {
           provide: IMPORTER,
           useFactory: () =>
