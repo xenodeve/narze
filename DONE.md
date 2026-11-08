@@ -26,7 +26,7 @@
   - The "ประวัติการฟัง" nav item.
 
 **Validated:**
-- `bun run verify` exit 0: bot 196 (incl. the recorder, history, store contract and music hooks), backend history e2e 5/5 (AC2: a Guild member who was not a participant gets no event and a 404), shared `trackKey` (AC3).
+- `bun run verify` exit 0: bot 198 (incl. the recorder, history, store contract and music hooks), backend history e2e 5/5 (AC2: a Guild member who was not a participant gets no event and a 404), shared `trackKey` (AC3).
 - `bun run e2e` 31/31, including `e2e/sessions.spec.ts`: AC5 (live, replay, live end) and AC4 (top-played plays on click).
 - Red first: ordered saves, the recovered flag, the restart announcement, small events, and the Node-down session. The recorder and history unit tests for the recovered flag were written after the code.
 - Screenshots at 1280 and 390 px.
