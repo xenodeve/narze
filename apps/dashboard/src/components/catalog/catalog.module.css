@@ -89,7 +89,7 @@
 
 .row {
   display: grid;
-  grid-template-columns: 40px minmax(0, 1fr) auto auto;
+  grid-template-columns: 40px minmax(0, 1fr) auto auto auto;
   align-items: center;
   gap: 12px;
   min-height: 60px;
@@ -211,7 +211,7 @@
 
 @media (max-width: 520px) {
   .row {
-    grid-template-columns: 40px minmax(0, 1fr) auto;
+    grid-template-columns: 40px minmax(0, 1fr) auto auto;
   }
 
   .time {

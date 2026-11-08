@@ -4,6 +4,7 @@ import type { PlayerAction, Track } from "@narze/shared";
 import { moveTrack } from "@narze/shared/queue";
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { LikeButton, libraryTrack } from "@/components/like-button";
 import { formatTime } from "@/components/now-playing/progress";
 import { explain, sendCommand } from "@/lib/control";
 import type { Permission } from "@/lib/use-player";
@@ -223,6 +224,9 @@ export function QueuePanel({ guildId, queue, revision, permission, jumping }: Qu
                   </span>
                 </span>
                 <span className={`num ${styles.time}`}>{formatTime(track.durationMs)}</span>
+                <span onPointerDown={keepFromSwipe}>
+                  <LikeButton track={libraryTrack(track)} size={28} />
+                </span>
                 {canEdit ? (
                   <span className={styles.actions}>
                     <button

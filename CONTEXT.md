@@ -65,7 +65,9 @@ Glossary for the whole repo (single-context). When a term appears in **bold**, u
 
 **Play History** — per-play aggregates keyed by a normalised `title+author` id: per guild-user, per user, per guild. Feeds top-played lists.
 
-**Like** — a user marking a track; liked tracks form the user's Liked playlist.
+**Like** — a user marking a track (the heart on Now Playing, the **Queue**, the **Catalog** and the **Library**); liked tracks form the user's Liked playlist, newest first (`likes`, #107).
+
+**Library** — a user's own playlists and their Likes (#107), in Supabase (`playlists`, `playlist_tracks`, `likes`); each user reads and changes only their own, and another user's playlist answers as not found. A playlist is created empty or imported from a Spotify or YouTube playlist link (preview first, then saved under a name the user picks). A change pushes `library:update` to every tab the user has open. Play all uses the source playlist's link when it has one.
 
 ## Cross-cutting
 
@@ -155,7 +157,9 @@ Dashboard ──REST/Socket.io──▶ Backend ──Redis pub/sub──▶ Bot
 
 **Play History** — ยอดรวมการเล่นที่ใช้ id จาก `title+author` ที่ normalise แล้ว แยกเป็นราย guild-user, รายผู้ใช้ และราย guild ใช้ทำรายการเพลงที่เล่นบ่อย
 
-**Like** — การที่ผู้ใช้กดถูกใจเพลง เพลงที่ถูกใจรวมเป็น playlist Liked ของผู้ใช้คนนั้น
+**Like** — การที่ผู้ใช้กดถูกใจเพลง (หัวใจในหน้า Now Playing, **Queue**, **Catalog** และ **Library**) เพลงที่ถูกใจรวมเป็น playlist Liked ของผู้ใช้คนนั้น เรียงจากล่าสุดก่อน (`likes`, #107)
+
+**Library** — playlist ของผู้ใช้เองและเพลงที่ถูกใจ (#107) เก็บใน Supabase (`playlists`, `playlist_tracks`, `likes`) ผู้ใช้แต่ละคนอ่านและแก้ได้เฉพาะของตัวเอง ขอ playlist ของคนอื่นก็จะได้คำตอบว่าไม่พบ ส่วน playlist ใหม่จะสร้างแบบว่างหรือนำเข้าจากลิงก์ playlist ของ Spotify หรือ YouTube ก็ได้ (ดูตัวอย่างก่อน แล้วค่อยบันทึกด้วยชื่อที่ผู้ใช้ตั้งเอง) แก้อะไรเมื่อไหร่ ก็ส่ง `library:update` ไปทุกแท็บที่ผู้ใช้เปิดอยู่ ถ้า playlist มาจาก playlist ต้นทาง ปุ่มเล่นทั้งหมดก็ใช้ลิงก์ต้นทางนั้นเลย
 
 ## ใช้ข้ามส่วน
 

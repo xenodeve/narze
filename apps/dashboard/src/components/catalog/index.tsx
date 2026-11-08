@@ -3,6 +3,7 @@
 import type { SearchAlbum, SearchArtist, SearchResponse, SearchSource, SearchTrack } from "@narze/shared";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { LikeButton } from "@/components/like-button";
 import { formatTime } from "@/components/now-playing/progress";
 import { searchCatalog, sourceBadge } from "@/lib/catalog";
 import pill from "@/styles/pill-tabs.module.css";
@@ -43,6 +44,16 @@ export function SongRow({ track, onPlay }: { track: SearchTrack; onPlay: (t: Sea
         </span>
       </span>
       <span className={`num ${styles.time}`}>{formatTime(track.duration)}</span>
+      <LikeButton
+        track={{
+          title: track.title,
+          artist: track.artist,
+          duration: track.duration,
+          thumbnail: track.thumbnail,
+          uri: track.uri,
+          album: track.album,
+        }}
+      />
       <button type="button" className={styles.play} onClick={() => onPlay(track)} aria-label={`เล่น ${track.title}`}>
         <svg aria-hidden="true" viewBox="0 0 16 16" width="14" height="14">
           <path d="M5 3l8 5-8 5z" fill="currentColor" />

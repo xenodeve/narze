@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { type CSSProperties, useEffect, useState } from "react";
 import { Controls } from "@/components/controls";
 import { GuildAvatar } from "@/components/guild-avatar";
+import { LikeButton, libraryTrack } from "@/components/like-button";
 import { MoodAurora } from "@/components/mood-aurora";
 import { QueuePanel } from "@/components/queue-panel";
 import { explain, sendCommand } from "@/lib/control";
@@ -118,6 +119,7 @@ function Stage({
                 {track.title}
               </h1>
               <p className={styles.author}>{track.author || "Unknown Artist"}</p>
+              <LikeButton track={libraryTrack(track)} />
               <p className={styles.requester}>
                 {track.requester.avatarUrl ? (
                   // biome-ignore lint/performance/noImgElement: a 24px Discord avatar
