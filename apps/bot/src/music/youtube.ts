@@ -23,6 +23,7 @@ export function createYouTube({
 } = {}) {
   const facts = createTtlCache<string, VideoFacts>({ ttlMs: WEEK_MS, max: 5000, now });
   return {
+    cacheStats: () => facts.stats(),
     async videoFacts(videoId: string): Promise<VideoFacts | null> {
       if (!apiKey) return null;
       const cached = facts.get(videoId);

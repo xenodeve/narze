@@ -63,6 +63,8 @@ export default defineConfig({
         SPOTIFY_CLIENT_SECRET: "e2e",
         SPOTIFY_API_URL: "http://127.0.0.1:4611/v1",
         SPOTIFY_ACCOUNTS_URL: "http://127.0.0.1:4611",
+        // The admin area (#110): this fake Discord user is the Developer from the environment.
+        NARZE_DEVELOPER_IDS: "490000000000000410",
         // Charts (#109) from the fake feed.
         CHARTS_URL: "http://127.0.0.1:4611/charts",
       },

@@ -6,6 +6,26 @@
 
 ---
 
+## #110 Admin I — whitelist, stats, live log (2026-11-08, branch `feat/110-admin-i`)
+
+**Goal:** an admin area the Backend enforces, with the Bot's stats and live console (spec #74, #97, #109, #113, #120, #122).
+
+**Shipped:**
+- **Roles:** `admin_whitelist` (RLS, service role only) plus `NARZE_DEVELOPER_IDS`, which are always Developers and the only way in on a fresh database. One `AdminGuard` on every `/api/admin` route; `@DeveloperOnly` for the whitelist; a fixed Developer answers 409.
+- **Bot:** `captureConsole` copies every console line (cut at 8 KB) into a 1000-line Redis ring and publishes it; a stats sample every 5 s (CPU over its window, process uptime and RSS, guilds, active players, cache sizes) goes to a 60-sample ring. One `createRingSink` writes both, batching lines that arrive during a write.
+- **Backend:** `AdminGateway` with two rooms, `admin:stats` and `admin:logs`. Joining verifies the tab's current token and the role, re-checks the role after joining, and sends the last 100 lines. Removing someone from the whitelist takes their open tabs out of both rooms.
+- **Dashboard:** `/admin` overview (cards, SloshGauge CPU and memory, CPU and memory trends, caches, a stale sample shown as such), `/admin/logs` terminal (level filter, search, pause with a live waiting count, follow, clear, download, ANSI colours on a `.deep` island), `/admin/settings` whitelist for Developers. "แอดมิน" appears in the nav for admins only.
+- **Test infra:** fake Discord builds the email from the user id, so two test users with one username are never linked into one Supabase account.
+
+**Validated:**
+- `bun run verify` exit 0 (shared 89, bot 202, backend 89 pass).
+- Backend `admin.e2e.test.ts` 7/7: every registered admin route 403/401 (read from the router, not a list), the Developer-only whitelist, history then live, stats-only tabs, removal and unsubscribe leave the rooms, a missing or foreign token is refused. The removal, token and unsubscribe tests went red first.
+- `bun run e2e` 36/36, including `e2e/admin.spec.ts` 3/3. One earlier full run failed `sessions.spec.ts:104` once (2 s timeout); it passed alone and in the next full run (#133 item 6).
+
+**Not done (#133):** Backend caches in the stats and cache flush on shutdown, the Bot's Redis reconnect, a token that expires while an admin socket is open, a Developer locking themselves out, the Settings redirect in Playwright.
+
+---
+
 ## #109 Charts on the idle guild page (2026-11-08, branch `feat/109-charts`)
 
 **Goal:** a real chart to start from when nothing plays, honest when its source is down (spec #53, #72, #117).

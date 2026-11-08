@@ -115,7 +115,8 @@ export async function startFakeDiscord(options: FakeDiscordOptions = {}): Promis
           // GoTrue parses the discriminator as an integer; an empty one fails sign-in.
           discriminator: "0",
           avatar: null,
-          email: `${user.username}@example.test`,
+          // From the id, which is unique: Supabase links accounts that share an email.
+          email: `${user.id}@example.test`,
           verified: true,
         });
       }

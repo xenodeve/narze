@@ -12,6 +12,10 @@ export const Channels = {
   botCommands: "bot:commands",
   /** Bot → Backend: the CommandResult for each command id. */
   botCommandResults: "bot:command-results",
+  /** Bot → Backend: one LogLine of the Bot's console as it is written (#110). */
+  botLogs: "bot:logs",
+  /** Bot → Backend: an AdminStats sample every 5 s (#110). */
+  botStats: "bot:stats",
 } as const;
 
 /** Redis keys the Bot writes and the Backend reads (ADR-0002). Never authoritative: the Bot rebuilds them on ready. */
@@ -40,6 +44,10 @@ export const RedisKeys = {
   textChannels: (guildId: string) => `bot:text-channels:${guildId}`,
   /** Hash discordId → number of open Dashboard tabs (Presence). */
   presence: "presence:tabs",
+  /** List of the Bot's last LOG_RING console lines, newest first (#110, spec #120). */
+  botLogRing: "bot:log-ring",
+  /** List of the last STATS_POINTS AdminStats samples, newest first (#110). */
+  botStatsRing: "bot:stats-ring",
 } as const;
 
 /** Guild event types (GuildEventSchema.type). */
@@ -99,4 +107,15 @@ export const SocketEvents = {
   sessionUpdate: "session:update",
   /** Backend → each participant's own tabs: a ListeningSession ended (#108). */
   sessionEnd: "session:end",
+  /**
+   * Dashboard → Backend with ack, `{ token, logs? }`: join the admin rooms (stats; the console unless
+   * `logs: false`); ack `{ ok, history?: LogLine[] }` (#110).
+   */
+  adminSubscribe: "admin:subscribe",
+  /** Dashboard → Backend with ack: leave the admin rooms (#110). */
+  adminUnsubscribe: "admin:unsubscribe",
+  /** Backend → the admin log room: one live LogLine of the Bot's console (#110). */
+  adminLog: "admin:log",
+  /** Backend → the admin stats room: one AdminStats sample (#110). */
+  adminStats: "admin:stats",
 } as const;

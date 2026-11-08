@@ -1,10 +1,12 @@
 "use client";
 
+import { isAtLeast } from "@narze/shared";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useState } from "react";
 import { Account } from "@/components/account";
 import { GuildAvatar } from "@/components/guild-avatar";
 import BranchedMenu from "@/components/vendor/branched-menu/BranchedMenu";
+import { useAdminRole } from "@/lib/admin";
 import { useSession } from "@/lib/session";
 import { useGuilds } from "@/lib/use-guilds";
 import styles from "./app-shell.module.css";
@@ -13,7 +15,9 @@ const HOME = "home";
 const SEARCH = "search";
 const LIBRARY = "library";
 const SESSIONS = "sessions";
+const ADMIN = "admin";
 const ROUTES: Record<string, string> = {
+  [ADMIN]: "/admin",
   [HOME]: "/",
   [SEARCH]: "/search",
   [LIBRARY]: "/library",
@@ -24,33 +28,39 @@ function GuildNav({ userId, activeGuildId }: { userId: string; activeGuildId: st
   const router = useRouter();
   const view = useGuilds(userId);
   const guilds = view.status === "ready" ? view.guilds : [];
+  // The admin area is listed for Admins only (#110); the Backend refuses everyone else anyway.
+  const role = useAdminRole();
+  const isAdmin = role !== "loading" && isAtLeast(role, "admin");
   // Remount when the list arrives: BranchedMenu reads its items and active row once.
-  const key = guilds.map((g) => g.id).join(",");
+  const key = `${guilds.map((g) => g.id).join(",")}|${isAdmin}`;
+  const items = [
+    { label: "หน้าแรก", value: HOME },
+    { label: "ค้นหา", value: SEARCH },
+    { label: "คลังเพลง", value: LIBRARY },
+    { label: "ประวัติการฟัง", value: SESSIONS },
+    ...(isAdmin ? [{ label: "แอดมิน", value: ADMIN }] : []),
+    {
+      label: "เซิร์ฟเวอร์",
+      children: guilds.map((g) => ({
+        value: g.id,
+        label: g.name,
+        // The Guild's Bot Avatar in its outfit (#106); a monogram until the Bot has its settings.
+        icon: g.avatar ? (
+          <GuildAvatar outfit={g.avatar} size={20} testId="nav-avatar" guildId={g.id} />
+        ) : (
+          <span className={styles.monogram} aria-hidden="true">
+            {Array.from(g.name)[0] ?? "?"}
+          </span>
+        ),
+      })),
+    },
+  ];
   return (
     <BranchedMenu
       key={key}
-      items={[
-        { label: "หน้าแรก", value: HOME },
-        { label: "ค้นหา", value: SEARCH },
-        { label: "คลังเพลง", value: LIBRARY },
-        { label: "ประวัติการฟัง", value: SESSIONS },
-        {
-          label: "เซิร์ฟเวอร์",
-          children: guilds.map((g) => ({
-            value: g.id,
-            label: g.name,
-            // The Guild's Bot Avatar in its outfit (#106); a monogram until the Bot has its settings.
-            icon: g.avatar ? (
-              <GuildAvatar outfit={g.avatar} size={20} testId="nav-avatar" guildId={g.id} />
-            ) : (
-              <span className={styles.monogram} aria-hidden="true">
-                {Array.from(g.name)[0] ?? "?"}
-              </span>
-            ),
-          })),
-        },
-      ]}
-      defaultOpen={4}
+      items={items}
+      // The servers group, wherever the items above leave it.
+      defaultOpen={items.findIndex((item) => "children" in item)}
       defaultActive={activeGuildId}
       onSelect={(value) => router.push(ROUTES[value] ?? `/guilds/${value}`)}
       color="var(--ink-2)"

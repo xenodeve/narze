@@ -1,6 +1,7 @@
 import type { Like, NewPlaylist, Playlist, PlaylistChange, PlaylistSummary, PlaylistTrack } from "@narze/shared";
 import { Inject, Injectable } from "@nestjs/common";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { check } from "../supabase-check";
 import { SUPABASE } from "../tokens";
 
 interface PlaylistRow {
@@ -41,10 +42,6 @@ const fromPlaylist = (row: PlaylistRow) => ({
   sourceUrl: row.source_url,
   updatedAt: row.updated_at,
 });
-const check = (what: string, error: { message: string } | null) => {
-  if (error) throw new Error(`${what}: ${error.message}`);
-};
-
 /** Playlist ids are uuids; anything else is no playlist (and would be a Postgres cast error). */
 /** PostgREST answers at most `max_rows` (1000) rows per request; a playlist holds up to 5000. */
 const PAGE = 1000;

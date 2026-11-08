@@ -4,5 +4,7 @@ export const REDIS_SUBSCRIBER = Symbol("REDIS_SUBSCRIBER");
 export const REDIS = Symbol("REDIS");
 /** Injection token for the Supabase client holding the secret key (bypasses RLS; server only). */
 export const SUPABASE = Symbol("SUPABASE");
+/** Injection token for NARZE_DEVELOPER_IDS: Discord IDs that are always Developers (#110). */
+export const DEVELOPER_IDS = Symbol("DEVELOPER_IDS");
 /** Injection token for the Discord REST base URL. */
 export const DISCORD_API_URL = Symbol("DISCORD_API_URL");

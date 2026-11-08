@@ -1,14 +1,22 @@
+import os from "node:os";
 import { join } from "node:path";
 import {
+  type AdminStats,
   Channels,
   DEFAULT_REDIS_URL,
   GuildEventSchema,
   GuildEventTypes,
   GuildSettingsSchema,
+  LOG_RING,
+  type LogLine,
   parseJson,
+  RedisKeys,
+  STATS_POINTS,
 } from "@narze/shared";
 import { createClient } from "@supabase/supabase-js";
 import { AuditLogEvent, Client, GatewayIntentBits, type Guild } from "discord.js";
+import { captureConsole, createRingSink } from "./admin/logs";
+import { createCpuMeter } from "./admin/stats";
 import { startCommandBus } from "./command-bus";
 import { announcer, handleInteractions } from "./discord/interactions";
 import { createGuildRegistry, type GuildVoiceSnapshot } from "./guild-registry";
@@ -40,8 +48,15 @@ const RECOVERY_DELAY_MS = 5_000;
 let swept = false;
 /** A hard kill restores the position of the last write, at most this old (#103). */
 const SNAPSHOT_EVERY_MS = 10_000;
+/** Spec #109: the admin stats sample window. */
+const STATS_EVERY_MS = 5_000;
 
 const { mode, redis } = await detectRuntimeMode(env.REDIS_URL ?? DEFAULT_REDIS_URL, 1500);
+// #110, spec #120: in Connected Mode the console also feeds the admin log viewer.
+const logSink = redis
+  ? createRingSink<LogLine>(redis, { ring: RedisKeys.botLogRing, channel: Channels.botLogs, cap: LOG_RING })
+  : null;
+if (logSink) captureConsole(logSink);
 console.log(`[bot] ${mode} mode`);
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates] });
@@ -73,6 +88,7 @@ const db =
     : null;
 const settings = db ? createGuildSettings(createSupabaseSettingsStore(db)) : null;
 const youtube = createYouTube({ apiKey: env.YOUTUBE_API_KEY });
+const spotify = createSpotify({ clientId: env.SPOTIFY_CLIENT_ID, clientSecret: env.SPOTIFY_CLIENT_SECRET });
 const publisher = redis ? createPlayerPublisher(redis) : null;
 // Listening Sessions and Play History (#108). The local file keeps unsaved sessions across a crash.
 const history = db
@@ -100,7 +116,7 @@ const music = createMusic({
   // Bot classifies from Lavalink's data and falls back to avatars (spec #62–#67).
   artwork: createArtwork({
     youtube,
-    spotify: createSpotify({ clientId: env.SPOTIFY_CLIENT_ID, clientSecret: env.SPOTIFY_CLIENT_SECRET }),
+    spotify,
     modes: iconModesFrom(env),
     botIcon: () => client.user?.displayAvatarURL() ?? null,
   }),
@@ -119,6 +135,46 @@ function scheduleRecovery(): void {
   }, RECOVERY_DELAY_MS);
 }
 const snapshotTimer = setInterval(() => void music.flush(), SNAPSHOT_EVERY_MS);
+// #110, spec #109: a stats sample every 5 s for the admin pages (Connected Mode only).
+const cpu = createCpuMeter({
+  now: Date.now,
+  cpuMicros: () => {
+    const { user, system } = process.cpuUsage();
+    return user + system;
+  },
+  cores: os.cpus().length,
+});
+// Measured on every sample, so each number belongs to that sample's window (#110 AC).
+const caches = {
+  autocomplete: music.suggestionStats,
+  "spotify-artists": spotify.cacheStats,
+  "youtube-facts": youtube.cacheStats,
+};
+const cacheSizes = (): AdminStats["caches"] =>
+  Object.entries(caches).map(([name, stats]) => {
+    const { entries, bytes } = stats();
+    return { name, items: entries, bytes };
+  });
+const statsSink = redis
+  ? createRingSink<AdminStats>(redis, { ring: RedisKeys.botStatsRing, channel: Channels.botStats, cap: STATS_POINTS })
+  : null;
+const statsTimer = statsSink
+  ? setInterval(
+      () =>
+        statsSink({
+          ...cpu(),
+          online: client.isReady(),
+          pingMs: client.ws.ping >= 0 ? client.ws.ping : null,
+          uptimeMs: Math.round(process.uptime() * 1000),
+          guilds: client.guilds.cache.size,
+          activePlayers: [...lavalink.players.values()].filter((p) => p.playing).length,
+          // The Bot process's resident memory against the machine's total.
+          memory: { usedBytes: process.memoryUsage.rss(), totalBytes: os.totalmem() },
+          caches: cacheSizes(),
+        }),
+      STATS_EVERY_MS,
+    )
+  : null;
 handleInteractions(client, music, () => lavalink.nodeManager.leastUsedNodes().length > 0, {
   settings: settings ?? undefined,
   log:
@@ -265,10 +321,13 @@ else console.warn("[bot] DISCORD_TOKEN not set — running without Discord (hear
 const shutdown = async () => {
   stopHeartbeat();
   clearInterval(snapshotTimer);
+  if (statsTimer) clearInterval(statsTimer);
   // The exact position survives a clean stop; a hard kill keeps the last periodic write.
   await music.flush();
   await history?.flush().catch(logFailure("save sessions"));
   await client.destroy();
+  // The last lines of the shutdown reach the log ring before the connection closes.
+  await logSink?.flushed();
   await redis?.quit();
   process.exit(0);
 };

@@ -44,7 +44,7 @@ interface SessionData {
 
 const guildRoom = (guildId: string) => `guild:${guildId}`;
 /** One room per signed-in user: their Library changes reach their other tabs (#107). */
-const userRoom = (discordId: string) => `user:${discordId}`;
+export const userRoom = (discordId: string) => `user:${discordId}`;
 
 /**
  * Nest calls socket handlers without awaiting them, and on Bun an unhandled rejection exits the

@@ -22,6 +22,7 @@ export function createSpotify({
   const artists = createTtlCache<string, string | null>({ ttlMs: WEEK_MS, max: 2000, now });
 
   return {
+    cacheStats: () => artists.stats(),
     /** Spec #67: the image of the artist found by the track's author, cached for 7 days. */
     async artistImage(name: string): Promise<string | null> {
       const key = name.trim().toLowerCase();

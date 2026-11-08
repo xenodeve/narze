@@ -1,4 +1,4 @@
-import { DEFAULT_REDIS_URL } from "@narze/shared";
+import { DEFAULT_REDIS_URL, DiscordIdSchema } from "@narze/shared";
 import { createApp } from "./app";
 
 const env = process.env;
@@ -29,6 +29,16 @@ const app = await createApp({
   },
   youtubeApiKey: env.YOUTUBE_API_KEY,
   chartsUrl: env.CHARTS_URL || undefined,
+  developerIds: (env.NARZE_DEVELOPER_IDS ?? "")
+    .split(",")
+    .map((id) => id.trim())
+    .filter((id) => {
+      if (!id) return false;
+      const valid = DiscordIdSchema.safeParse(id).success;
+      // A typo here closes the only way in on a fresh database, so it is said out loud.
+      if (!valid) console.warn(`[backend] NARZE_DEVELOPER_IDS: "${id}" is not a Discord ID; ignored`);
+      return valid;
+    }),
 });
 await app.listen(Number(env.BACKEND_PORT ?? 4000));
 console.log(`[backend] listening on ${await app.getUrl()}`);

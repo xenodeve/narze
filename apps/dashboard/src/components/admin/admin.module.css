@@ -1,0 +1,255 @@
+.page {
+  display: grid;
+  gap: 16px;
+  max-width: 960px;
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  font-weight: 600;
+  /* DESIGN.md rule 4: Thai at zero tracking. */
+  letter-spacing: 0;
+}
+
+.subnav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.subLink {
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  color: var(--ink-2);
+  line-height: 34px;
+  text-decoration: none;
+}
+
+.subLink[aria-current="page"] {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--bg);
+}
+
+.hint {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 0.8125rem;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.card {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r2);
+  background: var(--surface);
+}
+
+.cardLabel {
+  color: var(--ink-2);
+  font-size: 0.8125rem;
+}
+
+.cardValue {
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.gauges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 24px;
+}
+
+.gauge {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+}
+
+.figure {
+  display: grid;
+  flex: 1 1 240px;
+  gap: 6px;
+  margin: 0;
+}
+
+.spark {
+  width: 100%;
+  height: 120px;
+  border-bottom: 1px solid var(--line);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table caption {
+  text-align: left;
+}
+
+.table th,
+.table td {
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.levels {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.level {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8125rem;
+}
+
+.field {
+  display: grid;
+  gap: 4px;
+  color: var(--ink-2);
+  font-size: 0.8125rem;
+}
+
+/* Field (DESIGN.md): 48px pill input on surface. */
+.search {
+  height: 48px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+
+@media (hover: hover) {
+  .search:hover {
+    border-color: var(--ink-3);
+  }
+}
+
+.primary,
+.ghost {
+  height: 44px;
+  padding: 0 16px;
+  border-radius: var(--r-pill);
+  font: inherit;
+  cursor: pointer;
+}
+
+.primary:active:not(:disabled),
+.ghost:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+/* Primary buttons are ink-filled, not blue (DESIGN.md §2 rule 2). */
+.primary {
+  border: 1px solid var(--ink);
+  background: var(--ink);
+  color: var(--bg);
+}
+
+.ghost {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-2);
+}
+
+.primary:disabled,
+.ghost:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.terminal {
+  height: min(60vh, 520px);
+  margin: 0;
+  padding: 12px;
+  overflow: auto;
+  border-radius: var(--r2);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1.6;
+  list-style: none;
+}
+
+.logLine {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* The terminal is a .deep island (DESIGN.md §3): these are its own tokens. */
+.logLine[data-level="warn"] {
+  color: var(--warn);
+}
+
+.logLine[data-level="error"] {
+  color: var(--danger);
+}
+
+/* --ink-2 here: --ink-3 on the island is under 4.5:1. */
+.time {
+  color: var(--ink-2);
+}
+
+.rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--line);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  border-bottom: 1px solid var(--line);
+}
+
+/* Badge (DESIGN.md): mono pill, neutral tone. */
+.badge {
+  padding: 1px 8px;
+  border: 1px solid color-mix(in srgb, var(--ink-3) 55%, transparent);
+  border-radius: var(--r-pill);
+  color: color-mix(in srgb, var(--ink-3) 80%, var(--ink));
+  font-size: 0.6875rem;
+}
+
+.error {
+  margin: 0;
+  color: var(--danger);
+}

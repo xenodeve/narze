@@ -6,6 +6,10 @@ import type { NestExpressApplication } from "@nestjs/platform-express";
 import { IoAdapter } from "@nestjs/platform-socket.io";
 import { createClient } from "@supabase/supabase-js";
 import Redis from "ioredis";
+import { AdminController } from "./admin/admin.controller";
+import { AdminGateway } from "./admin/admin.gateway";
+import { AdminGuard } from "./admin/admin.guard";
+import { AdminRoles } from "./admin/admin-roles";
 import { Authenticator } from "./auth/authenticator";
 import { ChartService } from "./charts/chart-service";
 import { ChartsController } from "./charts/charts.controller";
@@ -30,7 +34,7 @@ import { SettingsController } from "./settings/settings.controller";
 import { SettingsStore } from "./settings/settings-store";
 import { BotStatusTracker } from "./status/bot-status.tracker";
 import { StatusGateway } from "./status/status.gateway";
-import { DISCORD_API_URL, REDIS, REDIS_SUBSCRIBER, SUPABASE } from "./tokens";
+import { DEVELOPER_IDS, DISCORD_API_URL, REDIS, REDIS_SUBSCRIBER, SUPABASE } from "./tokens";
 import { UserStore } from "./users/user-store";
 
 export interface AppOptions {
@@ -46,6 +50,8 @@ export interface AppOptions {
   /** Spotify Web API client credentials for the catalog (env only). */
   spotify?: { clientId?: string; clientSecret?: string; apiUrl?: string; accountsUrl?: string };
   youtubeApiKey?: string;
+  /** Discord IDs that are always Developers (NARZE_DEVELOPER_IDS, #110): the way into the admin area. */
+  developerIds?: string[];
   /** Apple Music's RSS for charts (ADR-0010); the real one unless a test points elsewhere. */
   chartsUrl?: string;
 }
@@ -90,6 +96,7 @@ class AppModule implements OnApplicationShutdown {
         LibraryController,
         HistoryController,
         ChartsController,
+        AdminController,
       ],
       providers: [
         { provide: REDIS, useFactory: () => new Redis(options.redisUrl) },
@@ -118,6 +125,10 @@ class AppModule implements OnApplicationShutdown {
           useFactory: (redis: Redis) =>
             new ChartService({ redis, chartsUrl: options.chartsUrl, spotify: createSpotifyApi(options.spotify ?? {}) }),
         },
+        { provide: DEVELOPER_IDS, useValue: options.developerIds ?? [] },
+        AdminRoles,
+        AdminGuard,
+        AdminGateway,
         Authenticator,
         DiscordApi,
         UserStore,
