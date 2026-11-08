@@ -6,6 +6,28 @@
 
 ---
 
+## #111 Admin II — guilds, channel viewer, users, sessions, restart/shutdown (2026-11-08, branch `feat/111-admin-ii`)
+
+**Goal:** an admin reads what the Bot sees in Discord, who uses Narze, and can restart or stop the Bot, behind the #110 guard (spec #51, #110–#112, #114, #118).
+
+**Shipped:**
+- **Admin Query bus:** the Backend asks the Bot over Redis (`bot:admin-queries` / `bot:admin-results`, answered by id) for guilds, one guild, readable channels and the last 50 messages, plus restart (exit 75) and shutdown (exit 0). Only the Bot holds the Discord token (ADR-0003). The Backend reuses guild answers for 10 s, channel lists for 60 s and messages for 30 s, with one read per key at a time. Bot errors map to 404 / 403 / 502; a Bot still logging in answers not-ready.
+- **Backend:** `/api/admin` guilds, guild, channels, messages, guild sessions and history, users (`admin_user_stats(p_discord_id)`: Play History plus Dashboard users, names from the latest session when needed), one user with up to 500 history items and 500 sessions, any session, `POST bot/restart|shutdown` with a confirm body. Who read which channel and who asked for a restart is logged. Presence changes reach admins live.
+- **Bot:** `toMessages()` turns discord.js messages into the shared shape (every attachment and embed kind, mentions, role colours, reactions, replies, threads; pictures through Discord's media proxy). `bun run start:supervised` restarts the Bot only after a Dashboard restart. Shutdown has a 10 s deadline.
+- **Dashboard:** `/admin/guilds` (search, sort, totals, open as a user), `/admin/guilds/[id]` with overview, channels, sessions and history tabs in the URL, a read-only channel viewer (a Discord markdown parser that outputs plain text nodes and links only http(s), a lightbox, YouTube-only embed frames), `/admin/users` with live "on Dashboard" dots and Active Today, user detail, session detail, and restart/shutdown behind dialogs. Dates are th-TH.
+- **Sessions page (#108) fix:** live sessions that arrive while the list loads are kept, and the list reloads after a reconnect. This was the `sessions.spec.ts:104` failure.
+
+**Validated:**
+- `bun run verify` exit 0 (shared 94, bot 207, backend 97 pass).
+- Backend `admin-ii.e2e.test.ts` 8/8 with a fake Bot: guild list and playing flags, messages read once for two parallel and one later request, 504 when the Bot is silent, restart/shutdown confirm and who asked, users with presence and Active Today, user detail with profile, any session, guild sessions and history, live presence pushes. These tests were seen failing first.
+- Bot `admin-queries.test.ts`: fixtures of every attachment and embed kind, mentions, replies, threads, media proxy, restart/shutdown exit codes, the real bus over Redis with a stub client, and the supervisor's decision.
+- `bun run e2e` 37/37 in two full runs, including `e2e/admin-ii.spec.ts`: open a guild, read a channel (markdown, mentions, reply, every attachment and embed kind, reaction, thread, lightbox, URL state after reload), view a user.
+- A crafted 4000-character message parses in about 1 ms (the review measured about 1.1 s before the fix).
+
+**Not done (#135):** one shared Redis request/response transport with the #101 command bus, the guild icon on session detail, mentions inside embeds, the full v5 guild overview, negative caching and late answers, multi-Backend presence, a deploy note for the supervisor.
+
+---
+
 ## #110 Admin I — whitelist, stats, live log (2026-11-08, branch `feat/110-admin-i`)
 
 **Goal:** an admin area the Backend enforces, with the Bot's stats and live console (spec #74, #97, #109, #113, #120, #122).
