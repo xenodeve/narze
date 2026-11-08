@@ -31,7 +31,14 @@ const LOOP = { off: "off", track: "track", queue: "queue" } as const;
  */
 export function toPlayerState(
   view: PlayerView,
-  extra: { revision: number; twentyFourSeven: boolean; now: number; epoch: string; lastSeekAt: number | null },
+  extra: {
+    revision: number;
+    twentyFourSeven: boolean;
+    now: number;
+    epoch: string;
+    lastSeekAt: number | null;
+    recovering?: boolean;
+  },
 ): PlayerState | null {
   const current = view.current ? toTrack(view.current) : null;
   if (view.current && !current) return null;
@@ -51,6 +58,7 @@ export function toPlayerState(
     epoch: extra.epoch,
     lastSeekAt: extra.lastSeekAt,
     voiceChannelId: view.voiceChannelId,
+    ...(extra.recovering ? { recovering: true } : {}),
   });
   return parsed.success ? parsed.data : null;
 }

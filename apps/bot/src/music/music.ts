@@ -2,9 +2,10 @@ import type { Requester, Track } from "@narze/shared";
 import { moveTrack } from "@narze/shared";
 import type { LavalinkManager, Track as LavalinkTrack, Player, RepeatMode } from "lavalink-client";
 import { type AnnounceFlags, NO_FLAGS, nowPlayingNotice, shouldAnnounce } from "./announce";
-import type { Notice } from "./format";
+import { COLOR_SUCCESS, formatDuration, type Notice } from "./format";
 import { type PlayerPublisher, toPlayerState } from "./player-state";
 import { resolveQuery } from "./query";
+import type { QueueSnapshot, SnapshotStore, StoredTrack } from "./queue-snapshot";
 import { toTrack } from "./track";
 
 /** Spec #6/#19: a new Player starts at volume 15. */
@@ -41,6 +42,8 @@ export interface MusicOptions {
   /** Posts a Now-Playing Notice in a text channel. */
   announce: (channelId: string, notice: Notice) => Promise<void>;
   now?: () => number;
+  /** Queue Snapshots for Queue Recovery (#103); without it nothing is written or restored. */
+  snapshots?: SnapshotStore;
 }
 
 // Per-player data keys (lavalink-client player.set/get).
@@ -52,6 +55,8 @@ const ADDED_AT = "addedAt";
 const LAST_SEEK = "narze.lastSeekAt";
 /** 24/7 (spec #10, #27): the Player stays in voice as an Idle Player when the queue ends. */
 const TWENTY_FOUR_SEVEN = "narze.twentyFourSeven";
+/** Queue Recovery is restoring this Player; the track start that follows clears it. */
+const RECOVERING = "narze.recovering";
 
 /**
  * Publishing is best-effort: playback must go on when Redis is down (ADR-0003), and lavalink-client
@@ -88,6 +93,7 @@ export function createMusic({
   epoch = crypto.randomUUID(),
   oembedTitle = spotifyOembedTitle,
   now = Date.now,
+  snapshots,
 }: MusicOptions) {
   const sourceManagers = () => lavalink.nodeManager.leastUsedNodes()[0]?.info?.sourceManagers ?? [];
 
@@ -122,10 +128,83 @@ export function createMusic({
         now: now(),
         epoch,
         lastSeekAt: player.get<number | undefined>(LAST_SEEK) ?? null,
+        recovering: player.get<boolean | undefined>(RECOVERING) === true,
       },
     );
+    // Every published change is also what a restart would need (Queue Snapshot, #103).
+    await save(player);
     // An Invalid Player State is never published.
     if (state) await publisher.publish(state).catch(warn("publish Player State"));
+  }
+
+  const stored = (track: LavalinkTrack): StoredTrack | null =>
+    track.encoded
+      ? {
+          encoded: track.encoded,
+          info: { ...track.info },
+          userData: track.userData as Record<string, unknown> | undefined,
+          requester: track.requester,
+        }
+      : null;
+
+  /** Writes this Player's Queue Snapshot; best-effort, like publishing. */
+  async function save(player: Player): Promise<void> {
+    if (!snapshots || !player.voiceChannelId) return;
+    const current = player.queue.current ? stored(player.queue.current) : null;
+    const snapshot: QueueSnapshot = {
+      guildId: player.guildId,
+      voiceChannelId: player.voiceChannelId,
+      textChannelId: player.get<string | undefined>(TEXT_CHANNEL) ?? player.textChannelId ?? null,
+      current,
+      positionMs: current ? Math.max(0, Math.round(player.position)) : 0,
+      paused: player.paused,
+      queue: (player.queue.tracks as LavalinkTrack[]).map(stored).filter((t): t is StoredTrack => t !== null),
+      volume: player.volume,
+      repeatMode: player.repeatMode,
+      twentyFourSeven: is247(player),
+      savedAt: now(),
+    };
+    await snapshots.save(snapshot).catch(warn("save Queue Snapshot"));
+  }
+
+  const rebuild = (track: StoredTrack) =>
+    lavalink.utils.buildTrack(
+      { encoded: track.encoded, info: track.info, pluginInfo: {}, userData: track.userData ?? {} } as never,
+      track.requester,
+    ) as LavalinkTrack;
+
+  /** Brings one Player back from its snapshot: voice, volume, loop, 24/7, queue, then the track. */
+  async function restore(snapshot: QueueSnapshot): Promise<void> {
+    const player = playerFor({
+      guildId: snapshot.guildId,
+      voiceChannelId: snapshot.voiceChannelId,
+      textChannelId: snapshot.textChannelId ?? "",
+    });
+    player.set(TWENTY_FOUR_SEVEN, snapshot.twentyFourSeven);
+    await player.connect();
+    await player.setVolume(snapshot.volume);
+    await player.setRepeatMode(snapshot.repeatMode);
+    if (snapshot.queue.length > 0) await player.queue.add(snapshot.queue.map(rebuild));
+    const current = snapshot.current ? rebuild(snapshot.current) : null;
+    if (snapshot.textChannelId) {
+      const shown = current ? toTrack(current) : null;
+      const what = shown
+        ? `เล่นต่อ **${shown.title}** \` ${formatDuration(snapshot.positionMs)} \` · คิวอีก \` ${snapshot.queue.length} \` เพลง`
+        : "กลับเข้าห้องเสียงแล้ว (24/7)";
+      await announce(snapshot.textChannelId, {
+        color: COLOR_SUCCESS,
+        description: `\`🔄\`┃**กู้คิวเพลงหลังบอทรีสตาร์ท** ${what}`,
+      }).catch(warn("recovery notice"));
+    }
+    if (!current) {
+      await commit(player);
+      return;
+    }
+    // The Dashboard shows "recovering" until the track starts; the notice above replaces Now Playing.
+    player.set(RECOVERING, true);
+    player.set(FLAGS, { ...NO_FLAGS, dontShow: true });
+    await commit(player);
+    await player.play({ clientTrack: current, position: snapshot.positionMs, paused: snapshot.paused });
   }
 
   async function search(player: Player, query: string, requester: Requester) {
@@ -188,6 +267,7 @@ export function createMusic({
       }
     }
     bump(player);
+    player.set(RECOVERING, false);
     const flags = { ...flagsOf(player), trackLoop: player.repeatMode === "track" };
     // Spec #25: the per-track flags last one track (terminal playback keeps its flag).
     player.set(FLAGS, { ...NO_FLAGS, terminal: flags.terminal });
@@ -213,6 +293,8 @@ export function createMusic({
   });
   lavalink.on("playerDestroy", (player) => {
     publisher.gone(player.guildId).catch(warn("publish player gone"));
+    // A Player that left (queue end without 24/7, /leave, kicked) is not restored after a restart.
+    snapshots?.clear(player.guildId).catch(warn("clear Queue Snapshot"));
   });
 
   const existing = (guildId: string) => lavalink.getPlayer(guildId) ?? null;
@@ -284,6 +366,39 @@ export function createMusic({
   }
 
   return {
+    /**
+     * Queue Recovery (spec #21, #123): restores every Queue Snapshot whose Guild `keep` accepts;
+     * the rest are cleared. Returns how many Players came back.
+     */
+    async recover(keep: (snapshot: QueueSnapshot) => boolean = () => true): Promise<number> {
+      if (!snapshots) return 0;
+      let restored = 0;
+      for (const snapshot of await snapshots.all()) {
+        if (lavalink.getPlayer(snapshot.guildId)) continue;
+        if (!keep(snapshot)) {
+          await snapshots.clear(snapshot.guildId).catch(warn("clear Queue Snapshot"));
+          continue;
+        }
+        try {
+          await restore(snapshot);
+          restored += 1;
+        } catch (error) {
+          warn(`recover ${snapshot.guildId}`)(error);
+          await lavalink
+            .getPlayer(snapshot.guildId)
+            ?.destroy()
+            .catch(() => {});
+          await snapshots.clear(snapshot.guildId).catch(warn("clear Queue Snapshot"));
+        }
+      }
+      return restored;
+    },
+
+    /** Writes every Player's snapshot with its current position (shutdown, and every few seconds). */
+    async flush(): Promise<void> {
+      for (const player of lavalink.players.values()) await save(player);
+    },
+
     play(request: PlayRequest): Promise<PlayResult> {
       return serial(request.guildId, () => startOrQueue(request));
     },

@@ -52,6 +52,11 @@ describe("Player State", () => {
     const { epoch: _e, ...noEpoch } = state;
     expect(PlayerStateSchema.safeParse(noEpoch).success).toBe(false);
   });
+
+  test("a state may say it is being recovered after a restart (#103); older states still parse", () => {
+    expect(PlayerStateSchema.parse({ ...state, recovering: true }).recovering).toBe(true);
+    expect(PlayerStateSchema.parse(state).recovering).toBeUndefined();
+  });
 });
 
 describe("Guild event envelope", () => {

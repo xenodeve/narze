@@ -115,3 +115,13 @@ test("an Idle Player with 24/7 shows as waiting in voice, not as no Player (#103
   await expect(page.getByRole("heading", { name: "ยังไม่มีเพลงเล่นอยู่" })).toBeVisible();
   await expect(page.getByTestId("idle-247")).toHaveText("24/7 · บอทรออยู่ในห้องเสียง");
 });
+
+test("a Player being restored after a Bot restart says so until it plays (#103)", async ({ page }) => {
+  await signInThroughPopup(page, "Frank");
+  await page.goto(`/guilds/${GUILD}`);
+  await botPublishes(state("", { current: null, recovering: true, queue: [] }));
+  await expect(page.getByTestId("recovering")).toHaveText("กำลังกู้คิวหลังบอทรีสตาร์ท…");
+  await botPublishes(state("Restored Song"));
+  await expect(page.getByTestId("now-title")).toHaveText("Restored Song");
+  await expect(page.getByTestId("recovering")).toHaveCount(0);
+});
