@@ -6,6 +6,26 @@
 
 ---
 
+## #142 Rate limiting (2026-11-09, branch `fix/142-rate-limit`) — items 2 and 4 open
+
+**Goal:** #142 item 3. Every REST call and every handshake costs a Supabase Auth round trip, and one playlist preview can read up to 50 Spotify pages.
+
+**Shipped:**
+- **`RateLimiter`** (`apps/backend/src/rate-limit.ts`): an in-process fixed window per key. It sweeps ended windows once per window length.
+- **Where it applies:**
+  - REST calls per client address: 3000 a minute. Past that, 429 with `Retry-After`.
+  - Socket handshakes per address: 500 a minute. Past that, `connect_error` `rate-limited`, before `getUser` runs. The Dashboard retries after 10 s.
+  - Playlist import per user: 10 a minute.
+- **Defaults:** about five times the busiest key in a full e2e run. Measured with a temporary counter, later removed: 562 REST calls and 90 handshakes in a minute from one address.
+- **Client address:** the last `X-Forwarded-For` entry, believed only from this machine or from an address in `TRUSTED_PROXIES` (`.env.example`; cloudflared in Docker needs its container IP there).
+- **CORS before the limiter:** the Dashboard can read a 429, and preflights are not counted.
+
+**Review found:** the CORS order (a 429 read as a network error), the Docker-proxy case, the refused-handshake retry, and that malformed imports were counted. All fixed. Left as a documented caveat in ADR-0005: keys are whole IPv6 addresses (not /64).
+
+**Validated:** `rate-limit.test.ts` (limiter and address rules) and `rate-limit.e2e.test.ts` (429 with `Retry-After`, CORS on a 429, uncounted preflights, the handshake refused before the token check, import limited per user), all written red first. `bun run verify` exit 0 (backend 113); `bun run e2e` 48/48.
+
+---
+
 ## #142 Socket token expiry and function search_path (2026-11-08, branch `fix/142-socket-expiry`) — items 2–4 open
 
 **Goal:** close the two agent-fixable LOW findings from the #114 security review (#142 items 1 and 5).
