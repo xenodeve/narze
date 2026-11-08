@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { controlPermission, GuildSummarySchema, PlayerSummarySchema } from "../src/guilds";
+import { CONTROL_REASON_TEXT, controlPermission, GuildSummarySchema, PlayerSummarySchema } from "../src/guilds";
 
 const base = {
   isServerOwner: false,
@@ -46,8 +46,28 @@ describe("Control Permission ladder (CONTEXT.md)", () => {
     });
     expect(controlPermission({ ...withPlayer, userVoiceChannelId: "5" })).toEqual({
       canControl: false,
-      reason: "join-bot-voice",
+      reason: "other-voice",
       badge: "view-only",
+    });
+  });
+
+  test("with a Player, a member outside voice is told to join voice first", () => {
+    expect(controlPermission({ ...base, hasPlayer: true, botVoiceChannelId: "9" })).toEqual({
+      canControl: false,
+      reason: "not-in-voice",
+      badge: "view-only",
+    });
+  });
+
+  test("every reason has the v5 text shown to the user (spec #98)", () => {
+    expect(CONTROL_REASON_TEXT).toEqual({
+      "server-owner": "Server owner",
+      "bot-owner": "Bot owner in this guild",
+      "in-voice": "No active player - can start playback",
+      "join-voice": "Join a voice channel to start playback",
+      "in-bot-voice": "In same voice channel",
+      "not-in-voice": "You must be in a voice channel to control the bot",
+      "other-voice": "You must be in the same voice channel as the bot",
     });
   });
 });
