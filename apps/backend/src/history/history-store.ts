@@ -54,13 +54,13 @@ const check = (what: string, error: { message: string } | null) => {
 export class HistoryStore {
   constructor(@Inject(SUPABASE) private readonly db: SupabaseClient) {}
 
-  async sessionsOf(discordId: string, limit = 50): Promise<SessionSummary[]> {
-    const { data, error } = await this.db
-      .from("listening_sessions")
-      .select(SUMMARY)
-      .contains("participant_ids", [discordId])
-      .order("start_time", { ascending: false })
-      .limit(limit);
+  /** `q` searches the server name, the people and the tracks (case-insensitive). */
+  async sessionsOf(discordId: string, q = "", limit = 50): Promise<SessionSummary[]> {
+    let query = this.db.from("listening_sessions").select(SUMMARY).contains("participant_ids", [discordId]);
+    const words = q.trim().toLowerCase();
+    // % and _ are LIKE wildcards; a search for them means the characters themselves.
+    if (words) query = query.ilike("search_text", `%${words.replace(/[\\%_]/g, (c) => `\\${c}`)}%`);
+    const { data, error } = await query.order("start_time", { ascending: false }).limit(limit);
     check("list sessions", error);
     return ((data ?? []) as SessionRow[]).map(summaryOf);
   }
@@ -75,8 +75,8 @@ export class HistoryStore {
     check("read session", error);
     if (!data) return null;
     const row = data as SessionRow;
-    const { trackCount: _count, ...rest } = summaryOf(row);
-    return { ...rest, tracks: row.tracks ?? [] };
+    const { trackCount: _, ...session } = summaryOf(row);
+    return { ...session, tracks: row.tracks ?? [] };
   }
 
   /** Spec #84: most played first. `guildId` "" means across every Guild, `discordId` "" every user. */

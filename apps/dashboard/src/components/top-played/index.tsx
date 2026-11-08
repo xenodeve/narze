@@ -15,7 +15,7 @@ function List({ title, rows, onPlay }: { title: string; rows: TopPlayed[]; onPla
         {title}
       </h2>
       <ol className={styles.rows}>
-        {rows.slice(0, 5).map((row) => (
+        {rows.map((row) => (
           <li key={row.trackId} className={styles.row} data-testid="top-played">
             <span className={styles.text}>
               <span className={styles.title}>{row.title}</span>

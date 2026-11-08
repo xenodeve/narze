@@ -16,17 +16,10 @@ import {
   SocketEvents,
 } from "@narze/shared";
 import { useEffect, useSyncExternalStore } from "react";
-import { apiGet, apiSend } from "./api";
+import { answer, apiGet, apiSend, parsed } from "./api";
 import { useSession } from "./session";
 import { onSocketEvents } from "./socket";
 
-/** A request that failed to send counts as no answer. */
-const answer = (request: Promise<Response>) => request.catch(() => null);
-const parsed = async <T>(res: Response | null, schema: { safeParse(v: unknown): { success: boolean; data?: T } }) => {
-  if (!res?.ok) return null;
-  const result = schema.safeParse(await res.json().catch(() => null));
-  return result.success ? (result.data as T) : null;
-};
 const playlistPath = (id: string) => `/api/library/playlists/${encodeURIComponent(id)}`;
 
 export const listPlaylists = async () =>

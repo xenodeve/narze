@@ -1,5 +1,4 @@
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
-import { dirname } from "node:path";
+import { readFile } from "node:fs/promises";
 import {
   type ListeningSession,
   ListeningSessionSchema,
@@ -9,6 +8,7 @@ import {
   trackKey,
 } from "@narze/shared";
 import { z } from "zod";
+import { writeJsonAtomic } from "../json-file";
 import { classify } from "../music/thumbnails";
 import type { PlayRecord } from "./history-store";
 import { createSessionRecorder, type SessionFileLike, type SessionStoreLike } from "./session-recorder";
@@ -30,7 +30,7 @@ export async function playFlags(
   track: Track,
   facts?: (videoId: string) => Promise<VideoFacts>,
 ): Promise<{ isMusic: boolean; isVideo: boolean }> {
-  const sourceName = track.source === "youtube" ? "youtube" : track.source;
+  const sourceName = track.source;
   const id = sourceName === "youtube" ? videoId(track.uri) : null;
   const known = id && facts ? await facts(id).catch(() => null) : null;
   const { isMusicContent } = classify({
@@ -46,23 +46,12 @@ export async function playFlags(
 
 /** The local mirror of active and unsaved sessions (#108): written whole through a temp file and a rename. */
 export function createSessionFile(path: string): SessionFileLike {
-  let made: Promise<unknown> | null = null;
   return {
     async read() {
       const raw = await readFile(path, "utf8").catch(() => "");
       return parseJson(z.array(ListeningSessionSchema), raw) ?? [];
     },
-    async write(sessions: ListeningSession[]) {
-      made ??= mkdir(dirname(path), { recursive: true });
-      await made;
-      const temp = `${path}.${crypto.randomUUID()}.tmp`;
-      try {
-        await writeFile(temp, JSON.stringify(sessions));
-        await rename(temp, path);
-      } finally {
-        await rm(temp, { force: true });
-      }
-    },
+    write: (sessions: ListeningSession[]) => writeJsonAtomic(path, sessions),
   };
 }
 

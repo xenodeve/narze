@@ -10,35 +10,33 @@ import {
   TopPlayedSchema,
 } from "@narze/shared";
 import { useEffect } from "react";
-import { apiGet } from "./api";
+import { answer, apiGet, parsed } from "./api";
 import { onSocketEvents } from "./socket";
 
-async function read<T>(
-  path: string,
-  schema: { safeParse(v: unknown): { success: boolean; data?: T } },
-): Promise<T | null> {
-  const res = await apiGet(path).catch(() => null);
-  if (!res?.ok) return null;
-  const parsed = schema.safeParse(await res.json().catch(() => null));
-  return parsed.success ? (parsed.data as T) : null;
-}
-
-/** The sessions I took part in (#108, spec #88), newest first. */
-export const listSessions = () => read<SessionSummary[]>("/api/sessions", SessionSummarySchema.array());
+/** The sessions I took part in (#108, spec #88), newest first; `q` searches server, people and tracks. */
+export const listSessions = async (q = "") =>
+  parsed<SessionSummary[]>(
+    await answer(apiGet(`/api/sessions${q.trim() ? `?q=${encodeURIComponent(q.trim())}` : ""}`)),
+    SessionSummarySchema.array(),
+  );
 
 /** One of my sessions; "missing" when it is not mine or does not exist (the Backend says 404 for both). */
 export async function getSession(id: string): Promise<ListeningSession | "missing" | null> {
-  const res = await apiGet(`/api/sessions/${encodeURIComponent(id)}`).catch(() => null);
+  const res = await answer(apiGet(`/api/sessions/${encodeURIComponent(id)}`));
   if (res?.status === 404) return "missing";
-  if (!res?.ok) return null;
-  const parsed = ListeningSessionSchema.safeParse(await res.json().catch(() => null));
-  return parsed.success ? parsed.data : null;
+  return parsed<ListeningSession>(res, ListeningSessionSchema);
 }
 
 /** Spec #84: my top-played across every server, or a server's. */
-export const topPlayed = (of: { me: true } | { guildId: string }): Promise<TopPlayed[] | null> =>
-  read<TopPlayed[]>(
-    "me" in of ? "/api/history/top?scope=me" : `/api/history/top?guildId=${encodeURIComponent(of.guildId)}`,
+export const topPlayed = async (of: { me: true } | { guildId: string }, limit = 5): Promise<TopPlayed[] | null> =>
+  parsed<TopPlayed[]>(
+    await answer(
+      apiGet(
+        "me" in of
+          ? `/api/history/top?scope=me&limit=${limit}`
+          : `/api/history/top?guildId=${encodeURIComponent(of.guildId)}&limit=${limit}`,
+      ),
+    ),
     TopPlayedSchema.array(),
   );
 

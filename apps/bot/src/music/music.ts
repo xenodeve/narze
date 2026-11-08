@@ -468,11 +468,11 @@ export function createMusic({
   });
   lavalink.on("playerDestroy", (player, reason) => {
     publisher.gone(player.guildId).catch(warn("publish player gone"));
-    // However the Bot left voice, its Listening Session ends (#108).
-    history?.playerGone(player.guildId);
     // A Player that left (queue end without 24/7, /leave, kicked) is not restored after a restart.
-    // One that Lavalink took down (the node failed or was destroyed) is exactly what to restore.
+    // One that Lavalink took down (the node failed or was destroyed) is exactly what to restore,
+    // so its Listening Session goes on too (#108 review).
     if (String(reason ?? "").startsWith("Node")) return;
+    history?.playerGone(player.guildId);
     snapshots?.clear(player.guildId).catch(warn("clear Queue Snapshot"));
   });
 

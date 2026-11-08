@@ -47,33 +47,35 @@ export function createSessionRecorder({
   log?: (message: string, error: unknown) => void;
 }) {
   const active = new Map<string, ListeningSession>();
-  /** Sessions with changes Supabase has not seen, by id (ended ones stay here until saved). */
+  /**
+   * Snapshots Supabase has not seen, by id (ended ones stay here until saved). A save that finishes
+   * after a newer change finds a different snapshot and leaves it unsaved.
+   */
   const unsaved = new Map<string, ListeningSession>();
-  /** Bumped by every change, so a save that finishes after a newer change keeps it unsaved. */
-  const versions = new Map<string, number>();
-  let timer: unknown = null;
+  /** A write-behind is scheduled; later changes ride on it (the timer is not reset). */
+  let scheduled = false;
   let writing: Promise<void> = Promise.resolve();
 
   /** The file holds every session that is active or not yet saved. */
   function mirror(): Promise<void> {
-    const all = new Map([...unsaved, ...[...active.values()].map((s) => [s.id, s] as const)]);
-    const snapshot = structuredClone([...all.values()]);
+    const all = new Map([...unsaved, ...[...active.values()].map((s) => [s.id, structuredClone(s)] as const)]);
+    const snapshot = [...all.values()];
     writing = writing.then(() => file.write(snapshot)).catch((error) => log("write sessions file", error));
     return writing;
   }
 
   function later(): void {
-    timer ??= setTimer(() => void flush(), SESSION_FLUSH_MS);
+    if (scheduled) return;
+    scheduled = true;
+    setTimer(() => void flush(), SESSION_FLUSH_MS);
   }
 
-  async function save(session: ListeningSession): Promise<void> {
-    const version = versions.get(session.id);
+  async function save(id: string): Promise<void> {
+    const snapshot = unsaved.get(id);
+    if (!snapshot) return;
     try {
-      await store.save(structuredClone(session));
-      if (versions.get(session.id) === version) {
-        unsaved.delete(session.id);
-        versions.delete(session.id);
-      }
+      await store.save(snapshot);
+      if (unsaved.get(id) === snapshot) unsaved.delete(id);
     } catch (error) {
       log("save session", error);
       later();
@@ -81,14 +83,13 @@ export function createSessionRecorder({
   }
 
   async function flush(): Promise<void> {
-    timer = null;
-    for (const session of [...unsaved.values()]) await save(session);
+    scheduled = false;
+    await Promise.all([...unsaved.keys()].map(save));
     await mirror();
   }
 
   function touch(session: ListeningSession): void {
-    unsaved.set(session.id, session);
-    versions.set(session.id, (versions.get(session.id) ?? 0) + 1);
+    unsaved.set(session.id, structuredClone(session));
   }
 
   function join(session: ListeningSession, who: Requester, at: number): void {
@@ -123,7 +124,7 @@ export function createSessionRecorder({
       join(session, play.track.requester, at);
       touch(session);
       // The grid shows a session as soon as it starts; later tracks are written behind.
-      if (isNew) await save(session);
+      if (isNew) await save(session.id);
       else later();
       await mirror();
       publish(GuildEventTypes.sessionUpdate, session);
@@ -136,7 +137,7 @@ export function createSessionRecorder({
       session.isActive = false;
       session.endTime = now();
       touch(session);
-      await save(session);
+      await save(session.id);
       await mirror();
       publish(GuildEventTypes.sessionEnd, session);
     },

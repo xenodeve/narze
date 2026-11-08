@@ -2,7 +2,7 @@
 
 import { type ListeningSession, type SessionSummary, sessionSummary } from "@narze/shared";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { SignedIn } from "@/components/catalog/browse";
 import { Thinking } from "@/components/catalog/thinking";
 import { formatTime } from "@/components/now-playing/progress";
@@ -42,42 +42,31 @@ export function SessionsPage() {
 function SessionGrid() {
   const [sessions, setSessions] = useState<SessionSummary[] | null | "failed">(null);
   const [query, setQuery] = useState("");
-  // Each session keeps its tracks' words for the search, also for sessions that arrived live.
-  const [words, setWords] = useState<Record<string, string>>({});
+  // The search runs on the server (server name, people, tracks), a moment after typing stops.
   useEffect(() => {
-    void listSessions().then((list) => setSessions(list ?? "failed"));
-  }, []);
-  useSessionEvents(
-    useCallback((session: ListeningSession) => {
-      setWords((w) => ({ ...w, [session.id]: session.tracks.map((t) => `${t.title} ${t.author}`).join(" ") }));
-      setSessions((list) => {
-        if (!Array.isArray(list)) return list;
-        const summary = sessionSummary(session);
-        const rest = list.filter((s) => s.id !== session.id);
-        return [summary, ...rest].sort((a, b) => b.startTime - a.startTime);
-      });
-    }, []),
-  );
-  const shown = useMemo(() => {
-    if (!Array.isArray(sessions)) return [];
-    const q = query.trim().toLowerCase();
-    if (!q) return sessions;
-    return sessions.filter((s) =>
-      `${s.guildName} ${s.participants.map((p) => p.name).join(" ")} ${words[s.id] ?? ""}`.toLowerCase().includes(q),
+    const timer = setTimeout(
+      () => {
+        void listSessions(query).then((list) => setSessions(list ?? "failed"));
+      },
+      query ? 250 : 0,
     );
-  }, [sessions, query, words]);
-  // Track titles of saved sessions are only on their detail; fetch them for the search once asked.
-  useEffect(() => {
-    if (!query.trim() || !Array.isArray(sessions)) return;
-    for (const s of sessions) {
-      if (words[s.id] !== undefined) continue;
-      setWords((w) => ({ ...w, [s.id]: "" }));
-      void getSession(s.id).then((full) => {
-        if (full && full !== "missing")
-          setWords((w) => ({ ...w, [s.id]: full.tracks.map((t) => `${t.title} ${t.author}`).join(" ") }));
-      });
-    }
-  }, [query, sessions, words]);
+    return () => clearTimeout(timer);
+  }, [query]);
+  useSessionEvents(
+    useCallback(
+      (session: ListeningSession) => {
+        // While searching, a live session joins only if it matches; the next search settles it.
+        if (query.trim()) return;
+        setSessions((list) => {
+          if (!Array.isArray(list)) return list;
+          const rest = list.filter((s) => s.id !== session.id);
+          return [sessionSummary(session), ...rest].sort((a, b) => b.startTime - a.startTime);
+        });
+      },
+      [query],
+    ),
+  );
+  const shown = Array.isArray(sessions) ? sessions : [];
 
   return (
     <div className={styles.page}>
@@ -95,7 +84,9 @@ function SessionGrid() {
       ) : sessions === "failed" ? (
         <p role="alert">โหลดประวัติไม่ได้ ลองรีเฟรช</p>
       ) : sessions.length === 0 ? (
-        <p className={styles.meta}>ยังไม่มีเซสชัน พอได้ฟังเพลงกับบอทในห้องเสียง ประวัติจะขึ้นที่นี่</p>
+        <p className={styles.meta}>
+          {query.trim() ? "ไม่มีเซสชันที่ตรงกับคำค้นนี้" : "ยังไม่มีเซสชัน พอได้ฟังเพลงกับบอทในห้องเสียง ประวัติจะขึ้นที่นี่"}
+        </p>
       ) : (
         <ul className={styles.grid}>
           {shown.map((s) => (

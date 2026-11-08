@@ -16,9 +16,9 @@ export class HistoryController {
 
   /** The sessions I took part in, newest first (v5's live route showed every session of every Guild I was in). */
   @Get("sessions")
-  async sessions(@Headers("authorization") authorization: string | undefined) {
+  async sessions(@Headers("authorization") authorization: string | undefined, @Query("q") q: string | undefined) {
     const { discordId } = await this.auth.require(authorization);
-    return this.history.sessionsOf(discordId);
+    return this.history.sessionsOf(discordId, (q ?? "").slice(0, 100));
   }
 
   @Get("sessions/:id")
@@ -35,14 +35,16 @@ export class HistoryController {
     @Headers("authorization") authorization: string | undefined,
     @Query("scope") scope: string | undefined,
     @Query("guildId") guildId: string | undefined,
+    @Query("limit") limit: string | undefined,
   ) {
     const { discordId } = await this.auth.require(authorization);
+    const rows = Math.min(50, Math.max(1, Number.parseInt(limit ?? "", 10) || 20));
     if (guildId) {
       const mutual = await this.directory.mutual(await this.users.guildsOf(discordId));
       if (!mutual.some((g) => g.id === guildId)) throw new ForbiddenException("not a member of this server");
-      return this.history.top(guildId, "");
+      return this.history.top(guildId, "", rows);
     }
-    if (scope === "me") return this.history.top("", discordId);
+    if (scope === "me") return this.history.top("", discordId, rows);
     throw new NotFoundException("choose scope=me or a guildId");
   }
 }

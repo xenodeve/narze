@@ -161,6 +161,17 @@ describe("sessions belong to their participants (#108, spec #42)", () => {
     expect((await (await call(valSession, "/api/sessions")).json()) as unknown[]).toHaveLength(1);
   });
 
+  test("search runs on the server: server name, people and tracks; wildcards are plain characters", async () => {
+    const ids = async (q: string) =>
+      (
+        (await (await call(umaSession, `/api/sessions?q=${encodeURIComponent(q)}`)).json()) as Array<{ id: string }>
+      ).map((s) => s.id);
+    expect(await ids("idol")).toEqual([`${G}-2`, `${G}-1`]);
+    expect(await ids("HISTORY club")).toEqual([`${G}-2`, `${G}-1`]);
+    expect(await ids("nothing like it")).toEqual([]);
+    expect(await ids("%")).toEqual([]);
+  });
+
   test("the detail is for participants; anyone else gets a 404, even a member of the Guild", async () => {
     const mine = await call(umaSession, `/api/sessions/${G}-1`);
     expect(mine.status).toBe(200);

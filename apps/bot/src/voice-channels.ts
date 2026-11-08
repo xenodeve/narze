@@ -1,5 +1,12 @@
-import type { TextChannelList, VoiceChannelList } from "@narze/shared";
-import { ChannelType, type Guild, PermissionFlagsBits } from "discord.js";
+import type { Requester, TextChannelList, VoiceChannelList } from "@narze/shared";
+import { ChannelType, type Guild, PermissionFlagsBits, type VoiceBasedChannel } from "discord.js";
+
+/** The people (not bots) in a voice channel, as the Dashboard and Listening Sessions show them. */
+export function listenersOf(channel: VoiceBasedChannel): Requester[] {
+  return channel.members
+    .filter((m) => !m.user.bot)
+    .map((m) => ({ id: m.id, name: m.displayName, avatarUrl: m.displayAvatarURL({ size: 64 }) }));
+}
 
 /**
  * The picker's view of one Guild (spec #86): voice channels every member can see, and the people
@@ -13,11 +20,7 @@ export function publicVoiceChannels(guild: Guild): VoiceChannelList {
     .map((c) => ({
       id: c.id,
       name: c.name,
-      members: c.isVoiceBased()
-        ? c.members
-            .filter((m) => !m.user.bot)
-            .map((m) => ({ id: m.id, name: m.displayName, avatarUrl: m.displayAvatarURL({ size: 64 }) }))
-        : [],
+      members: c.isVoiceBased() ? listenersOf(c) : [],
     }));
 }
 

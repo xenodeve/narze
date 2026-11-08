@@ -26,6 +26,7 @@ import { detectRuntimeMode } from "./runtime-mode";
 import { createGuildSettings, createSupabaseSettingsStore, inviterOf, WELCOME } from "./settings/guild-settings";
 import {
   firstSendableTextChannel,
+  listenersOf,
   perGuildDebounce,
   publicVoiceChannels,
   sendableTextChannels,
@@ -72,20 +73,17 @@ const db =
     : null;
 const settings = db ? createGuildSettings(createSupabaseSettingsStore(db)) : null;
 const youtube = createYouTube({ apiKey: env.YOUTUBE_API_KEY });
-const sessionPublisher = redis ? createPlayerPublisher(redis) : null;
+const publisher = redis ? createPlayerPublisher(redis) : null;
 // Listening Sessions and Play History (#108). The local file keeps unsaved sessions across a crash.
 const history = db
   ? createHistory({
       store: createSupabaseHistoryStore(db),
       file: createSessionFile(join(env.HISTORY_DIR ?? ".data", "listening-sessions.json")),
-      publish: (type, session) => void sessionPublisher?.session(type, session).catch(logFailure("publish session")),
+      publish: (type, session) => void publisher?.session(type, session).catch(logFailure("publish session")),
       guildName: (guildId) => client.guilds.cache.get(guildId)?.name ?? "",
       members: (guildId, channelId) => {
         const channel = client.guilds.cache.get(guildId)?.channels.cache.get(channelId);
-        if (!channel?.isVoiceBased()) return [];
-        return channel.members
-          .filter((m) => !m.user.bot)
-          .map((m) => ({ id: m.id, name: m.displayName, avatarUrl: m.displayAvatarURL({ size: 64 }) }));
+        return channel?.isVoiceBased() ? listenersOf(channel) : [];
       },
       facts: (id) => youtube.videoFacts(id),
       log: (what, error) => console.warn(`[bot] ${what}: ${error instanceof Error ? error.message : error}`),
@@ -94,7 +92,7 @@ const history = db
 
 const music = createMusic({
   lavalink,
-  publisher: redis ? createPlayerPublisher(redis) : silent,
+  publisher: publisher ?? silent,
   announce: announcer(client),
   // Queue Snapshots are local files, so Queue Recovery works in both Runtime Modes (CONTEXT.md).
   snapshots: createSnapshotStore(env.QUEUE_SNAPSHOT_DIR ?? ".data/queue-snapshots"),
@@ -200,7 +198,7 @@ client.once("clientReady", async (ready) => {
   console.log(`[bot] logged in as ${ready.user.tag}`);
   await lavalink.init({ id: ready.user.id, username: ready.user.username });
   await registry?.replace(ready.guilds.cache.map(voiceSnapshotOf)).catch(logFailure("guild registry"));
-  if (redis) await createPlayerPublisher(redis).sweep().catch(logFailure("sweep stale Player States"));
+  if (publisher) await publisher.sweep().catch(logFailure("sweep stale Player States"));
   // #108 AC1: sessions a previous process left active end now, before any new one starts.
   await history?.restore([...ready.guilds.cache.keys()]).catch(logFailure("close left-over sessions"));
   for (const guild of ready.guilds.cache.values()) {

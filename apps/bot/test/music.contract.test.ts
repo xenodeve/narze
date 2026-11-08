@@ -922,11 +922,13 @@ describe("notices go to the Music Channel when one is set (#106, spec #12)", () 
     for (const event of ["trackStart", "queueEnd", "playerDestroy", "playerSocketClosed"] as const) {
       lavalink.removeAllListeners(event);
     }
+    // Its own list: a notice still in flight from an earlier test must not land here.
+    const mine: typeof notices = [];
     music = createMusic({
       lavalink,
       publisher: createPlayerPublisher(redis),
       announce: async (channelId, notice) => {
-        notices.push({ channelId, notice });
+        mine.push({ channelId, notice });
       },
       now: () => clock,
       noticeChannel: (guildId) => (guildId === GUILD ? "4242" : null),
@@ -936,10 +938,10 @@ describe("notices go to the Music Channel when one is set (#106, spec #12)", () 
     await play("idol");
     fake.finishTrack(GUILD);
     await eventually(
-      () => notices.length,
+      () => mine.length,
       (n) => n > 0,
     );
-    expect(notices[0]?.channelId).toBe("4242");
+    expect(mine[0]?.channelId).toBe("4242");
   });
 });
 
@@ -995,4 +997,24 @@ test("Listening Sessions hear each track start and the Player leaving (#108)", a
     (n) => n > 1,
   );
   expect(heard).toEqual([`start ${GUILD} Lemon ${VOICE}`, `gone ${GUILD}`]);
+});
+
+test("a Player Lavalink took down keeps its Listening Session: Queue Recovery brings it back (#108 review)", async () => {
+  for (const event of ["trackStart", "queueEnd", "playerDestroy", "playerSocketClosed"] as const) {
+    lavalink.removeAllListeners(event);
+  }
+  const gone: string[] = [];
+  music = createMusic({
+    lavalink,
+    publisher: createPlayerPublisher(redis),
+    announce: async () => {},
+    now: () => clock,
+    history: { trackStarted: () => {}, playerGone: (guildId) => gone.push(guildId) },
+  });
+  await play("lemon");
+  await eventually(stored, (s) => s?.current?.title === "Lemon");
+  const player = lavalink.getPlayer(GUILD);
+  lavalink.emit("playerDestroy", player as never, "NodeDestroy" as never);
+  await Bun.sleep(50);
+  expect(gone).toEqual([]);
 });
