@@ -15,8 +15,12 @@ export interface Identity {
  * Auth from the provider, while `user_metadata` can be changed by the user (ADR-0005).
  */
 export function discordIdentity(user: User): Identity | null {
-  const discord = user.identities?.find((identity) => identity.provider === "discord");
-  if (!discord || !/^\d+$/.test(discord.id)) return null;
+  const identities = user.identities ?? [];
+  // Discord is the only sign-in method: an account that also holds another identity (say an email
+  // signup Supabase later linked by address) may not belong to this Discord user, so it gets none.
+  if (identities.length !== 1) return null;
+  const [discord] = identities;
+  if (discord?.provider !== "discord" || !/^\d+$/.test(discord.id)) return null;
   const data = (discord.identity_data ?? {}) as Record<string, unknown>;
   const claims = (data.custom_claims ?? {}) as Record<string, unknown>;
   const text = (value: unknown) => (typeof value === "string" && value.length > 0 ? value : null);

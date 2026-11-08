@@ -220,7 +220,9 @@ web3 = 30
 [auth.email]
 # Allow/disallow the email provider. When false, users can't sign up or sign in with email.
 # To block new signups only, set enable_signup = false under [auth] instead.
-enabled = true
+# Off: Discord is the only sign-in method (ADR-0005). An unconfirmed email signup could otherwise be
+# linked by address to a Discord user who signs in later.
+enabled = false
 # If enabled, a user will be required to confirm any email change on both the old, and new email
 # addresses. If disabled, only the new email is required to confirm.
 double_confirm_changes = true
