@@ -32,6 +32,19 @@ export function discordIdentity(user: User): Identity | null {
   };
 }
 
+/**
+ * When a token Supabase Auth has already accepted stops being valid (its `exp`, in ms); null when it
+ * carries none. Only the payload is read: the signature was checked by `verify`.
+ */
+export function expiryOf(token: string): number | null {
+  try {
+    const { exp } = JSON.parse(Buffer.from(token.split(".")[1] ?? "", "base64url").toString()) as { exp?: unknown };
+    return typeof exp === "number" ? exp * 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
 @Injectable()
 export class Authenticator {
   constructor(@Inject(SUPABASE) private readonly supabase: SupabaseClient) {}

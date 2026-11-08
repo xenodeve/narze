@@ -1,5 +1,6 @@
 "use client";
 
+import { SocketEvents } from "@narze/shared/channels";
 import type { Socket } from "socket.io-client";
 import { BACKEND_URL } from "./config";
 
@@ -18,6 +19,8 @@ export function getSocket(): Promise<Socket> {
       withCredentials: true,
       auth: (send) => send(signedIn ? { token: signedIn.accessToken } : {}),
     });
+    // The Backend asks for the current token when the handshake's expires (#142).
+    s.on(SocketEvents.sessionToken, (ack: (token: string | null) => void) => ack(signedIn?.accessToken ?? null));
     // socket.io-client does not reconnect after the server closes a socket; this tab still wants one.
     s.on("disconnect", (reason) => {
       if (reason === "io server disconnect") setTimeout(() => s.connect(), 1000);

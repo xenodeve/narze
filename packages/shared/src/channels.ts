@@ -97,6 +97,8 @@ export const SocketEvents = {
   botStatus: "bot:status",
   /** Backend → socket: the handshake token was verified and the tab is counted; user rooms are joined. A bad token fails the handshake (`connect_error`) instead. */
   sessionReady: "session:ready",
+  /** Backend → socket, with an ack: the tab's current access token, asked for when the handshake's expires (#142). */
+  sessionToken: "session:token",
   /** Backend → one user's sockets: a GuildSummary that changed. */
   guildSummary: "guild:summary",
   /** Backend → a Guild's room: the GuildEvent carrying a PlayerState (or `player:gone`). */

@@ -27,7 +27,7 @@ import {
 } from "@nestjs/websockets";
 import type Redis from "ioredis";
 import type { Server, Socket } from "socket.io";
-import { Authenticator, type Identity } from "../auth/authenticator";
+import { Authenticator, expiryOf, type Identity } from "../auth/authenticator";
 import { CommandRelay } from "../control/command-relay";
 import { GuildDirectory, permissionOf, summarize } from "../guilds/guild-directory";
 import { PlayerCache } from "../player/player-cache";
@@ -40,7 +40,13 @@ interface SessionData {
   identity?: Identity;
   /** Mutual Guilds at connect time, keyed by id. */
   guilds?: Map<string, StoredGuild>;
+  /** When the handshake token expires (ms); the socket is closed then (#142). */
+  expiresAt?: number | null;
+  expiry?: ReturnType<typeof setTimeout>;
 }
+
+/** setTimeout's longest delay; a longer one fires at once. */
+const MAX_DELAY = 2 ** 31 - 1;
 
 const guildRoom = (guildId: string) => `guild:${guildId}`;
 /** One room per signed-in user: their Library changes reach their other tabs (#107). */
@@ -98,6 +104,7 @@ export class UserGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
         (identity) => {
           if (!identity) return next(new Error("unauthorized"));
           (client.data as SessionData).identity = identity;
+          (client.data as SessionData).expiresAt = expiryOf(token);
           next();
         },
         () => next(new Error("unauthorized")),
@@ -106,8 +113,10 @@ export class UserGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   }
 
   async handleConnection(client: Socket): Promise<void> {
-    const { identity } = client.data as SessionData;
+    const data = client.data as SessionData;
+    const { identity, expiresAt } = data;
     if (!identity) return;
+    this.expireAt(client, expiresAt);
     try {
       await this.signIn(client, identity);
     } catch (error) {
@@ -130,8 +139,39 @@ export class UserGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     client.emit(SocketEvents.sessionReady);
   }
 
+  /**
+   * The handshake checked one token; the socket must not outlive it (#142). At its exp the tab is asked
+   * for the token it refreshed meanwhile: a valid one for the same user sets the next check, and
+   * anything else (signed out, another user, no answer) closes the socket.
+   */
+  private expireAt(client: Socket, expiresAt: number | null | undefined): void {
+    if (expiresAt == null) return;
+    const data = client.data as SessionData;
+    data.expiry = setTimeout(
+      () => void this.renew(client).catch(report("token renewal")),
+      Math.min(MAX_DELAY, Math.max(0, expiresAt - Date.now())),
+    );
+  }
+
+  private async renew(client: Socket): Promise<void> {
+    const data = client.data as SessionData;
+    const fresh: unknown = await client
+      .timeout(5000)
+      .emitWithAck(SocketEvents.sessionToken)
+      .catch(() => null);
+    const identity = typeof fresh === "string" ? await this.auth.verify(fresh).catch(() => null) : null;
+    if (client.disconnected) return;
+    if (!identity || identity.discordId !== data.identity?.discordId || typeof fresh !== "string") {
+      client.disconnect(true);
+      return;
+    }
+    data.expiresAt = expiryOf(fresh);
+    this.expireAt(client, data.expiresAt);
+  }
+
   async handleDisconnect(client: Socket): Promise<void> {
-    const { identity, guilds } = client.data as SessionData;
+    const { identity, guilds, expiry } = client.data as SessionData;
+    clearTimeout(expiry);
     // `guilds` is set only once the tab was counted, so a socket that left mid-connect is not uncounted.
     if (identity && guilds) await this.presence.close(identity.discordId).catch(report("disconnect"));
   }
