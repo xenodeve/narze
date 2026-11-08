@@ -40,6 +40,7 @@ function GuildRow({ guild }: { guild: GuildSummary }) {
             <span>ว่าง</span>
           )}
           {guild.queueLength > 0 ? <span className="num">คิว {guild.queueLength} เพลง</span> : null}
+          {guild.memberCount !== null ? <span className="num">{guild.memberCount} สมาชิก</span> : null}
         </p>
       </div>
       <span className={`mono ${styles.badge}`} data-tone={badge.tone} title={badge.meaning} data-testid="guild-badge">

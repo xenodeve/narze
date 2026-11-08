@@ -121,9 +121,13 @@ export class UserGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
       const guild = guilds?.get(event.guildId);
       return identity && guild ? [{ socket, discordId: identity.discordId, guild }] : [];
     });
-    const voices = await this.directory.voiceChannels(event.guildId, [...new Set(listeners.map((l) => l.discordId))]);
+    const [voices, memberCount] = await Promise.all([
+      this.directory.voiceChannels(event.guildId, [...new Set(listeners.map((l) => l.discordId))]),
+      this.directory.memberCount(event.guildId),
+    ]);
     for (const { socket, discordId, guild } of listeners) {
-      socket.emit(SocketEvents.guildSummary, summarize(guild, player.data, voices.get(discordId) ?? null));
+      const userVoice = voices.get(discordId) ?? null;
+      socket.emit(SocketEvents.guildSummary, summarize(guild, { player: player.data, userVoice, memberCount }));
     }
   }
 }

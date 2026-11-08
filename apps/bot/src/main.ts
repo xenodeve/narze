@@ -28,6 +28,7 @@ client.on("raw", (packet) => lavalink.sendRawData(packet));
 const registry = redis ? createGuildRegistry(redis) : null;
 const voiceSnapshotOf = (guild: Guild): GuildVoiceSnapshot => ({
   id: guild.id,
+  memberCount: guild.memberCount,
   voice: guild.voiceStates.cache
     .filter((v) => v.channelId)
     .map((v) => [v.id, v.channelId as string] as [string, string]),
