@@ -15,6 +15,7 @@ const env = process.env;
 const VERSION = env.BOT_VERSION ?? "7.0.0-dev";
 /** Spec #21: Queue Recovery waits this long after the Lavalink node is up, as v5 did. */
 const RECOVERY_DELAY_MS = 5_000;
+let swept = false;
 /** A hard kill restores the position of the last write, at most this old (#103). */
 const SNAPSHOT_EVERY_MS = 10_000;
 
@@ -34,13 +35,13 @@ lavalink.nodeManager.on("connect", (node) => console.log(`[bot] lavalink node ${
 lavalink.nodeManager.on("error", (node, error) => console.warn(`[bot] lavalink node ${node.id}: ${error.message}`));
 
 client.on("raw", (packet) => lavalink.sendRawData(packet));
-const nodeUp = new Promise<void>((resolve) => lavalink.nodeManager.once("connect", () => resolve()));
 
 // Standalone Mode plays without publishing: there is no Redis to publish to (ADR-0003).
-const silent: Pick<PlayerPublisher, "publish" | "gone" | "jump"> = {
+const silent: Pick<PlayerPublisher, "publish" | "gone" | "jump" | "voice"> = {
   publish: async () => {},
   gone: async () => {},
   jump: async () => {},
+  voice: async () => {},
 };
 const music = createMusic({
   lavalink,
@@ -49,6 +50,16 @@ const music = createMusic({
   // Queue Snapshots are local files, so Queue Recovery works in both Runtime Modes (CONTEXT.md).
   snapshots: createSnapshotStore(env.QUEUE_SNAPSHOT_DIR ?? ".data/queue-snapshots"),
 });
+function scheduleRecovery(): void {
+  setTimeout(() => {
+    const stillThere = (s: { guildId: string; voiceChannelId: string }) =>
+      Boolean(client.guilds.cache.get(s.guildId)?.channels.cache.has(s.voiceChannelId));
+    music
+      .recover(stillThere)
+      .then((count) => count > 0 && console.log(`[bot] Queue Recovery restored ${count} Player(s)`))
+      .catch((error: Error) => console.warn(`[bot] Queue Recovery: ${error.message}`));
+  }, RECOVERY_DELAY_MS);
+}
 const snapshotTimer = setInterval(() => void music.flush(), SNAPSHOT_EVERY_MS);
 handleInteractions(client, music, () => lavalink.nodeManager.leastUsedNodes().length > 0);
 
@@ -85,15 +96,12 @@ client.once("clientReady", async (ready) => {
   if (redis) await createPlayerPublisher(redis).sweep().catch(logFailure("sweep stale Player States"));
   for (const guild of ready.guilds.cache.values()) publishVoiceChannels(guild);
   // Spec #21: after the sweep and once Lavalink is up, bring back the Players a restart dropped.
-  await nodeUp;
-  setTimeout(() => {
-    const stillThere = (s: { guildId: string; voiceChannelId: string }) =>
-      Boolean(client.guilds.cache.get(s.guildId)?.channels.cache.has(s.voiceChannelId));
-    music
-      .recover(stillThere)
-      .then((count) => count > 0 && console.log(`[bot] Queue Recovery restored ${count} Player(s)`))
-      .catch(logFailure("Queue Recovery"));
-  }, RECOVERY_DELAY_MS);
+  swept = true;
+  if (lavalink.nodeManager.leastUsedNodes().length > 0) scheduleRecovery();
+});
+// A Lavalink restart destroys every Player but keeps their snapshots: each reconnect recovers them.
+lavalink.nodeManager.on("connect", () => {
+  if (swept) scheduleRecovery();
 });
 client.on("guildCreate", (guild) => void registry?.add(voiceSnapshotOf(guild)).catch(logFailure("guild registry")));
 client.on("guildDelete", (guild) => {

@@ -28,3 +28,7 @@ Supabase เป็น source of truth ทั้งสอง mode — ไม่�
 - Bot มี code path สองแบบสำหรับ settings fetch — ต้องทดสอบทั้งสอง mode
 - Bot ต้องมี Supabase credentials เสมอ (ไม่ใช่แค่ Standalone mode)
 - Settings ที่ Backend push ผ่าน Redis ควร mirror Supabase เสมอ — ห้าม Backend เก็บ settings ที่ไม่ sync กับ Supabase
+
+## Implementation notes
+
+- **2026-11-08 (#103):** Standalone Mode plays, keeps Queue Snapshots and runs Queue Recovery without Redis (local files, CONTEXT.md). No Bot setting lives in Supabase yet, so the direct Supabase read in Standalone is not built; it lands with #106 (`/setchannel`, guild settings). Until then the Decision's settings path describes intent, not code.

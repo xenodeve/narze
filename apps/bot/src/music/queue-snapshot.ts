@@ -31,20 +31,43 @@ export const QueueSnapshotSchema = z.object({
 });
 export type QueueSnapshot = z.infer<typeof QueueSnapshotSchema>;
 
-/** One JSON file per Guild under `dir`; each write lands whole (temp file, then rename). */
+/**
+ * One JSON file per Guild under `dir`. Writes for a Guild run one after another (a save from the
+ * periodic flush can overlap one from a publish, and a clear must not be undone by a save still in
+ * flight); each lands whole, through its own temp file and a rename.
+ */
 export function createSnapshotStore(dir: string) {
   // The file name is the Guild id, so only a snowflake may become one.
   const fileOf = (guildId: string) => join(dir, `${SnowflakeSchema.parse(guildId)}.json`);
+  let made: Promise<unknown> | null = null;
+  const chains = new Map<string, Promise<void>>();
+  function inOrder(guildId: string, task: () => Promise<void>): Promise<void> {
+    const run = (chains.get(guildId) ?? Promise.resolve()).then(task, task);
+    const tail = run.catch(() => {});
+    chains.set(guildId, tail);
+    void tail.then(() => {
+      if (chains.get(guildId) === tail) chains.delete(guildId);
+    });
+    return run;
+  }
   return {
     async save(snapshot: QueueSnapshot): Promise<void> {
       const file = fileOf(snapshot.guildId);
-      await mkdir(dir, { recursive: true });
-      const temp = `${file}.${process.pid}.tmp`;
-      await writeFile(temp, JSON.stringify(snapshot));
-      await rename(temp, file);
+      return inOrder(snapshot.guildId, async () => {
+        made ??= mkdir(dir, { recursive: true });
+        await made;
+        const temp = `${file}.${crypto.randomUUID()}.tmp`;
+        try {
+          await writeFile(temp, JSON.stringify(snapshot));
+          await rename(temp, file);
+        } finally {
+          await rm(temp, { force: true });
+        }
+      });
     },
     async clear(guildId: string): Promise<void> {
-      await rm(fileOf(guildId), { force: true });
+      const file = fileOf(guildId);
+      return inOrder(guildId, () => rm(file, { force: true }));
     },
     /** Every readable snapshot; a damaged file is skipped (it cannot be restored anyway). */
     async all(): Promise<QueueSnapshot[]> {

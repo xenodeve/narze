@@ -9,6 +9,7 @@ import {
   PlayerSummarySchema,
   parseJson,
   SocketEvents,
+  VOICE_EVENT_TYPES,
   VoiceChannelListSchema,
 } from "@narze/shared";
 import { Inject, Logger, type OnModuleInit } from "@nestjs/common";
@@ -49,20 +50,15 @@ const report = (what: string) => (error: unknown) =>
   logger.warn(`${what}: ${error instanceof Error ? error.message : String(error)}`);
 
 /**
- * Signed-in sockets: verified at handshake (`auth.token`), joined to a room per Mutual Guild, and
- * counted for Presence. A socket without a token stays anonymous and only receives Bot status.
- */
-/**
  * Events the Dashboard only draws, so they are relayed but never cached: the queue jump animation
  * (spec #39) and a voice drop with its recovery (spec #28).
  */
-const DRAWN_ONLY = new Set<string>([
-  GuildEventTypes.queueJump,
-  GuildEventTypes.voiceDisconnect,
-  GuildEventTypes.voiceReconnected,
-  GuildEventTypes.voiceReconnectFailed,
-]);
+const DRAWN_ONLY = new Set<string>([GuildEventTypes.queueJump, ...VOICE_EVENT_TYPES]);
 
+/**
+ * Signed-in sockets: verified at handshake (`auth.token`), joined to a room per Mutual Guild, and
+ * counted for Presence. A socket without a token stays anonymous and only receives Bot status.
+ */
 @WebSocketGateway()
 export class UserGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect, OnModuleInit {
   @WebSocketServer() private server!: Server;

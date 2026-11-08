@@ -68,8 +68,11 @@ describe("Player State from the Lavalink player", () => {
   });
 });
 
-const redis = new Redis(process.env.REDIS_URL ?? DEFAULT_REDIS_URL);
-const subscriber = new Redis(process.env.REDIS_URL ?? DEFAULT_REDIS_URL);
+// Its own Redis database: the sweep test removes every Player State key it can see, and `verify`
+// runs the Backend's tests at the same time on database 0. (Pub/sub is shared across databases;
+// the sweep only announces the keys it found, which here are this file's.)
+const redis = new Redis(process.env.REDIS_URL ?? DEFAULT_REDIS_URL, { db: 15 });
+const subscriber = new Redis(process.env.REDIS_URL ?? DEFAULT_REDIS_URL, { db: 15 });
 const keys = [RedisKeys.playerState(GUILD), RedisKeys.playerSummary(GUILD)];
 beforeEach(() => redis.del(...keys));
 afterAll(async () => {

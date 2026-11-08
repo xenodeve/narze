@@ -150,3 +150,22 @@ test("a voice drop shows while the Bot reconnects, and clears when it is back (#
   await voice(GuildEventTypes.voiceReconnectFailed, { error: "x" });
   await expect(page.getByTestId("voice-status")).toHaveText("ต่อเสียงใหม่ไม่สำเร็จ ลองใช้ /join");
 });
+
+test("an Idle Player shows a voice drop too, and a Player that is gone clears it (#103)", async ({ page }) => {
+  const send = async (type: string, data: unknown) =>
+    redis.publish(
+      Channels.guildEvents,
+      JSON.stringify({ type, guildId: GUILD, revision: 0, sequence: 0, ts: Date.now(), data }),
+    );
+  await signInThroughPopup(page, "Frank");
+  await page.goto(`/guilds/${GUILD}`);
+  await botPublishes(state("", { current: null, twentyFourSeven: true, positionMs: 0 }));
+  await expect(page.getByTestId("idle-247")).toBeVisible();
+  await expect(async () => {
+    await send(GuildEventTypes.voiceDisconnect, { code: 4006, reason: "x", byRemote: false, recovering: true });
+    await expect(page.getByTestId("voice-status")).toHaveText("เสียงหลุด กำลังต่อใหม่…", { timeout: 500 });
+  }).toPass();
+  await redis.del(RedisKeys.playerState(GUILD));
+  await send(GuildEventTypes.playerGone, null);
+  await expect(page.getByTestId("voice-status")).toHaveCount(0);
+});

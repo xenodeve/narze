@@ -127,6 +127,7 @@ describe("playing from Discord against Fake Lavalink (#100)", () => {
         publish: () => Promise.reject(new Error("redis down")),
         gone: () => Promise.reject(new Error("redis down")),
         jump: () => Promise.reject(new Error("redis down")),
+        voice: () => Promise.reject(new Error("redis down")),
       },
       announce: async () => {},
       now: () => clock,
@@ -486,9 +487,89 @@ describe("Queue Recovery after a restart (#103, spec #21, #35, #123)", () => {
     expect(notices[0]?.notice.description).toContain("กู้คิวเพลง");
   });
 
+  test("a Lavalink failure that destroys the Player keeps its snapshot; /leave clears it", async () => {
+    const snapshots = await snapshotsDir();
+    music = engine(lavalink, snapshots);
+    await play("lemon");
+    await eventually(
+      async () => (await snapshots.all()).length,
+      (n) => n === 1,
+    );
+    await lavalink.getPlayer(GUILD)?.destroy("NodeReconnectFail");
+    await Bun.sleep(30);
+    expect((await snapshots.all()).length).toBe(1);
+
+    await play("idol");
+    await music.leave(GUILD);
+    expect(
+      await eventually(
+        async () => (await snapshots.all()).length,
+        (n) => n === 0,
+      ),
+    ).toBe(0);
+  });
+
+  test("restoring never overwrites the snapshot with an empty current; a missing current plays the queue", async () => {
+    const snapshots = await snapshotsDir();
+    const written: Array<{ current: unknown; queue: unknown[] }> = [];
+    const watched = {
+      ...snapshots,
+      save: async (s: Parameters<typeof snapshots.save>[0]) => {
+        written.push(s);
+        await snapshots.save(s);
+      },
+    };
+    music = engine(lavalink, snapshots);
+    await play("lemon");
+    await play("idol");
+    await music.flush();
+    lavalink.removeAllListeners();
+    await lavalink.nodeManager.leastUsedNodes()[0]?.destroy?.();
+    lavalink = await connect();
+    music = engine(lavalink, watched);
+    await music.recover();
+    await eventually(stored, (s) => s?.current?.title === "Lemon" && !s.recovering);
+    expect(written.length).toBeGreaterThan(0);
+    expect(written.every((s) => s.current !== null)).toBe(true);
+
+    // A crash after the old bug wrote current: null — the queue's head plays instead of idling forever.
+    const [snap] = await snapshots.all();
+    if (!snap) throw new Error("no snapshot");
+    await snapshots.save({ ...snap, current: null, positionMs: 0 });
+    lavalink.removeAllListeners();
+    await lavalink.nodeManager.leastUsedNodes()[0]?.destroy?.();
+    lavalink = await connect();
+    music = engine(lavalink, snapshots);
+    expect(await music.recover()).toBe(1);
+    expect(
+      await eventually(
+        () => fake.player(GUILD)?.track?.info.title,
+        (t) => t === "Idol",
+      ),
+    ).toBe("Idol");
+  });
+
+  test("a /play that arrives while a Player is being restored waits for the restore", async () => {
+    const snapshots = await snapshotsDir();
+    music = engine(lavalink, snapshots);
+    await play("lemon");
+    await play("idol");
+    await music.flush();
+    lavalink.removeAllListeners();
+    await lavalink.nodeManager.leastUsedNodes()[0]?.destroy?.();
+    lavalink = await connect();
+    music = engine(lavalink, snapshots);
+    const recovering = music.recover();
+    await eventually(() => lavalink.getPlayer(GUILD), Boolean);
+    await play("pretender");
+    expect(await recovering).toBe(1);
+    const state = await eventually(stored, (s) => s?.current?.title === "Lemon" && s.queue.length === 2);
+    expect(state?.queue.map((t) => t.title)).toEqual(["Idol", "Pretender"]);
+  });
+
   test("Standalone Mode: with nothing to publish to, the Bot still plays and recovers (ADR-0003)", async () => {
     const snapshots = await snapshotsDir();
-    const silent = { publish: async () => {}, gone: async () => {}, jump: async () => {} };
+    const silent = { publish: async () => {}, gone: async () => {}, jump: async () => {}, voice: async () => {} };
     const standalone = (manager: LavalinkManager) =>
       createMusic({ lavalink: manager, publisher: silent, snapshots, announce: async () => {}, now: () => clock });
     music = standalone(lavalink);
@@ -501,7 +582,12 @@ describe("Queue Recovery after a restart (#103, spec #21, #35, #123)", () => {
     lavalink = await connect();
     music = standalone(lavalink);
     expect(await music.recover()).toBe(1);
-    expect(await eventually(() => fake.player(GUILD)?.track?.info.title, (t) => t === "Lemon")).toBe("Lemon");
+    expect(
+      await eventually(
+        () => fake.player(GUILD)?.track?.info.title,
+        (t) => t === "Lemon",
+      ),
+    ).toBe("Lemon");
     expect(music.status(GUILD)?.queue.map((t) => t.title)).toEqual(["Idol"]);
   });
 
@@ -594,6 +680,60 @@ describe("voice-drop recovery (#103, spec #28)", () => {
       { type: GuildEventTypes.voiceDisconnect, data: expect.objectContaining({ code: 1000, recovering: false }) },
     ]);
     expect(voicePackets.length).toBe(joins);
+  });
+
+  const slow = () => {
+    // One engine per Lavalink manager, as in the Bot: the one from beforeEach stops listening.
+    lavalink.removeAllListeners("playerSocketClosed");
+    return createMusic({
+      lavalink,
+      publisher: {
+        ...createPlayerPublisher(redis),
+        voice: async (_guildId, type, data) => {
+          events.push({ type, data });
+        },
+      },
+      announce: async () => {},
+      now: () => clock,
+      voiceRetryMs: [60, 0],
+    });
+  };
+
+  test("a track skipped while reconnecting is not sought to the old track's position", async () => {
+    music = slow();
+    await playingAt(40_000);
+    await play("idol");
+    fake.closeVoice(GUILD, 4006, false);
+    await music.skip(GUILD);
+    await eventually(
+      () => fake.player(GUILD)?.track?.info.title,
+      (t) => t === "Idol",
+    );
+    expect((await reconnected())?.data).toMatchObject({ resumed: false });
+    expect(fake.player(GUILD)?.position ?? 0).toBeLessThan(40_000);
+  });
+
+  test("a Player that leaves while reconnecting ends the drop as failed, without its error text", async () => {
+    music = slow();
+    await playingAt(10_000);
+    fake.closeVoice(GUILD, 4006, false);
+    await eventually(
+      () => events.length,
+      (n) => n > 0,
+    );
+    await music.leave(GUILD);
+    const failed = await eventually(() => events.find((e) => e.type === GuildEventTypes.voiceReconnectFailed), Boolean);
+    expect(failed?.data).toEqual({ error: "player-gone" });
+  });
+
+  test("a second drop while reconnecting does not start a second reconnect", async () => {
+    music = slow();
+    await playingAt(10_000);
+    fake.closeVoice(GUILD, 4006, false);
+    fake.closeVoice(GUILD, 4006, false);
+    await reconnected();
+    await Bun.sleep(100);
+    expect(events.filter((e) => e.type === GuildEventTypes.voiceReconnected)).toHaveLength(1);
   });
 
   test("a paused Player reconnects and stays paused", async () => {

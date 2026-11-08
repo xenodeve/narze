@@ -64,6 +64,16 @@ function Artwork({ track }: { track: Track }) {
 
 const VOICE_TEXT = { reconnecting: "เสียงหลุด กำลังต่อใหม่…", failed: "ต่อเสียงใหม่ไม่สำเร็จ ลองใช้ /join" } as const;
 
+/** A voice drop (spec #28), playing or idle. */
+function VoiceLine({ voice }: { voice: VoiceStatus }) {
+  if (!voice) return null;
+  return (
+    <p className={styles.label} data-testid="voice-status" role="status">
+      {VOICE_TEXT[voice]}
+    </p>
+  );
+}
+
 function Stage({
   guildId,
   state,
@@ -94,11 +104,7 @@ function Stage({
             <Artwork track={track} />
             <div className={styles.meta}>
               <p className={styles.label}>{state.paused ? "พักไว้" : "กำลังเล่น"}</p>
-              {voice ? (
-                <p className={styles.label} data-testid="voice-status" role="status">
-                  {VOICE_TEXT[voice]}
-                </p>
-              ) : null}
+              <VoiceLine voice={voice} />
               {/* Sibling keys must differ: the title and the progress bar both re-mount per track. */}
               <h1 id="now-title" key={`title:${track.uri}`} className={styles.title} data-testid="now-title">
                 {track.title}
@@ -131,6 +137,7 @@ function Stage({
                 กำลังกู้คิวหลังบอทรีสตาร์ท…
               </p>
             ) : null}
+            <VoiceLine voice={voice} />
             {/* An Idle Player (spec #27): the queue ended and 24/7 keeps the Bot in voice. */}
             {!state.recovering && state.twentyFourSeven && state.voiceChannelId ? (
               <p className={styles.label} data-testid="idle-247">

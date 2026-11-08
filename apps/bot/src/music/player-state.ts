@@ -6,6 +6,7 @@ import {
   PlayerStateSchema,
   type PlayerSummary,
   RedisKeys,
+  type VoiceEventType,
 } from "@narze/shared";
 import type Redis from "ioredis";
 import type { Track as LavalinkTrack, RepeatMode } from "lavalink-client";
@@ -73,11 +74,6 @@ const summaryOf = (state: PlayerState): PlayerSummary => ({
  * Writes the Player State and its summary to Redis, then announces both as Guild events — keys
  * first, so a reader reacting to an event never finds the old value (ADR-0002, ADR-0007).
  */
-export type VoiceEventType =
-  | typeof GuildEventTypes.voiceDisconnect
-  | typeof GuildEventTypes.voiceReconnected
-  | typeof GuildEventTypes.voiceReconnectFailed;
-
 export function createPlayerPublisher(redis: Redis) {
   let sequence = 0;
   const event = (type: string, guildId: string, revision: number, data: unknown): string =>
