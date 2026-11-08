@@ -25,7 +25,9 @@ function GuildRow({ guild }: { guild: GuildSummary }) {
         </span>
       )}
       <div className={styles.body}>
-        <p className={styles.name}>{guild.name}</p>
+        <a className={styles.name} href={`/guilds/${guild.id}`}>
+          {guild.name}
+        </a>
         <p className={styles.meta} data-testid="guild-player">
           {guild.playing ? (
             <>

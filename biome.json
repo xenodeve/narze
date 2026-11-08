@@ -12,6 +12,7 @@
       "!**/.next",
       "!**/node_modules",
       "!**/next-env.d.ts",
+      "!**/components/vendor",
       "!**/playwright-report",
       "!**/test-results"
     ]

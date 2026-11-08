@@ -101,10 +101,13 @@ afterAll(async () => {
 });
 
 describe("Player State through the Hot Cache (#100, ADR-0006)", () => {
-  test("a Guild with no Player answers an empty state", async () => {
+  test("a Guild with no Player answers an empty state, with the server time to interpolate from", async () => {
+    const before = Date.now();
     const res = await getPlayer(G_MINE);
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ state: null });
+    const body = (await res.json()) as { state: null; now: number };
+    expect(body.state).toBeNull();
+    expect(body.now).toBeGreaterThanOrEqual(before);
   });
 
   test("a member reads the state the Bot published", async () => {
@@ -146,6 +149,6 @@ describe("Player State through the Hot Cache (#100, ADR-0006)", () => {
     await redis.del(RedisKeys.playerState(G_MINE));
     await redis.publish(Channels.guildEvents, JSON.stringify(gone));
     await Bun.sleep(50);
-    expect(await (await getPlayer(G_MINE)).json()).toEqual({ state: null });
+    expect(((await (await getPlayer(G_MINE)).json()) as { state: null }).state).toBeNull();
   });
 });

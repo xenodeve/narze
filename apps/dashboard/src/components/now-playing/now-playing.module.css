@@ -1,0 +1,241 @@
+/* Guild player page (DESIGN.md §5): stage 7fr, side column 5fr. */
+.page {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  align-items: start;
+  gap: clamp(24px, 4vw, 48px);
+}
+
+@media (max-width: 900px) {
+  .page {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.stage {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  min-height: 360px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-stage);
+  background: var(--surface);
+  transition: --mood 800ms var(--ease-soft);
+}
+
+.loading {
+  background: linear-gradient(90deg, var(--surface), var(--fill), var(--surface)) 0 0 / 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.content {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: end;
+  gap: clamp(20px, 3vw, 36px);
+  padding: clamp(20px, 3.5vw, 40px);
+}
+
+@media (max-width: 640px) {
+  .content {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Artwork reserves its box (CLS 0) and gets nothing tinted next to it (DESIGN.md §2 rule 7). */
+.art {
+  position: relative;
+  width: clamp(200px, 26vw, 280px);
+  aspect-ratio: 1;
+  border-radius: var(--r3);
+  overflow: hidden;
+  background: var(--fill);
+  box-shadow: var(--shadow-window);
+}
+
+.artEmpty {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--mood) 40%, var(--fill)), var(--fill));
+}
+
+.cover {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity var(--t-glide) var(--ease-soft);
+}
+
+.cover[data-loaded="true"] {
+  opacity: 1;
+}
+
+.meta {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.label {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+/* Track title swap: 280 ms, blur sharpening (DESIGN.md §7). */
+.title {
+  margin: 0;
+  font-size: clamp(1.6rem, 3vw, 2.4rem);
+  line-height: 1.2;
+  font-weight: 600;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+  animation: swap 280ms var(--ease) both;
+}
+
+@keyframes swap {
+  from {
+    opacity: 0;
+    filter: blur(6px);
+  }
+}
+
+.author {
+  margin: 0;
+  color: var(--ink-2);
+}
+
+.requester {
+  margin: 6px 0 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-2);
+  font-size: 0.875rem;
+}
+
+.requester img {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+}
+
+.progress {
+  display: grid;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.track {
+  height: 4px;
+  border-radius: var(--r-pill);
+  background: var(--line);
+  overflow: hidden;
+}
+
+/* Progress fill is one of the few places accent appears (DESIGN.md §2 rule 2); scaled, never re-laid out. */
+.fill {
+  height: 100%;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left;
+}
+
+.times {
+  margin: 0;
+  display: flex;
+  justify-content: space-between;
+  color: var(--ink-2);
+  font-size: 0.8125rem;
+}
+
+.idle {
+  display: grid;
+  gap: 8px;
+  grid-column: 1 / -1;
+  max-width: 30em;
+}
+
+.avatar {
+  position: absolute;
+  top: clamp(16px, 2.5vw, 28px);
+  right: clamp(16px, 2.5vw, 28px);
+  width: 56px;
+  height: 56px;
+}
+
+.next {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.nextTitle {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--line);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 2ch minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  border-bottom: 1px solid var(--line);
+  animation: row 360ms var(--ease) both;
+}
+
+@keyframes row {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+.index,
+.rowTime,
+.rowAuthor {
+  color: var(--ink-2);
+  font-size: 0.875rem;
+}
+
+.rowText {
+  display: grid;
+  min-width: 0;
+}
+
+.rowTitle,
+.rowAuthor {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.empty,
+.notice {
+  margin: 0;
+  padding: 20px 0;
+  border-top: 1px solid var(--line);
+  color: var(--ink-2);
+}

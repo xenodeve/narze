@@ -5,7 +5,9 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./channels": "./src/channels.ts"
+    "./channels": "./src/channels.ts",
+    "./progress": "./src/progress.ts",
+    "./reconcile": "./src/reconcile.ts"
   },
   "scripts": {
     "test": "bun test",

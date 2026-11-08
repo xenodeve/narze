@@ -51,8 +51,37 @@
   min-width: 0;
 }
 
+/* The whole row is the link's hit area (::after), so the name keeps reading as text. */
+.row {
+  position: relative;
+}
+
+.name::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.name:focus-visible {
+  outline: none;
+}
+
+.row:has(.name:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: var(--r1);
+}
+
+@media (hover: hover) {
+  .row:has(.name:hover) {
+    background: var(--fill);
+  }
+}
+
 .name {
   margin: 0;
+  color: inherit;
+  text-decoration: none;
   font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;

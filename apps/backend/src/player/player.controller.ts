@@ -20,10 +20,11 @@ export class PlayerController {
   async state(
     @Headers("authorization") authorization: string | undefined,
     @Param("guildId") guildId: string,
-  ): Promise<{ state: PlayerState | null }> {
+  ): Promise<{ state: PlayerState | null; now: number }> {
     const { discordId } = await this.auth.require(authorization);
     const mutual = await this.directory.mutual(await this.store.guildsOf(discordId));
     if (!mutual.some((g) => g.id === guildId)) throw new ForbiddenException("not a member of this server");
-    return { state: await this.cache.get(guildId) };
+    // `now` lets the client place `syncedAt` on its own clock before interpolating (spec #103).
+    return { state: await this.cache.get(guildId), now: Date.now() };
   }
 }

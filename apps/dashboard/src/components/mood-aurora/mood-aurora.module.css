@@ -1,0 +1,15 @@
+.layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.55;
+}
+
+/* The static fallback: a flat mood wash fading into the stage (DESIGN.md §8). */
+.wash {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 80% at 50% 0%, color-mix(in srgb, var(--mood) 45%, transparent), transparent 70%);
+  transition: --mood 800ms var(--ease-soft);
+}
