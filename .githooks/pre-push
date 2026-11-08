@@ -22,6 +22,8 @@ if [ "$status" -ne 0 ]; then
   echo "" >&2
   echo "pre-push blocked by a T4 guard (above)." >&2
   echo "  Fix the cause, or push from a wip/ branch for a deliberate freeze." >&2
+  # Deliberate deviation from the t4-project-bootstrap copy while CI cannot run (#116); restore the
+  # original two lines when #116 closes.
   echo "  Bypassing with --no-verify is possible and discouraged. While GitHub Actions" >&2
   echo "  cannot run (#116, billing lock) nothing re-checks a push server-side." >&2
 fi
