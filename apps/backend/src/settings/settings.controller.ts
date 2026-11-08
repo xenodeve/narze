@@ -5,6 +5,7 @@ import {
   parseJson,
   RedisKeys,
   SettingsUpdateSchema,
+  type SettingsView,
   type TextChannelList,
   TextChannelListSchema,
 } from "@narze/shared";
@@ -27,14 +28,6 @@ import { UserGateway } from "../realtime/user.gateway";
 import { REDIS } from "../tokens";
 import { UserStore } from "../users/user-store";
 import { SettingsStore } from "./settings-store";
-
-interface SettingsView {
-  settings: GuildSettings;
-  /** Only the Server Owner and the Bot Owner may change settings (enforced on PUT). */
-  canEdit: boolean;
-  /** The text channels the Bot can post in, for the Music Channel picker. */
-  textChannels: TextChannelList;
-}
 
 /** Guild Settings (#106, spec #92): any member reads, the Server Owner or Bot Owner changes. */
 @Controller("api/guilds/:guildId/settings")

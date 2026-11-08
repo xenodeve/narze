@@ -76,3 +76,13 @@ export type SettingsUpdate = z.infer<typeof SettingsUpdateSchema>;
 /** A text channel the Bot can post in (#106 Music Channel picker). */
 export const TextChannelListSchema = z.array(z.object({ id: z.string(), name: z.string() }));
 export type TextChannelList = z.infer<typeof TextChannelListSchema>;
+
+/** What GET/PUT /api/guilds/:id/settings answers (#106, spec #92). */
+export const SettingsViewSchema = z.object({
+  settings: GuildSettingsSchema,
+  /** Only the Server Owner and the Bot Owner may change settings (enforced on PUT). */
+  canEdit: z.boolean(),
+  /** The text channels the Bot can post in, for the Music Channel picker. */
+  textChannels: TextChannelListSchema,
+});
+export type SettingsView = z.infer<typeof SettingsViewSchema>;

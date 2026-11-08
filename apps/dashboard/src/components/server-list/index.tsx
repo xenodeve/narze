@@ -1,6 +1,7 @@
 "use client";
 
 import type { GuildSummary, PermissionBadge } from "@narze/shared";
+import { GuildAvatar } from "@/components/guild-avatar";
 import { useGuilds } from "@/lib/use-guilds";
 import styles from "./server-list.module.css";
 
@@ -16,7 +17,9 @@ function GuildRow({ guild }: { guild: GuildSummary }) {
   const badge = BADGE[guild.badge];
   return (
     <li className={styles.row} data-testid="guild-row" data-guild-id={guild.id}>
-      {guild.iconUrl ? (
+      {guild.avatar ? (
+        <GuildAvatar outfit={guild.avatar} size={40} testId="guild-avatar" />
+      ) : guild.iconUrl ? (
         // biome-ignore lint/performance/noImgElement: a 40px guild icon from Discord's CDN; next/image would add remote-pattern config for no gain
         <img className={styles.icon} src={guild.iconUrl} width={40} height={40} alt="" />
       ) : (

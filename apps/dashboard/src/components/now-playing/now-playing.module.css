@@ -265,3 +265,17 @@
   border-top: 1px solid var(--line);
   color: var(--ink-2);
 }
+
+/* In the flow, under the controls: the top-right corner belongs to the Bot Avatar. */
+.bell {
+  grid-column: 1 / -1;
+  display: flex;
+  margin-top: 4px;
+}
+
+.settingsLink {
+  grid-column: 1 / -1;
+  justify-self: end;
+  color: var(--ink-2);
+  font-size: 0.8125rem;
+}

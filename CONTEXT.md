@@ -35,6 +35,8 @@ Glossary for the whole repo (single-context). When a term appears in **bold**, u
 
 **Music Channel** — optional text channel per **Guild** where now-playing and recovery notices go.
 
+**Guild Settings** — per-**Guild** settings in Supabase (`guild_settings`, #106): the **Bot Owner**, the **Music Channel** and the **Bot Avatar** outfit. The **Bot** creates the row when it joins and reads it directly in both Runtime Modes; the **Dashboard** changes them through the **Backend**, and only the **Server Owner** or the **Bot Owner** may. Kept after the Bot leaves.
+
 **Now-Playing Notice** — the embed the **Bot** posts when a track starts; suppressed for the cases listed in the spec (first `/play` track, skipplay, play-next immediate, loop repeats, terminal playback).
 
 ## People and permission
@@ -122,6 +124,8 @@ Dashboard ──REST/Socket.io──▶ Backend ──Redis pub/sub──▶ Bot
 **Track Resolution** — การแปลงคำค้นหรือ URL เป็นเพลงที่เล่นได้ ค่าเริ่มต้นค้นใน Spotify (ตลาด TH แล้วหาคู่ใน YouTube ด้วย ISRC ก่อน ตามด้วยชื่อเพลง) รองรับ YouTube / YouTube Music, URL ของ playlist (ทุกเพลงจำว่ามาจาก playlist ไหน นับลำดับจาก 1 ส่วน YouTube Mix ใช้ชื่อ `สถานีวิทยุ…`) และถ้า Spotify แปลงไม่ได้จะถอยไปใช้ oEmbed รวมถึงภาพของแต่ละเพลง (แยกเพลงกับวิดีโอ และอัปเกรดภาพปก) และไอคอนผู้เขียนใน embed การค้นข้อมูลและ autocomplete ของ Bot ใช้ cache ใน process ตาม TTL ในสเปก จึงทำงานได้ทั้งสองโหมด
 
 **Music Channel** — ช่องข้อความที่เลือกได้ต่อ **Guild** สำหรับประกาศเพลงที่เล่นและแจ้งการกู้คิว
+
+**Guild Settings** — ค่าตั้งของแต่ละ **Guild** ที่เก็บใน Supabase (`guild_settings`, #106) ได้แก่ **Bot Owner**, **Music Channel** และชุดของ **Bot Avatar** **Bot** สร้างแถวนี้ตอนเข้าเซิร์ฟเวอร์ และอ่านเองโดยตรงได้ทั้งสอง Runtime Mode ส่วน **Dashboard** แก้ผ่าน **Backend** และแก้ได้เฉพาะ **Server Owner** หรือ **Bot Owner** เท่านั้น ค่าตั้งยังอยู่แม้ Bot ออกจากเซิร์ฟเวอร์แล้ว
 
 **Now-Playing Notice** — embed ที่ **Bot** โพสต์ตอนเพลงเริ่ม และจะไม่โพสต์ในกรณีที่สเปกระบุ (เพลงแรกของ `/play`, skipplay, play-next ที่เล่นทันที, เพลงวนซ้ำ, เพลงที่สั่งจาก terminal)
 

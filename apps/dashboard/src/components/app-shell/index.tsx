@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useState } from "react";
 import { Account } from "@/components/account";
+import { GuildAvatar } from "@/components/guild-avatar";
 import BranchedMenu from "@/components/vendor/branched-menu/BranchedMenu";
 import { useSession } from "@/lib/session";
 import { useGuilds } from "@/lib/use-guilds";
@@ -28,7 +29,10 @@ function GuildNav({ userId, activeGuildId }: { userId: string; activeGuildId: st
           children: guilds.map((g) => ({
             value: g.id,
             label: g.name,
-            icon: (
+            // The Guild's Bot Avatar in its outfit (#106); a monogram until the Bot has its settings.
+            icon: g.avatar ? (
+              <GuildAvatar outfit={g.avatar} size={20} testId="nav-avatar" guildId={g.id} />
+            ) : (
               <span className={styles.monogram} aria-hidden="true">
                 {Array.from(g.name)[0] ?? "?"}
               </span>
