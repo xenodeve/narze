@@ -14,11 +14,14 @@ import {
   STATS_POINTS,
 } from "@narze/shared";
 import { createClient } from "@supabase/supabase-js";
-import { AuditLogEvent, Client, GatewayIntentBits, type Guild } from "discord.js";
+import { AuditLogEvent, ChannelType, Client, GatewayIntentBits, type Guild } from "discord.js";
 import { captureConsole, createRingSink } from "./admin/logs";
 import { startAdminQueries } from "./admin/queries";
 import { createCpuMeter } from "./admin/stats";
 import { startCommandBus } from "./command-bus";
+import { createConsole } from "./console/console";
+import { startRepl } from "./console/repl";
+import type { ConsoleChannel, ConsoleGuild } from "./console/resolve";
 import { announcer, handleInteractions } from "./discord/interactions";
 import { createGuildRegistry, type GuildVoiceSnapshot } from "./guild-registry";
 import { startHeartbeat } from "./heartbeat";
@@ -329,10 +332,52 @@ const stopHeartbeat = redis
 if (env.DISCORD_TOKEN) await client.login(env.DISCORD_TOKEN);
 else console.warn("[bot] DISCORD_TOKEN not set — running without Discord (heartbeat only)");
 
+// The operator console (#112, spec #119), in both Runtime Modes: it needs Discord and Lavalink only.
+const consoleGuilds = (): ConsoleGuild[] =>
+  // An unavailable guild (outage, or before its GUILD_CREATE) has no name yet.
+  [...client.guilds.cache.values()]
+    .filter((guild) => guild.available)
+    .map((guild) => ({
+      id: guild.id,
+      name: guild.name,
+      // Built only when a command looks at channels (play, list, find).
+      get channels(): ConsoleChannel[] {
+        const voice = guild.channels.cache.filter((c) => c.isVoiceBased());
+        const sendable = new Set(sendableTextChannels(guild).map((c) => c.id));
+        const texts = guild.channels.cache
+          .filter((c) => c.type === ChannelType.GuildText)
+          .sort((x, y) => ("position" in x && "position" in y ? x.position - y.position : 0));
+        return [
+          ...voice.map((c) => ({
+            id: c.id,
+            name: c.name,
+            kind: "voice" as const,
+            canSend: false,
+            members: c.isVoiceBased() ? c.members.size : 0,
+          })),
+          ...texts.map((c) => ({ id: c.id, name: c.name, kind: "text" as const, canSend: sendable.has(c.id) })),
+        ];
+      },
+    }));
+const operator = createConsole({
+  guilds: consoleGuilds,
+  music,
+  // Read when a command runs: before login there is no Bot user to request with.
+  bot: () =>
+    client.user ? { id: client.user.id, name: client.user.username, avatarUrl: client.user.displayAvatarURL() } : null,
+  ready: () => lavalink.nodeManager.leastUsedNodes().length > 0,
+  // Straight to the terminal: the console's replies are not Bot log lines (#110 ring).
+  print: (line) => process.stdout.write(`${line}\n`),
+  clear: () => console.clear(),
+});
+const repl = startRepl({ run: operator.run, interrupt: () => void shutdown() });
+
 let stopping = false;
 shutdown = async (code = 0) => {
   if (stopping) return;
   stopping = true;
+  // Give the terminal back first (readline holds it in raw mode).
+  repl?.close();
   // A step that hangs must not keep the Bot alive forever (scrutinize m2).
   setTimeout(() => process.exit(code), 10_000).unref();
   stopHeartbeat();

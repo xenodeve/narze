@@ -32,6 +32,7 @@ const snapshot = (guildId: string, over: Partial<QueueSnapshot> = {}): QueueSnap
   volume: 40,
   repeatMode: "off",
   twentyFourSeven: true,
+  silent: false,
   savedAt: 1,
   ...over,
 });

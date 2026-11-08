@@ -6,7 +6,6 @@ const none: AnnounceFlags = {
   skipplay: false,
   skip: false,
   dontShow: false,
-  terminal: false,
   trackLoop: false,
 };
 
@@ -28,10 +27,6 @@ describe("Now-Playing Notice suppression (spec #15, #24)", () => {
   test("a track-loop repeat is not, unless /skip caused it", () => {
     expect(shouldAnnounce({ ...none, trackLoop: true }, 0)).toBe(false);
     expect(shouldAnnounce({ ...none, trackLoop: true, skip: true }, 0)).toBe(true);
-  });
-
-  test("terminal playback is never announced", () => {
-    expect(shouldAnnounce({ ...none, terminal: true }, 0)).toBe(false);
   });
 });
 
