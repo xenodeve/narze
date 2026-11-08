@@ -28,6 +28,7 @@ const app = await createApp({
     accountsUrl: env.SPOTIFY_ACCOUNTS_URL || undefined,
   },
   youtubeApiKey: env.YOUTUBE_API_KEY,
+  chartsUrl: env.CHARTS_URL || undefined,
 });
 await app.listen(Number(env.BACKEND_PORT ?? 4000));
 console.log(`[backend] listening on ${await app.getUrl()}`);
