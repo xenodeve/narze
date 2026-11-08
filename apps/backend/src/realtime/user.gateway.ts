@@ -32,8 +32,9 @@ import { CommandRelay } from "../control/command-relay";
 import { GuildDirectory, permissionOf, summarize } from "../guilds/guild-directory";
 import { PlayerCache } from "../player/player-cache";
 import { Presence } from "../presence/presence";
+import { clientAddress, RateLimiter, type RateLimits } from "../rate-limit";
 import { SettingsStore } from "../settings/settings-store";
-import { REDIS_SUBSCRIBER } from "../tokens";
+import { RATE_LIMITS, REDIS_SUBSCRIBER } from "../tokens";
 import { type StoredGuild, UserStore } from "../users/user-store";
 
 interface SessionData {
@@ -83,7 +84,14 @@ export class UserGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     @Inject(CommandRelay) private readonly relay: CommandRelay,
     @Inject(REDIS_SUBSCRIBER) private readonly subscriber: Redis,
     @Inject(SettingsStore) private readonly settings: SettingsStore,
-  ) {}
+    @Inject(RATE_LIMITS) limits: RateLimits,
+  ) {
+    this.handshakes = new RateLimiter(limits.handshake);
+    this.trustedProxies = limits.trustedProxies;
+  }
+
+  private readonly handshakes: RateLimiter;
+  private readonly trustedProxies: string[];
 
   async onModuleInit(): Promise<void> {
     await this.presence.reset();
@@ -97,6 +105,10 @@ export class UserGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   /** Refuses a bad token during the handshake, so the client gets `connect_error` and no socket. */
   afterInit(server: Server): void {
     server.use((client, next) => {
+      // Before any Supabase call: a flood of handshakes from one address is refused first (#142).
+      const { remoteAddress } = client.request.socket;
+      const address = clientAddress(remoteAddress, client.request.headers["x-forwarded-for"], this.trustedProxies);
+      if (!this.handshakes.hit(address).ok) return next(new Error("rate-limited"));
       const token: unknown = client.handshake.auth?.token;
       if (token === undefined) return next();
       if (typeof token !== "string") return next(new Error("unauthorized"));

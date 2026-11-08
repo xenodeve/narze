@@ -1,4 +1,5 @@
 import "reflect-metadata";
+import type { IncomingMessage, ServerResponse } from "node:http";
 import { createSpotifyApi } from "@narze/shared/spotify-api";
 import { type DynamicModule, type INestApplication, Inject, Module, type OnApplicationShutdown } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
@@ -26,6 +27,7 @@ import { MeController } from "./me/me.controller";
 import { PlayerController } from "./player/player.controller";
 import { PlayerCache } from "./player/player-cache";
 import { Presence } from "./presence/presence";
+import { clientAddress, DEFAULT_RATE_LIMITS, RateLimiter, type RateLimits } from "./rate-limit";
 import { UserGateway } from "./realtime/user.gateway";
 import { createLavalinkRest } from "./search/lavalink-rest";
 import { SearchController } from "./search/search.controller";
@@ -35,7 +37,15 @@ import { SettingsController } from "./settings/settings.controller";
 import { SettingsStore } from "./settings/settings-store";
 import { BotStatusTracker } from "./status/bot-status.tracker";
 import { StatusGateway } from "./status/status.gateway";
-import { ADMIN_QUERY_TIMEOUT_MS, DEVELOPER_IDS, DISCORD_API_URL, REDIS, REDIS_SUBSCRIBER, SUPABASE } from "./tokens";
+import {
+  ADMIN_QUERY_TIMEOUT_MS,
+  DEVELOPER_IDS,
+  DISCORD_API_URL,
+  RATE_LIMITS,
+  REDIS,
+  REDIS_SUBSCRIBER,
+  SUPABASE,
+} from "./tokens";
 import { UserStore } from "./users/user-store";
 
 export interface AppOptions {
@@ -57,6 +67,8 @@ export interface AppOptions {
   adminQueryTimeoutMs?: number;
   /** Apple Music's RSS for charts (ADR-0010); the real one unless a test points elsewhere. */
   chartsUrl?: string;
+  /** Per-address and per-user limits (#142); DEFAULT_RATE_LIMITS unless a test sets small ones. */
+  rateLimits?: RateLimits;
 }
 
 /** Applies the Dashboard origin to every Socket.io server, so CORS lives in one place. */
@@ -130,6 +142,7 @@ class AppModule implements OnApplicationShutdown {
         },
         { provide: DEVELOPER_IDS, useValue: options.developerIds ?? [] },
         { provide: ADMIN_QUERY_TIMEOUT_MS, useValue: options.adminQueryTimeoutMs ?? 5000 },
+        { provide: RATE_LIMITS, useValue: options.rateLimits ?? DEFAULT_RATE_LIMITS },
         AdminQueries,
         AdminRoles,
         AdminGuard,
@@ -165,7 +178,21 @@ export async function createApp(options: AppOptions): Promise<INestApplication> 
   });
   // A 5000-track playlist (the Library's limit) is about 1.5 MB of JSON; express allows 100 KB.
   app.useBodyParser("json", { limit: "4mb" });
+  // CORS first: it answers preflights itself (they cost no Supabase call, so they are not counted),
+  // and a 429 needs its headers or the browser hides it behind a network error.
   app.enableCors({ origin: options.dashboardOrigin });
+  // Every REST call costs a Supabase Auth round trip: a flood from one address is refused first (#142).
+  const limits = options.rateLimits ?? DEFAULT_RATE_LIMITS;
+  const api = new RateLimiter(limits.api);
+  app.use("/api", (req: IncomingMessage, res: ServerResponse, next: () => void) => {
+    const address = clientAddress(req.socket.remoteAddress, req.headers["x-forwarded-for"], limits.trustedProxies);
+    const { ok, retryAfterMs } = api.hit(address);
+    if (ok) return next();
+    res.statusCode = 429;
+    res.setHeader("retry-after", String(Math.ceil(retryAfterMs / 1000)));
+    res.setHeader("content-type", "application/json");
+    res.end(JSON.stringify({ statusCode: 429, message: "Too Many Requests" }));
+  });
   app.useWebSocketAdapter(new CorsIoAdapter(app, options.dashboardOrigin));
   app.enableShutdownHooks();
   return app;
