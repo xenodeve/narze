@@ -6,6 +6,33 @@
 
 ---
 
+## #142 Socket token expiry and function search_path (2026-11-08, branch `fix/142-socket-expiry`) — items 2–4 open
+
+**Goal:** close the two agent-fixable LOW findings from the #114 security review (#142 items 1 and 5).
+
+**Shipped:**
+- **A socket no longer outlives its token** (`apps/backend/src/realtime/user.gateway.ts`, `expireAt` / `renew`):
+  - At the handshake token's `exp`, the Backend asks the tab for its current token (`session:token`, with an ack).
+  - A valid token for the same user sets the next check. No answer within 5 s, a refused token, or another user's token closes the socket.
+  - The Dashboard answers from the token supabase-js keeps refreshed (`apps/dashboard/src/lib/socket.ts`).
+  - Asking first, instead of closing at once, keeps the hourly reconnect from flashing the Bot as offline (`use-bot-status` treats a server disconnect as offline).
+  - A token with no `exp`, or a renewed one that is already past it, is refused (fail closed).
+  - A hidden tab does not refresh its token, so its socket can be closed and its reconnect refused, and socket.io does not retry a refused handshake. When a refreshed token for the same user arrives, `setSocketUser` reconnects a socket that is down. Found by scrutinize.
+- **`search_path = ''`** on `replace_playlist_tracks`, `record_play` and `admin_user_stats` (migration `20261108120000`). Checked in `pg_proc`.
+
+**#140 (player JS) parked, not shipped:**
+- Lazy schemas measured 396.9 KB against 392.8 KB, because the player page parses answers at load, so zod still arrives before the track shows. Reverted.
+- React, Next, supabase-js and the canvases add up to 278 KB on their own. Reaching 180 KB needs a product decision, written on #140 (`ready-for-human`).
+
+**Open on #142:**
+- Item 2: Lavalink `http` source and egress filtering (deployment).
+- Item 3: rate limiting.
+- Item 4: Redis `requirepass` in production.
+
+**Validated:** `user.gateway.test.ts` covers renewal, each way a renewal can fail, and the timer cleared on disconnect. The tests were written red first. `bun run verify` exit 0 (backend 106, bot 224); `bun run e2e` 48/48. ADR-0005 now says sockets are re-checked at the token's `exp`.
+
+---
+
 ## #114 Hardening (2026-11-08, branch `chore/114-hardening`) — AC4 blocked by #116
 
 **Goal:** measure, then fix or file: performance, accessibility, security (#114).

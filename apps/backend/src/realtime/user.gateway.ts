@@ -40,8 +40,8 @@ interface SessionData {
   identity?: Identity;
   /** Mutual Guilds at connect time, keyed by id. */
   guilds?: Map<string, StoredGuild>;
-  /** When the handshake token expires (ms); the socket is closed then (#142). */
-  expiresAt?: number | null;
+  /** When the current token expires (ms); the tab is asked for a fresh one then (#142). */
+  expiresAt?: number;
   expiry?: ReturnType<typeof setTimeout>;
 }
 
@@ -146,8 +146,8 @@ export class UserGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
    * for the token it refreshed meanwhile: a valid one for the same user sets the next check, and
    * anything else (signed out, another user, no answer) closes the socket.
    */
-  private expireAt(client: Socket, expiresAt: number | null | undefined): void {
-    if (expiresAt == null) return;
+  private expireAt(client: Socket, expiresAt: number | undefined): void {
+    if (expiresAt === undefined) return;
     const data = client.data as SessionData;
     data.expiry = setTimeout(
       () => void this.renew(client).catch(report("token renewal")),
