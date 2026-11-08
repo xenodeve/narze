@@ -95,3 +95,9 @@
     padding-bottom: 12px;
   }
 }
+
+.barEnd {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}

@@ -6,6 +6,7 @@ import { type ReactNode, useEffect, useState } from "react";
 import { Account } from "@/components/account";
 import { GuildAvatar } from "@/components/guild-avatar";
 import BranchedMenu from "@/components/vendor/branched-menu/BranchedMenu";
+import { VoiceControl } from "@/components/voice";
 import { useAdminRole } from "@/lib/admin";
 import { useSession } from "@/lib/session";
 import { useGuilds } from "@/lib/use-guilds";
@@ -86,7 +87,10 @@ export function AppShell({ guildId = "", children }: { guildId?: string; childre
         <a className={`mono ${styles.brand}`} href="/">
           NARZE · V7
         </a>
-        <Account />
+        <span className={styles.barEnd}>
+          {guildId && session.status === "signed-in" ? <VoiceControl guildId={guildId} /> : null}
+          <Account />
+        </span>
       </header>
       <div className={styles.body}>
         {session.status === "signed-in" ? (

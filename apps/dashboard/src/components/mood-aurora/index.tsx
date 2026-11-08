@@ -10,7 +10,7 @@ const Aurora = dynamic(() => import("@/components/vendor/aurora/Aurora"), { ssr:
  * Whether the WebGL Aurora may run (DESIGN.md §8): WebGL2 present, and not `?fx=0`, reduced
  * motion, a low-memory device or Save-Data. Otherwise the stage shows a flat `--mood` wash.
  */
-function canAnimate(): boolean {
+export function canAnimate(): boolean {
   const nav = navigator as Navigator & { deviceMemory?: number; connection?: { saveData?: boolean } };
   if (new URLSearchParams(window.location.search).get("fx") === "0") return false;
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return false;
@@ -28,7 +28,7 @@ export function MoodAurora({ mood, paused }: { mood: string; paused: boolean }) 
   useEffect(() => setAnimate(canAnimate()), []);
 
   return (
-    <div className={styles.layer} aria-hidden="true" data-fx={animate ? "aurora" : "wash"}>
+    <div className={styles.layer} aria-hidden="true" data-fx={animate ? "aurora" : "wash"} data-paused={paused}>
       {animate ? (
         <Aurora colorStops={[mood, "#5aa2ff", mood]} amplitude={0.9} blend={0.6} speed={0.6} paused={paused} />
       ) : (

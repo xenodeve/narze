@@ -15,6 +15,7 @@ import { moodFromArtwork, moodFromText } from "@/lib/mood";
 import { useTrackNotifications } from "@/lib/notifications";
 import { useGuildSettings } from "@/lib/settings";
 import { type Permission, usePlayer, type VoiceStatus } from "@/lib/use-player";
+import { useVoiceSheetOpen } from "@/lib/voice";
 import styles from "./now-playing.module.css";
 import { Progress } from "./progress";
 import { SidePanel } from "./side-panel";
@@ -104,11 +105,13 @@ function Stage({
   };
   const track = state.current;
   const mood = useMood(track);
+  const voiceOpen = useVoiceSheetOpen();
   const avatarState = !track ? "default" : state.paused ? "default" : "working";
 
   return (
     <section className={styles.stage} style={{ "--mood": mood } as CSSProperties} aria-labelledby="now-title">
-      <MoodAurora mood={mood} paused={!track || state.paused} />
+      {/* The voice sheet's Strands is the one animating canvas while it is open (#113). */}
+      <MoodAurora mood={mood} paused={!track || state.paused || voiceOpen} />
       <div className={styles.content}>
         {track ? (
           <>
