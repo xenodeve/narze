@@ -15,6 +15,10 @@ type Place = Pick<PlayRequest, "next" | "position" | "skipplay">;
 
 /** The voice checks every play command makes, then the play: a refusal, or what the engine did. */
 async function playAt(ctx: CommandContext, music: Music, place: Place): Promise<Reply | PlayResult> {
+  // v5's sentinels: a suggestion that was itself an error comes back as the query.
+  const query = String(ctx.option("query") ?? "");
+  if (query === "no_song") return fail("กรุณาระบุเพลง");
+  if (query === "error" || query.endsWith("_error")) return fail("กรุณาระบุเพลงที่ถูกต้อง");
   const voice = ctx.memberVoiceChannelId;
   if (!voice) return fail("กรุณาเข้าห้องเสียงด้วย");
   const status = music.status(ctx.guildId);
@@ -64,12 +68,16 @@ function playlistReply(
 }
 
 const withQuery = (b: SlashCommandBuilder) =>
-  b.addStringOption((o) => o.setName("query").setDescription("ชื่อเพลง | ลิ้งก์").setRequired(true));
+  b.addStringOption((o) => o.setName("query").setDescription("ชื่อเพลง | ลิ้งก์").setRequired(true).setAutocomplete(true));
+
+/** Spec #2: the query option of /play, /playnext, /playat and /skipplay suggests tracks. */
+export const suggestTracks: NonNullable<Command["autocomplete"]> = (_ctx, music, focused) => music.suggest(focused);
 
 export const playnext: Command = {
   slow: true,
   data: withQuery(new SlashCommandBuilder().setName("playnext").setDescription("เพิ่มเพลงถัดจากเพลงปัจจุบัน")),
   run: (ctx, music) => placedPlay(ctx, music, { next: true }),
+  autocomplete: suggestTracks,
 };
 
 export const playat: Command = {
@@ -82,7 +90,8 @@ export const playat: Command = {
     if (!Number.isInteger(position) || position < 1) return fail("ตำแหน่งไม่ถูกต้อง");
     return placedPlay(ctx, music, { position: position - 1 });
   },
-  autocomplete(ctx, music, focused) {
+  autocomplete(ctx, music, focused, option) {
+    if (option === "query") return music.suggest(focused);
     const size = music.status(ctx.guildId)?.queue.length ?? 0;
     if (size === 0) return [{ name: "ไม่มีเพลงในคิว - แทรกเป็นเพลงแรก", value: "1" }];
     const all = [
@@ -106,5 +115,10 @@ export const skipplay: Command = {
     if (result.kind === "error") return fail(REASON[result.reason]);
     const title = result.kind === "playlist" ? result.playlist.name : result.track.title;
     return ok(`\`⏭️\`┃**Skipped** ไปยังเพลง **${title}** โดย: <@${ctx.user.id}>`);
+  },
+  autocomplete(ctx, music, focused) {
+    const status = music.status(ctx.guildId);
+    if (!status?.current) return [{ name: "ไม่มีเพลงก่อนหน้า ไม่สามารถใช้ skipplay ได้", value: "nobeforsong_error" }];
+    return music.suggest(focused);
   },
 };

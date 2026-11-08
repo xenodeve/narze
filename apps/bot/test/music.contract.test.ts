@@ -848,3 +848,18 @@ describe("artwork and the author icon on the engine (#104, spec #62–#68)", () 
     expect(notices[0]?.notice.author?.url).toBe(PLAYLIST_URL);
   });
 });
+
+describe("autocomplete on the engine (#104, spec #69)", () => {
+  test("suggestions come from the node, and a repeated query does not search again", async () => {
+    const before = fake.searches().length;
+    expect(await music.suggest("idol")).toEqual([
+      { name: "(YOASOBI) Idol", value: "https://music.youtube.com/watch?v=idol" },
+    ]);
+    await music.suggest("idol");
+    expect(fake.searches().length).toBe(before + 1);
+    expect(music.suggestionStats().entries).toBe(1);
+    music.clearSuggestions();
+    await music.suggest("idol");
+    expect(fake.searches().length).toBe(before + 2);
+  });
+});

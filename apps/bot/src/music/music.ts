@@ -3,11 +3,13 @@ import { GuildEventTypes, moveTrack, type VoiceEventType } from "@narze/shared";
 import type { LavalinkManager, Track as LavalinkTrack, Player, RepeatMode } from "lavalink-client";
 import { type AnnounceFlags, NO_FLAGS, nowPlayingNotice, recoveryNotice, shouldAnnounce } from "./announce";
 import type { Artwork } from "./artwork";
+import { type Choice, createSuggester } from "./autocomplete";
 import type { Notice } from "./format";
 import { type PlayerPublisher, toPlayerState } from "./player-state";
 import { resolveQuery } from "./query";
 import type { QueueSnapshot, SnapshotStore, StoredTrack } from "./queue-snapshot";
 import { toTrack } from "./track";
+import { createTtlCache } from "./ttl-cache";
 
 /** Spec #6/#19: a new Player starts at volume 15. */
 export const DEFAULT_VOLUME = 15;
@@ -131,6 +133,24 @@ export function createMusic({
   }
 
   const sourceManagers = () => lavalink.nodeManager.leastUsedNodes()[0]?.info?.sourceManagers ?? [];
+
+  // Spec #69: autocomplete answers are kept 30 minutes, at most 1000 of them, in this process
+  // (it works without Redis, ADR-0003).
+  const suggestions = createTtlCache<string, Choice[]>({ ttlMs: 30 * 60_000, max: 1000, now });
+  const suggester = createSuggester({
+    cache: suggestions,
+    sources: sourceManagers,
+    load: async (query, source) => {
+      const node = lavalink.nodeManager.leastUsedNodes()[0];
+      if (!node) throw new Error("no Lavalink node");
+      const found = await node.search(source ? { query, source } : { query }, { id: "autocomplete" });
+      return {
+        loadType: found.loadType,
+        tracks: found.tracks,
+        playlistName: (found as { playlist?: { name?: string } | null }).playlist?.name,
+      };
+    },
+  });
 
   const is247 = (player: Player) => player.get<boolean | undefined>(TWENTY_FOUR_SEVEN) === true;
 
@@ -558,6 +578,11 @@ export function createMusic({
     async flush(): Promise<void> {
       await Promise.all([...lavalink.players.values()].map(save));
     },
+
+    /** The /play family's autocomplete (spec #2, #69). */
+    suggest: (query: string) => suggester.suggest(query),
+    suggestionStats: () => suggestions.stats(),
+    clearSuggestions: () => suggestions.clear(),
 
     play(request: PlayRequest): Promise<PlayResult> {
       return serial(request.guildId, () => startOrQueue(request));

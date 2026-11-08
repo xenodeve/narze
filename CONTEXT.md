@@ -31,7 +31,7 @@ Glossary for the whole repo (single-context). When a term appears in **bold**, u
 
 **Requester** — the Discord user who added a track (from Discord or the Dashboard). Required on every track.
 
-**Track Resolution** — turning a query or URL into playable tracks: Spotify search by default (market TH, mirrored to YouTube by ISRC then title), YouTube / YouTube Music, playlist URLs, Spotify oEmbed fallback.
+**Track Resolution** — turning a query or URL into playable tracks: Spotify search by default (market TH, mirrored to YouTube by ISRC then title), YouTube / YouTube Music, playlist URLs (every track carries its playlist, 1-based; a YouTube Mix is `สถานีวิทยุ…`), Spotify oEmbed fallback. Also each track's picture (music vs video, upgraded thumbnails) and the embed author icon. The Bot's own lookups and autocomplete are cached in-process with the spec's TTLs, so they work in both Runtime Modes.
 
 **Music Channel** — optional text channel per **Guild** where now-playing and recovery notices go.
 
@@ -117,7 +117,7 @@ Dashboard ──REST/Socket.io──▶ Backend ──Redis pub/sub──▶ Bot
 
 **Requester** — ผู้ใช้ Discord ที่เพิ่มเพลงนั้น (จาก Discord หรือ Dashboard) ทุกเพลงต้องมี
 
-**Track Resolution** — การแปลงคำค้นหรือ URL เป็นเพลงที่เล่นได้ ค่าเริ่มต้นค้นใน Spotify (ตลาด TH แล้วหาคู่ใน YouTube ด้วย ISRC ก่อน ตามด้วยชื่อเพลง) รองรับ YouTube / YouTube Music, URL ของ playlist และถ้า Spotify แปลงไม่ได้จะถอยไปใช้ oEmbed
+**Track Resolution** — การแปลงคำค้นหรือ URL เป็นเพลงที่เล่นได้ ค่าเริ่มต้นค้นใน Spotify (ตลาด TH แล้วหาคู่ใน YouTube ด้วย ISRC ก่อน ตามด้วยชื่อเพลง) รองรับ YouTube / YouTube Music, URL ของ playlist (ทุกเพลงจำว่ามาจาก playlist ไหน นับลำดับจาก 1 ส่วน YouTube Mix ใช้ชื่อ `สถานีวิทยุ…`) และถ้า Spotify แปลงไม่ได้จะถอยไปใช้ oEmbed รวมถึงภาพของแต่ละเพลง (แยกเพลงกับวิดีโอ และอัปเกรดภาพปก) และไอคอนผู้เขียนใน embed การค้นข้อมูลและ autocomplete ของ Bot ใช้ cache ใน process ตาม TTL ในสเปก จึงทำงานได้ทั้งสองโหมด
 
 **Music Channel** — ช่องข้อความที่เลือกได้ต่อ **Guild** สำหรับประกาศเพลงที่เล่นและแจ้งการกู้คิว
 
