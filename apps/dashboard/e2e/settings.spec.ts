@@ -99,6 +99,8 @@ test("the Bot Owner changes the Music Channel and the outfit; other tabs and eve
 
   await page.getByLabel("หมวก").selectOption("crown");
   await page.getByLabel("ชนิด").selectOption("cat");
+  // Guild setting toggles are the supplied SquishSwitch (DESIGN.md).
+  await expect(page.getByRole("switch", { name: "หูฟัง" })).toHaveAttribute("aria-checked", "true");
   await page.getByRole("button", { name: "บันทึกชุด" }).click();
   await expect(other.getByTestId("outfit-preview")).toHaveAttribute("data-hat", "crown", { timeout: 2000 });
 

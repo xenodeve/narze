@@ -126,3 +126,39 @@ describe("Guild Settings over HTTP (#106, spec #92, #121)", () => {
     expect(guilds.find((g) => g.id === G_OWN)?.avatar?.type).toBe("cat");
   });
 });
+
+describe("live pushes keep the Bot Owner and the outfit (#106 review)", () => {
+  test("after a Player change, a Bot Owner out of voice still controls, and the row keeps its outfit", async () => {
+    // Ivy is Member Club's Bot Owner (set above) but not its Server Owner, and not in voice.
+    expect((await call("PUT", `/api/guilds/${G_MEM}/settings`, { avatar: { type: "ghost" } })).status).toBe(200);
+    const socket = io(url, { transports: ["websocket"], auth: { token: session.access_token } });
+    await new Promise((resolve) => socket.once(SocketEvents.sessionReady, resolve));
+    const permission = new Promise<{ canControl: boolean; reason: string }>((resolve) =>
+      socket.on(SocketEvents.permissionUpdate, (p: { guildId: string; canControl: boolean; reason: string }) => {
+        if (p.guildId === G_MEM) resolve(p);
+      }),
+    );
+    const summary = new Promise<{ avatar?: { type: string } }>((resolve) =>
+      socket.on(SocketEvents.guildSummary, (s: { id: string; avatar?: { type: string } }) => {
+        if (s.id === G_MEM) resolve(s);
+      }),
+    );
+    const player = { playing: true, queueLength: 0, voiceChannelId: "77" };
+    await redis.set(RedisKeys.playerSummary(G_MEM), JSON.stringify(player));
+    await redis.publish(
+      Channels.guildEvents,
+      JSON.stringify({
+        type: GuildEventTypes.playerSummary,
+        guildId: G_MEM,
+        revision: 1,
+        sequence: 1,
+        ts: Date.now(),
+        data: player,
+      }),
+    );
+    expect(await permission).toEqual(expect.objectContaining({ canControl: true, reason: "bot-owner" }));
+    expect((await summary).avatar?.type).toBe("ghost");
+    socket.close();
+    await redis.del(RedisKeys.playerSummary(G_MEM));
+  });
+});

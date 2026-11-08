@@ -15,7 +15,7 @@ export interface CommandContext {
   option(name: string): string | number | null;
   latencyMs: { reply: number; ws: number };
   /** /setchannel (#106): saves the Music Channel; absent where settings are not wired. */
-  setMusicChannel?: (channelId: string | null) => Promise<void>;
+  setMusicChannel?: (channelId: string | null) => Promise<SetChannelResult>;
 }
 
 export interface Reply {
@@ -40,3 +40,6 @@ export interface Command {
   /** Suggestions for the focused option, named by `option` (Discord shows at most 25). */
   autocomplete?(ctx: CommandContext, music: Music, focused: string, option: string): Promise<Choice[]> | Choice[];
 }
+
+/** What /setchannel's save answered (#106): saved, not allowed, a channel the Bot cannot post in, or an error. */
+export type SetChannelResult = "ok" | "forbidden" | "cannot-post" | "failed";

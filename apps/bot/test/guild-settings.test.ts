@@ -11,11 +11,11 @@ function memoryStore(rows: GuildSettings[] = []): SettingsStore & { rows: Map<st
     get: async (guildId) => map.get(guildId) ?? null,
     ensure: async ({ guildId, guildName, ownerId }) => {
       const old = map.get(guildId);
-      // v5: a re-invite records the new inviter and keeps the Music Channel.
+      // A re-invite keeps the first owner, the Music Channel and the outfit.
       map.set(guildId, {
         guildId,
         guildName,
-        ownerId,
+        ownerId: old?.ownerId ?? ownerId,
         musicChannelId: old?.musicChannelId ?? null,
         avatar: old?.avatar ?? DEFAULT_OUTFIT,
       });
@@ -38,13 +38,13 @@ describe("Bot Owner on join (#106, spec #22, #121)", () => {
     expect(await inviterOf(async () => Promise.reject(new Error("Missing Permissions")), "me")).toBeNull();
   });
 
-  test("joining records the owner and keeps a Music Channel set before a re-invite", async () => {
+  test("joining records the owner once; a re-invite keeps it and the Music Channel", async () => {
     const store = memoryStore([
       { guildId: "9", guildName: "Old", ownerId: "1", musicChannelId: "55", avatar: DEFAULT_OUTFIT },
     ]);
     const settings = createGuildSettings(store);
     await settings.join({ id: "9", name: "Club", ownerId: "7" }, "3");
-    expect(store.rows.get("9")).toMatchObject({ ownerId: "3", guildName: "Club", musicChannelId: "55" });
+    expect(store.rows.get("9")).toMatchObject({ ownerId: "1", guildName: "Club", musicChannelId: "55" });
     await settings.join({ id: "8", name: "New", ownerId: "7" }, null);
     expect(store.rows.get("8")?.ownerId).toBe("7");
   });
@@ -135,5 +135,42 @@ describe("/setchannel (#106, spec #12)", () => {
     const cleared = await command.run(ctx(null), {} as never);
     expect(set).toHaveBeenLastCalledWith(null);
     expect(cleared.notice.description).toBe("✅ ลบการตั้งค่า Music Channel แล้ว\n\nบอทจะส่งข้อความใน channel ที่สั่งเพลง");
+  });
+});
+
+describe("/setchannel refusals (#106 review)", () => {
+  const ctxWith = (result: "ok" | "forbidden" | "cannot-post" | "failed") =>
+    ({
+      guildId: "9",
+      channelId: "1",
+      user: { id: "2", name: "Dee", avatarUrl: null },
+      memberVoiceChannelId: null,
+      canSpeakIn: () => true,
+      option: () => "55",
+      latencyMs: { reply: 1, ws: 1 },
+      setMusicChannel: async () => result,
+    }) as never;
+  test("only the Server Owner or Bot Owner; only a channel the Bot can post in; v5's error otherwise", async () => {
+    const { commands } = await import("../src/commands");
+    const command = commands.find((c) => c.data.name === "setchannel");
+    if (!command) throw new Error("no /setchannel");
+    const text = async (r: "ok" | "forbidden" | "cannot-post" | "failed") =>
+      (await command.run(ctxWith(r), {} as never)).notice.description;
+    expect(await text("forbidden")).toBe("> `❌` เฉพาะเจ้าของเซิร์ฟเวอร์หรือ Bot Owner ที่เปลี่ยนการตั้งค่าได้");
+    expect(await text("cannot-post")).toBe("> `❌` บอทส่งข้อความในห้อง <#55> ไม่ได้");
+    expect(await text("failed")).toBe("> `❌` เกิดข้อผิดพลาดในการตั้งค่า กรุณาลองใหม่อีกครั้ง");
+  });
+});
+
+describe("audit names cannot break the code spans (#106 review)", () => {
+  test("backticks in names are replaced", () => {
+    const notice = auditNotice({
+      user: { id: "1", tag: "a`b", avatarUrl: null },
+      voice: null,
+      command: { name: "play", id: "c" },
+      channel: { name: "x`y", id: "5" },
+      guild: { name: "`Club`", id: "9", iconUrl: null },
+    });
+    expect(notice.description).not.toMatch(/a`b|x`y|``Club/);
   });
 });

@@ -1,30 +1,14 @@
 import {
   type AvatarOutfit,
-  AvatarOutfitSchema,
-  DEFAULT_OUTFIT,
+  GUILD_SETTINGS_COLUMNS as COLUMNS,
+  settingsFromRow as fromRow,
   type GuildSettings,
+  type GuildSettingsRow as Row,
   type SettingsUpdate,
 } from "@narze/shared";
 import { Inject, Injectable } from "@nestjs/common";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { SUPABASE } from "../tokens";
-
-interface Row {
-  guild_id: string;
-  guild_name: string;
-  owner_id: string;
-  music_channel_id: string | null;
-  avatar: unknown;
-}
-
-const COLUMNS = "guild_id, guild_name, owner_id, music_channel_id, avatar";
-const fromRow = (row: Row): GuildSettings => ({
-  guildId: row.guild_id,
-  guildName: row.guild_name,
-  ownerId: row.owner_id,
-  musicChannelId: row.music_channel_id,
-  avatar: AvatarOutfitSchema.catch(DEFAULT_OUTFIT).parse(row.avatar ?? {}),
-});
 
 /**
  * Guild Settings in Supabase (migration 20261108070000_guild_settings, spec #121). The Bot creates
@@ -32,7 +16,26 @@ const fromRow = (row: Row): GuildSettings => ({
  */
 @Injectable()
 export class SettingsStore {
+  /** Settings change rarely and are read on every control command: kept a few seconds. */
+  private readonly recent = new Map<string, { at: number; value: GuildSettings | null }>();
   constructor(@Inject(SUPABASE) private readonly db: SupabaseClient) {}
+
+  /**
+   * For hot paths (permissions, summaries): a cached read that degrades to "no settings" when
+   * Supabase is unreachable, so a settings outage never fails playback control or the server list.
+   */
+  async cached(guildId: string): Promise<GuildSettings | null> {
+    const hit = this.recent.get(guildId);
+    if (hit && Date.now() - hit.at < 10_000) return hit.value;
+    const value = await this.get(guildId).catch(() => hit?.value ?? null);
+    this.recent.set(guildId, { at: Date.now(), value });
+    return value;
+  }
+
+  /** Many Guilds for the server list; an outage reads as none. */
+  async cachedMany(guildIds: string[]): Promise<Map<string, GuildSettings>> {
+    return this.many(guildIds).catch(() => new Map());
+  }
 
   async get(guildId: string): Promise<GuildSettings | null> {
     const { data, error } = await this.db.from("guild_settings").select(COLUMNS).eq("guild_id", guildId).maybeSingle();
@@ -59,6 +62,8 @@ export class SettingsStore {
       .select(COLUMNS)
       .single();
     if (error) throw new Error(`update guild settings: ${error.message}`);
-    return fromRow(data as Row);
+    const updated = fromRow(data as Row);
+    this.recent.set(updated.guildId, { at: Date.now(), value: updated });
+    return updated;
   }
 }

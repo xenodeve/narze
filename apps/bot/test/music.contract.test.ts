@@ -942,3 +942,29 @@ describe("notices go to the Music Channel when one is set (#106, spec #12)", () 
     expect(notices[0]?.channelId).toBe("4242");
   });
 });
+
+test("a Music Channel the Bot cannot post in falls back to the command's channel (#106 review)", async () => {
+  for (const event of ["trackStart", "queueEnd", "playerDestroy", "playerSocketClosed"] as const) {
+    lavalink.removeAllListeners(event);
+  }
+  music = createMusic({
+    lavalink,
+    publisher: createPlayerPublisher(redis),
+    announce: async (channelId, notice) => {
+      if (channelId === "4242") return false;
+      notices.push({ channelId, notice });
+      return true;
+    },
+    now: () => clock,
+    noticeChannel: () => "4242",
+  });
+  await play("lemon");
+  await eventually(stored, (s) => s?.current?.title === "Lemon");
+  await play("idol");
+  fake.finishTrack(GUILD);
+  await eventually(
+    () => notices.length,
+    (n) => n > 0,
+  );
+  expect(notices[0]?.channelId).toBe(TEXT);
+});

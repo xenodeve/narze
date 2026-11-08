@@ -60,8 +60,8 @@ export interface MusicOptions {
   /** Title of a Spotify URL from its public oEmbed, for links Lavalink cannot resolve (spec #70). */
   oembedTitle?: (url: string) => Promise<string | null>;
   publisher: Pick<PlayerPublisher, "publish" | "gone" | "jump" | "voice">;
-  /** Posts a Now-Playing Notice in a text channel. */
-  announce: (channelId: string, notice: Notice) => Promise<void>;
+  /** Posts a notice in a text channel; `false` when that channel cannot take it. */
+  announce: (channelId: string, notice: Notice) => Promise<boolean | void>;
   now?: () => number;
   /** Queue Snapshots for Queue Recovery (#103); without it nothing is written or restored. */
   snapshots?: SnapshotStore;
@@ -135,6 +135,16 @@ export function createMusic({
   usePlaylistUrl = false,
   noticeChannel = () => null,
 }: MusicOptions) {
+  /**
+   * Spec #12: a notice goes to the Guild's Music Channel; when that channel cannot take it (deleted,
+   * or the Bot lost Send Messages) it falls back to the channel the command came from.
+   */
+  async function notify(guildId: string, fallback: string | null, notice: Notice): Promise<void> {
+    const music = noticeChannel(guildId);
+    if (music && (await announce(music, notice)) !== false) return;
+    if (fallback && fallback !== music) await announce(fallback, notice);
+  }
+
   /** Resolves a track's picture once (spec #62/#63); toTrack reads it from userData. */
   async function resolveArt(track: LavalinkTrack): Promise<void> {
     const data = (track.userData ?? {}) as Record<string, unknown>;
@@ -272,10 +282,9 @@ export function createMusic({
     await player.setVolume(snapshot.volume);
     await player.setRepeatMode(snapshot.repeatMode);
     if (rest.length > 0) await player.queue.add(rest.map(fromStoredTrack));
-    const recoveryChannel = noticeChannel(snapshot.guildId) ?? snapshot.textChannelId;
-    if (recoveryChannel) {
+    {
       const notice = recoveryNotice(current ? toTrack(current) : null, positionMs, rest.length);
-      await announce(recoveryChannel, notice).catch(warn("recovery notice"));
+      await notify(snapshot.guildId, snapshot.textChannelId, notice).catch(warn("recovery notice"));
     }
     if (!current) {
       await commit(player);
@@ -373,9 +382,8 @@ export function createMusic({
     // The Dashboard first; the Discord notice is a slower round trip.
     await publish(player);
     if (shown && announceIt) {
-      const channel =
-        noticeChannel(player.guildId) ?? player.get<string | undefined>(TEXT_CHANNEL) ?? player.textChannelId;
-      if (channel) {
+      const channel = player.get<string | undefined>(TEXT_CHANNEL) ?? player.textChannelId ?? null;
+      {
         const from = (track.userData as { playlist?: { url?: string; thumbnail?: string | null } } | undefined)
           ?.playlist;
         // The icon may wait a moment for Spotify, never longer than ICON_WAIT_MS (then the avatar).
@@ -383,7 +391,9 @@ export function createMusic({
           ? await within(ICON_WAIT_MS, artwork.icon(shown, from?.thumbnail ?? null)).catch(() => undefined)
           : undefined;
         const authorUrl = usePlaylistUrl && from?.url ? from.url : undefined;
-        await announce(channel, nowPlayingNotice(shown, { iconUrl, authorUrl })).catch(warn("now-playing notice"));
+        await notify(player.guildId, channel, nowPlayingNotice(shown, { iconUrl, authorUrl })).catch(
+          warn("now-playing notice"),
+        );
       }
     }
   }

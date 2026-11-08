@@ -20,8 +20,13 @@ function storedOptIn(guildId: string): boolean {
  */
 export function useTrackNotifications(guildId: string, track: Track | null) {
   const [optedIn, setOptedIn] = useState(false);
+  // Read in an effect: the server render has no Notification, so reading it while rendering would differ.
+  const [blocked, setBlocked] = useState(false);
   const seen = useRef<string | null | undefined>(undefined);
-  useEffect(() => setOptedIn(storedOptIn(guildId)), [guildId]);
+  useEffect(() => {
+    setOptedIn(storedOptIn(guildId));
+    setBlocked(typeof Notification !== "undefined" && Notification.permission === "denied");
+  }, [guildId]);
 
   useEffect(() => {
     const uri = track?.uri ?? null;
@@ -44,6 +49,5 @@ export function useTrackNotifications(guildId: string, track: Track | null) {
       // Without storage the choice lasts for this page only.
     }
   };
-  const blocked = typeof Notification !== "undefined" && Notification.permission === "denied";
   return { optedIn, toggle, blocked };
 }

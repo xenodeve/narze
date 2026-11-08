@@ -1,12 +1,16 @@
 "use client";
 
 import { AVATAR_GLASSES, AVATAR_HATS, AVATAR_TYPES, type AvatarOutfit, type SettingsUpdate } from "@narze/shared";
+import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { Thinking } from "@/components/catalog/thinking";
 import { GuildAvatar } from "@/components/guild-avatar";
 import { useSession } from "@/lib/session";
 import { type SettingsView, saveSettings, useGuildSettings } from "@/lib/settings";
 import styles from "./settings.module.css";
+
+// The supplied SquishSwitch for guild setting toggles (DESIGN.md), sized 38×22 to match Strata.
+const SquishSwitch = dynamic(() => import("@/components/vendor/squish-switch/SquishSwitch"), { ssr: false });
 
 const HAT_TH: Record<(typeof AVATAR_HATS)[number], string> = {
   none: "ไม่ใส่",
@@ -105,7 +109,10 @@ function MusicChannel({ view, onSave }: { view: SettingsView; onSave: (c: Settin
       <h2 id="channel-title" className={styles.heading}>
         Music Channel
       </h2>
-      <p className={styles.note}>ห้องที่บอทประกาศเพลงที่กำลังเล่นและการกู้คิว ไม่เลือก = ห้องที่ใช้คำสั่ง</p>
+      <p className={styles.note}>
+        ห้องที่บอทประกาศเพลงที่กำลังเล่นและการกู้คิว ถ้าไม่เลือก บอทจะประกาศในห้องที่ใช้คำสั่ง (หรือห้องข้อความแรกที่บอทส่งได้ ถ้าเริ่มเล่นจาก
+        Dashboard)
+      </p>
       <input
         type="search"
         className={styles.field}
@@ -191,14 +198,34 @@ function Outfit({ view, onSave }: { view: SettingsView; onSave: (c: SettingsUpda
               ))}
             </select>
           </label>
-          <label className={styles.check}>
-            <input type="checkbox" checked={outfit.headphones} onChange={(e) => set("headphones", e.target.checked)} />
+          <span className={styles.check}>
+            <SquishSwitch
+              checked={outfit.headphones}
+              onChange={(on: boolean) => set("headphones", on)}
+              disabled={!view.canEdit}
+              ariaLabel="หูฟัง"
+              width={38}
+              height={22}
+              radius={11}
+              trackColor="var(--fill)"
+              trackOnColor="var(--accent)"
+            />
             หูฟัง
-          </label>
-          <label className={styles.check}>
-            <input type="checkbox" checked={outfit.bowTie} onChange={(e) => set("bowTie", e.target.checked)} />
+          </span>
+          <span className={styles.check}>
+            <SquishSwitch
+              checked={outfit.bowTie}
+              onChange={(on: boolean) => set("bowTie", on)}
+              disabled={!view.canEdit}
+              ariaLabel="โบว์ไท"
+              width={38}
+              height={22}
+              radius={11}
+              trackColor="var(--fill)"
+              trackOnColor="var(--accent)"
+            />
             โบว์ไท
-          </label>
+          </span>
           <label className={styles.control}>
             สีเครื่องประดับ
             <input type="color" value={outfit.accessoryColor} onChange={(e) => set("accessoryColor", e.target.value)} />

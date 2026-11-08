@@ -18,7 +18,10 @@ export const setchannel: Command = {
     if (!ctx.setMusicChannel) return fail("เกิดข้อผิดพลาดในการตั้งค่า กรุณาลองใหม่อีกครั้ง");
     const channel = ctx.option("channel");
     const id = channel === null ? null : String(channel);
-    await ctx.setMusicChannel(id);
+    const result = await ctx.setMusicChannel(id).catch(() => "failed" as const);
+    if (result === "forbidden") return fail("เฉพาะเจ้าของเซิร์ฟเวอร์หรือ Bot Owner ที่เปลี่ยนการตั้งค่าได้");
+    if (result === "cannot-post") return fail(`บอทส่งข้อความในห้อง <#${id}> ไม่ได้`);
+    if (result === "failed") return fail("เกิดข้อผิดพลาดในการตั้งค่า กรุณาลองใหม่อีกครั้ง");
     return ok(
       id
         ? `✅ ตั้งค่า Music Channel เป็น <#${id}> สำเร็จ!\n\nบอทจะส่งข้อความเกี่ยวกับเพลงใน channel นี้`

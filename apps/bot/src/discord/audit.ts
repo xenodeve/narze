@@ -9,6 +9,9 @@ export interface CommandUse {
   guild: { name: string; id: string; iconUrl: string | null };
 }
 
+/** Names are user-chosen: a backtick would close the code span the line wraps them in. */
+const plain = (text: string) => text.replaceAll("`", "ˋ");
+
 /** Spec #13: v5's audit embed for `LOG_GUILD_ID` / `LOG_CHANNEL_ID`. */
 export function auditNotice(use: CommandUse): Notice {
   return {
@@ -19,11 +22,11 @@ export function auditNotice(use: CommandUse): Notice {
       url: `https://discord.com/users/${use.user.id}`,
     },
     description: [
-      `User: \`${use.user.tag}\`(\`${use.user.id}\`)`,
-      `UserChannel: \`${use.voice?.name ?? "Not in voice"}\`(\`${use.voice?.id ?? "N/A"}\`)`,
+      `User: \`${plain(use.user.tag)}\`(\`${use.user.id}\`)`,
+      `UserChannel: \`${plain(use.voice?.name ?? "Not in voice")}\`(\`${use.voice?.id ?? "N/A"}\`)`,
       `Command: \`${use.command.name}\`(\`${use.command.id}\`)`,
-      `Channel: \`${use.channel.name}\`(\`${use.channel.id}\`)`,
-      `Server: \`${use.guild.name}\`(\`${use.guild.id}\`)`,
+      `Channel: \`${plain(use.channel.name)}\`(\`${use.channel.id}\`)`,
+      `Server: \`${plain(use.guild.name)}\`(\`${use.guild.id}\`)`,
     ].join("\n"),
     thumbnailUrl: use.guild.iconUrl,
   };

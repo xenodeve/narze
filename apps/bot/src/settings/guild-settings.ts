@@ -1,4 +1,4 @@
-import { AvatarOutfitSchema, DEFAULT_OUTFIT, type GuildSettings } from "@narze/shared";
+import { GUILD_SETTINGS_COLUMNS, type GuildSettings, type GuildSettingsRow, settingsFromRow } from "@narze/shared";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /** Where Guild Settings live (Supabase, the source of truth in both Runtime Modes, ADR-0003). */
@@ -9,40 +9,29 @@ export interface SettingsStore {
   setMusicChannel(guildId: string, channelId: string | null): Promise<void>;
 }
 
-interface Row {
-  guild_id: string;
-  guild_name: string;
-  owner_id: string;
-  music_channel_id: string | null;
-  avatar: unknown;
-}
-
 export function createSupabaseSettingsStore(db: SupabaseClient): SettingsStore {
   return {
     async get(guildId) {
       const { data, error } = await db
         .from("guild_settings")
-        .select("guild_id, guild_name, owner_id, music_channel_id, avatar")
+        .select(GUILD_SETTINGS_COLUMNS)
         .eq("guild_id", guildId)
         .maybeSingle();
       if (error) throw new Error(`read guild settings: ${error.message}`);
-      const row = data as Row | null;
-      return row
-        ? {
-            guildId: row.guild_id,
-            guildName: row.guild_name,
-            ownerId: row.owner_id,
-            musicChannelId: row.music_channel_id,
-            avatar: AvatarOutfitSchema.catch(DEFAULT_OUTFIT).parse(row.avatar ?? {}),
-          }
-        : null;
+      return data ? settingsFromRow(data as GuildSettingsRow) : null;
     },
     async ensure({ guildId, guildName, ownerId }) {
-      // Only these columns: an existing Music Channel and outfit stay as they are.
-      const { error } = await db
+      // The owner is written only when the row is created: otherwise anyone who can kick and re-add
+      // the Bot would become its owner (#106 review). A re-invite refreshes the name only.
+      const created = await db
         .from("guild_settings")
-        .upsert({ guild_id: guildId, guild_name: guildName, owner_id: ownerId, updated_at: new Date().toISOString() });
-      if (error) throw new Error(`write guild settings: ${error.message}`);
+        .upsert({ guild_id: guildId, guild_name: guildName, owner_id: ownerId }, { ignoreDuplicates: true });
+      if (created.error) throw new Error(`write guild settings: ${created.error.message}`);
+      const renamed = await db
+        .from("guild_settings")
+        .update({ guild_name: guildName, updated_at: new Date().toISOString() })
+        .eq("guild_id", guildId);
+      if (renamed.error) throw new Error(`write guild settings: ${renamed.error.message}`);
     },
     async setMusicChannel(guildId, channelId) {
       const { error } = await db
@@ -89,7 +78,7 @@ export function createGuildSettings(store: SettingsStore) {
     musicChannel(guildId: string): string | null {
       return known.get(guildId)?.musicChannelId ?? null;
     },
-    /** Spec #22, #121: on join (and on ready), the inviter — else the Server Owner — is the Bot Owner. */
+    /** Spec #22, #121: on the first join, the inviter — else the Server Owner — is the Bot Owner. */
     async join(guild: { id: string; name: string; ownerId: string }, inviterId: string | null): Promise<void> {
       await store.ensure({ guildId: guild.id, guildName: guild.name, ownerId: inviterId ?? guild.ownerId });
       await this.load(guild.id);

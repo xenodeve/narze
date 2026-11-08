@@ -18,7 +18,16 @@ function gateway(overrides: { store?: Partial<UserStore>; presence?: Partial<Pre
     close: mock(async () => {}),
     ...overrides.presence,
   } as unknown as Presence;
-  return new UserGateway({} as Authenticator, store, directory, presence, {} as never, {} as never, {} as never);
+  return new UserGateway(
+    {} as Authenticator,
+    store,
+    directory,
+    presence,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+  );
 }
 
 function client(data: Record<string, unknown>) {

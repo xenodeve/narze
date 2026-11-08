@@ -28,7 +28,7 @@ export function permissionOf(
   guild: StoredGuild,
   player: PlayerSummary | null,
   userVoice: string | null,
-  isBotOwner = false,
+  isBotOwner: boolean,
 ): ControlPermission {
   return controlPermission({
     isServerOwner: guild.isOwner,
@@ -43,9 +43,9 @@ export function permissionOf(
 export function summarize(
   guild: StoredGuild,
   { player, userVoice, memberCount }: GuildLive,
-  settings?: { isBotOwner: boolean; avatar?: AvatarOutfit },
+  settings: { isBotOwner: boolean; avatar?: AvatarOutfit },
 ): GuildSummary {
-  const { badge } = permissionOf(guild, player, userVoice, settings?.isBotOwner ?? false);
+  const { badge } = permissionOf(guild, player, userVoice, settings.isBotOwner);
   return {
     id: guild.id,
     name: guild.name,
@@ -54,7 +54,7 @@ export function summarize(
     playing: player?.playing ?? false,
     queueLength: player?.queueLength ?? 0,
     badge,
-    ...(settings?.avatar ? { avatar: settings.avatar } : {}),
+    ...(settings.avatar ? { avatar: settings.avatar } : {}),
   };
 }
 
@@ -85,7 +85,7 @@ export class GuildDirectory {
       this.redis.mget(ids.map((id) => RedisKeys.playerSummary(id))),
       this.redis.hmget(RedisKeys.botMemberCounts, ...ids),
       voice.exec(),
-      this.settings.many(ids),
+      this.settings.cachedMany(ids),
     ]);
     return guilds.map((guild, i) => {
       const stored = settings.get(guild.id);
@@ -121,7 +121,7 @@ export class GuildDirectory {
     const [player, userVoice, settings] = await Promise.all([
       this.playerSummary(guild.id),
       this.redis.hget(RedisKeys.voiceStates(guild.id), discordId),
-      this.settings.get(guild.id),
+      this.settings.cached(guild.id),
     ]);
     // Bot Owner: whoever invited the Bot, from Guild Settings (#106, spec #121).
     return { ...permissionOf(guild, player, userVoice, settings?.ownerId === discordId), userVoice };

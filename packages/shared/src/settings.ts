@@ -86,3 +86,20 @@ export const SettingsViewSchema = z.object({
   textChannels: TextChannelListSchema,
 });
 export type SettingsView = z.infer<typeof SettingsViewSchema>;
+
+/** A guild_settings row as Supabase returns it (snake_case), shared by the Bot and the Backend. */
+export interface GuildSettingsRow {
+  guild_id: string;
+  guild_name: string;
+  owner_id: string;
+  music_channel_id: string | null;
+  avatar: unknown;
+}
+export const GUILD_SETTINGS_COLUMNS = "guild_id, guild_name, owner_id, music_channel_id, avatar";
+export const settingsFromRow = (row: GuildSettingsRow): GuildSettings => ({
+  guildId: row.guild_id,
+  guildName: row.guild_name,
+  ownerId: row.owner_id,
+  musicChannelId: row.music_channel_id,
+  avatar: AvatarOutfitSchema.catch(DEFAULT_OUTFIT).parse(row.avatar ?? {}),
+});

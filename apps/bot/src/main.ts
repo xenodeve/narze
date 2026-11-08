@@ -105,6 +105,24 @@ handleInteractions(client, music, () => lavalink.nodeManager.leastUsedNodes().le
   log:
     env.LOG_GUILD_ID && env.LOG_CHANNEL_ID ? { guildId: env.LOG_GUILD_ID, channelId: env.LOG_CHANNEL_ID } : undefined,
   dashboardUrl: env.DASHBOARD_URL,
+  // Connected Mode: /setchannel's change reaches open Dashboard tabs like a Dashboard save (AC2).
+  settingsChanged: redis
+    ? async (guildId) => {
+        const changed = await settings?.load(guildId);
+        if (!changed) return;
+        await redis.publish(
+          Channels.guildEvents,
+          JSON.stringify({
+            type: GuildEventTypes.settingsUpdate,
+            guildId,
+            revision: 0,
+            sequence: 0,
+            ts: Date.now(),
+            data: changed,
+          }),
+        );
+      }
+    : undefined,
 });
 
 /** Spec #22, #121: the inviter (audit log BotAdd), else the Server Owner, is the Bot Owner. */
@@ -131,7 +149,8 @@ if (redis && settings) {
     const event = parseJson(GuildEventSchema, raw);
     if (event?.type !== GuildEventTypes.settingsUpdate) return;
     const changed = GuildSettingsSchema.safeParse(event.data);
-    if (changed.success) settings.apply(changed.data);
+    // The data must be about the Guild the event names.
+    if (changed.success && changed.data.guildId === event.guildId) settings.apply(changed.data);
   });
   await listener.subscribe(Channels.guildEvents).catch(logFailure("settings updates"));
 }
@@ -190,6 +209,13 @@ client.on("channelCreate", (channel) => {
 });
 client.on("channelDelete", (channel) => {
   if ("guild" in channel) publishTextChannels(channel.guild);
+});
+// A permission change can open or close a channel to the Bot (#106 review).
+client.on("channelUpdate", (_old, channel) => {
+  if ("guild" in channel) publishTextChannels(channel.guild);
+});
+client.on("guildMemberUpdate", (_old, member) => {
+  if (member.id === client.user?.id) publishTextChannels(member.guild);
 });
 client.on("guildDelete", (guild) => {
   voiceLists.cancel(guild.id);

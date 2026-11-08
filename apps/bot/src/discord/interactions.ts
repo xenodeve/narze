@@ -3,6 +3,7 @@ import {
   type AutocompleteInteraction,
   ButtonBuilder,
   ButtonStyle,
+  ChannelType,
   type ChatInputCommandInteraction,
   type Client,
   ComponentType,
@@ -13,7 +14,7 @@ import {
   type VoiceBasedChannel,
 } from "discord.js";
 import { commands } from "../commands";
-import type { CommandContext, Reply } from "../commands/types";
+import type { CommandContext, Reply, SetChannelResult } from "../commands/types";
 import { COLOR_FAILURE, type Notice } from "../music/format";
 import type { Music } from "../music/music";
 import type { GuildSettingsCache } from "../settings/guild-settings";
@@ -26,6 +27,8 @@ export interface InteractionOptions {
   log?: { guildId: string; channelId: string };
   /** Spec #34: the Dashboard the promo points at. */
   dashboardUrl?: string;
+  /** Tells the Dashboard a Guild's settings changed (Connected Mode, spec #92). */
+  settingsChanged?: (guildId: string) => Promise<void>;
 }
 
 export function toEmbed(notice: Notice): EmbedBuilder {
@@ -75,7 +78,7 @@ export function handleInteractions(
     let succeeded = false;
     try {
       if (command.slow) await interaction.deferReply();
-      const reply = await command.run(contextOf(interaction, options.settings), music);
+      const reply = await command.run(contextOf(interaction, options), music);
       const embeds = [toEmbed(reply.notice)];
       if (reply.pager) {
         await page(interaction, reply.notice, reply.pager);
@@ -127,7 +130,7 @@ async function afterCommand(
 async function suggest(interaction: AutocompleteInteraction<"cached">, music: Music): Promise<void> {
   const command = commands.find((c) => c.data.name === interaction.commandName);
   if (!command?.autocomplete) return interaction.respond([]);
-  const ctx = contextOf(interaction as unknown as ChatInputCommandInteraction<"cached">);
+  const ctx = contextOf(interaction as unknown as ChatInputCommandInteraction<"cached">, {});
   const focused = interaction.options.getFocused(true);
   const choices = await command.autocomplete(ctx, music, String(focused.value), focused.name);
   await interaction.respond(choices.slice(0, 25));
@@ -194,7 +197,8 @@ async function page(
   });
 }
 
-function contextOf(interaction: ChatInputCommandInteraction<"cached">, settings?: GuildSettingsCache): CommandContext {
+function contextOf(interaction: ChatInputCommandInteraction<"cached">, options: InteractionOptions): CommandContext {
+  const { settings, settingsChanged } = options;
   const { guild, member, user } = interaction;
   return {
     guildId: guild.id,
@@ -210,14 +214,52 @@ function contextOf(interaction: ChatInputCommandInteraction<"cached">, settings?
       return typeof option?.value === "string" || typeof option?.value === "number" ? option.value : null;
     },
     latencyMs: { reply: Date.now() - interaction.createdTimestamp, ws: interaction.client.ws.ping },
-    setMusicChannel: settings ? (channelId) => settings.setMusicChannel(guild.id, channelId) : undefined,
+    setMusicChannel: settings
+      ? (channelId) => saveMusicChannel(interaction, settings, channelId, settingsChanged)
+      : undefined,
   };
+}
+
+/**
+ * /setchannel's save (#106): only the Server Owner or the Bot Owner (the same rule as the
+ * Dashboard, AC1 — Manage Server alone is not enough), only a channel the Bot can post in, a row
+ * created if the Bot never recorded one, and the Dashboard told.
+ */
+async function saveMusicChannel(
+  interaction: ChatInputCommandInteraction<"cached">,
+  settings: GuildSettingsCache,
+  channelId: string | null,
+  settingsChanged?: (guildId: string) => Promise<void>,
+): Promise<SetChannelResult> {
+  const { guild, user } = interaction;
+  try {
+    const stored = (await settings.load(guild.id)) ?? (await settings.join(guild, null), await settings.load(guild.id));
+    if (guild.ownerId !== user.id && stored?.ownerId !== user.id) return "forbidden";
+    if (channelId) {
+      const channel = guild.channels.cache.get(channelId);
+      const me = guild.members.me;
+      const canPost =
+        channel?.type === ChannelType.GuildText &&
+        me !== null &&
+        Boolean(channel.permissionsFor(me)?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages]));
+      if (!canPost) return "cannot-post";
+    }
+    await settings.setMusicChannel(guild.id, channelId);
+    await settingsChanged?.(guild.id).catch(() => {});
+    return "ok";
+  } catch {
+    return "failed";
+  }
 }
 
 /** Posts a Now-Playing Notice; a channel the Bot cannot write to is skipped. */
 export function announcer(client: Client) {
-  return async (channelId: string, notice: Notice): Promise<void> => {
+  return async (channelId: string, notice: Notice): Promise<boolean> => {
     const channel = await client.channels.fetch(channelId).catch(() => null);
-    if (channel?.isSendable()) await channel.send({ embeds: [toEmbed(notice)] });
+    if (!channel?.isSendable()) return false;
+    return channel
+      .send({ embeds: [toEmbed(notice)] })
+      .then(() => true)
+      .catch(() => false);
   };
 }

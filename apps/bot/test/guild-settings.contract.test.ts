@@ -13,7 +13,7 @@ afterAll(async () => {
 });
 
 describe("Guild Settings in Supabase, as the Bot writes them (#106, spec #22, #121)", () => {
-  test("a re-invite records the new owner and keeps the Music Channel and the outfit", async () => {
+  test("a re-invite keeps the first Bot Owner, the Music Channel and the outfit (#106 review)", async () => {
     await db.from("guild_settings").delete().eq("guild_id", G);
     await store.ensure({ guildId: G, guildName: "Club", ownerId: "1" });
     await store.setMusicChannel(G, "55");
@@ -25,7 +25,8 @@ describe("Guild Settings in Supabase, as the Bot writes them (#106, spec #22, #1
     await store.ensure({ guildId: G, guildName: "Club 2", ownerId: "2" });
     expect(await store.get(G)).toMatchObject({
       guildName: "Club 2",
-      ownerId: "2",
+      // Anyone with Manage Server could otherwise kick and re-add the Bot to become its owner.
+      ownerId: "1",
       musicChannelId: "55",
       avatar: { type: "cat", hat: "none" },
     });
