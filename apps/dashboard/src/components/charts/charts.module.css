@@ -45,13 +45,14 @@
 }
 
 .move {
-  color: var(--ink-3);
+  color: var(--ink-2);
   font-size: 0.6875rem;
   text-align: center;
 }
 
 .move[data-move="up"] {
-  color: var(--ok);
+  /* --ok as text is under 4.5:1 on paper (#114): darkened toward ink. */
+  color: color-mix(in srgb, var(--ok) 75%, var(--ink));
 }
 
 .move[data-move="down"] {
@@ -90,7 +91,7 @@
 
 .source {
   margin: 0;
-  color: var(--ink-3);
+  color: var(--ink-2);
   font-size: 0.6875rem;
 }
 

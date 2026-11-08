@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { LikeButton, libraryTrack } from "@/components/like-button";
 import { formatTime } from "@/components/now-playing/progress";
 import { explain, sendCommand } from "@/lib/control";
+import { useTokenHex } from "@/lib/tokens";
 import type { Permission } from "@/lib/use-player";
 import styles from "./queue-panel.module.css";
 
@@ -50,6 +51,9 @@ interface QueuePanelProps {
  */
 export function QueuePanel({ guildId, queue, revision, permission, jumping }: QueuePanelProps) {
   const [optimistic, setOptimistic] = useState<Track[] | null>(null);
+  // The supplied SwipeRow picks its drawer text from a hex colour; a CSS variable always gave white,
+  // which is 2.79:1 on the dark theme's red (#114). The theme's own hex lets it choose.
+  const danger = useTokenHex("--danger", "#c4302b");
   const [message, setMessage] = useState<string | null>(null);
   const [announce, setAnnounce] = useState("");
   const [drag, setDrag] = useState<{ from: number; to: number } | null>(null);
@@ -274,8 +278,8 @@ export function QueuePanel({ guildId, queue, revision, permission, jumping }: Qu
                     height={60}
                     radius={0}
                     rowColor="var(--bg)"
-                    drawerColor="var(--danger)"
-                    actionColor="var(--danger)"
+                    drawerColor={danger}
+                    actionColor={danger}
                     textColor="var(--ink)"
                     label={track.title}
                     actions={[{ id: "remove", label: "ลบ" }]}

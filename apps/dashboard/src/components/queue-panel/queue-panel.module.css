@@ -1,5 +1,7 @@
 .panel {
   display: grid;
+  /* An implicit column takes the rows' min width and overflows the side column (#114). */
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   min-width: 0;
 }
@@ -35,7 +37,8 @@
 .danger {
   border-color: var(--danger);
   background: var(--danger);
-  color: #fff;
+  /* Paper, not white: white on the dark theme's red is under 4.5:1. */
+  color: var(--bg);
 }
 
 @media (hover: hover) {
@@ -116,7 +119,7 @@
   border: 0;
   border-radius: var(--r1);
   background: transparent;
-  color: var(--ink-3);
+  color: var(--ink-2);
   cursor: grab;
   touch-action: none;
 }
@@ -132,7 +135,7 @@
 }
 
 .index {
-  color: var(--ink-3);
+  color: var(--ink-2);
   font-size: 0.8125rem;
   text-align: right;
   /* Counter changes: digits pop (DESIGN.md §7). */

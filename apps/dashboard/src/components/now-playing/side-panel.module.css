@@ -1,5 +1,7 @@
 .panel {
   display: grid;
+  /* An implicit column takes its content's min width (325px in a 284px slot at 1024px, #114). */
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
   align-content: start;
   min-width: 0;
@@ -7,7 +9,8 @@
 
 .done {
   margin: 0 0 12px;
-  color: var(--ok);
+  /* --ok as text is under 4.5:1 on paper (#114): darkened toward ink. */
+  color: color-mix(in srgb, var(--ok) 75%, var(--ink));
 }
 
 .error {

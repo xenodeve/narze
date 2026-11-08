@@ -120,7 +120,7 @@ export class AdminController {
   @Get("guilds/:guildId/channels/:channelId/messages")
   messages(@Req() request: AdminRequest, @Param("guildId") guildId: string, @Param("channelId") channelId: string) {
     // Reading a private channel is recorded with who read it (security review).
-    this.logger.log(`${request.admin?.identity.discordId} read channel ${channelId} in ${guildId}`);
+    this.logger.warn(`audit: ${request.admin?.identity.discordId} read channel ${channelId} in ${guildId}`);
     return this.queries.messages(snowflake(guildId), snowflake(channelId));
   }
 
@@ -201,7 +201,7 @@ export class AdminController {
     const by = request.admin?.identity.discordId;
     if (!by) throw new BadRequestException("no admin");
     // Recorded here too: the Bot's own log line is lost when it cannot answer.
-    this.logger.warn(`${kind.data} asked by ${by}`);
+    this.logger.warn(`audit: ${kind.data} asked by ${by}`);
     await this.queries.ask({ kind: kind.data, by });
   }
 }
