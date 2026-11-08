@@ -63,7 +63,7 @@ use the quoted absolute paths `"C:\Users\xenod\.bun\bin\bun.exe"` and `"C:\Progr
 | `bun install` | install (commit `bun.lock`; use `bunx`, not `npx`) |
 | `bun run verify` | fast gate: lint + typecheck + test + build (the local ship gate runs this) |
 | `bun run lint` / `typecheck` / `test` / `build` | the four CI required checks |
-| `bun run e2e` | Playwright end-to-end (CI only, not in `verify`) |
+| `bun run e2e` | Playwright end-to-end (in CI normally; run by the T4 gate during no-CI mode, #116) |
 | `git config core.hooksPath .githooks` | enable the pre-push guards — once per clone |
 
 The root scripts are placeholders until the workspaces are scaffolded.
@@ -111,6 +111,17 @@ needed (before closing issues or merging), or when an AFK batch is done — not 
 - **`.githooks/pre-push`** (opt-in per clone): issue reference, tree budget / no build artifacts,
   and a `T4-Gates:` trailer stating every judgment gate.
 - **CI** (`.github/workflows/`): `t4-verify` (lint · typecheck · test · build · guards), `t4-e2e`
+
+### No-CI mode (active since 2026-11-08 — #116)
+
+GitHub Actions cannot start any job (account billing lock), so **no check ever reports**. Until #116 is closed:
+
+- **A merged PR means "the author ran verify", not "CI passed".** Nothing in the merge distinguishes the two.
+- The T4 gate runs the **full** suite before `gh pr merge` (`.claude/t4.json` `verify` = `verify` + `e2e`).
+- Before every merge, run `verify` once from a **clean worktree** of the PR head: `git worktree add ../narze-verify <sha>`, `bun install --frozen-lockfile`, `bun run verify`, `bun run e2e`.
+- `code-review` and `scrutinize` are **required** on every PR before merge and recorded in `T4-Gates:`.
+- `requireGreenCI` stays `false` (with no checks it would deny every merge).
+- **Ceiling:** none of this binds a human merging on the GitHub web UI.
   (advisory), `t4-codeql`. **Not yet required checks** — the ruleset is pending the first push of `v7`
   (`docs/agents/workflow.md` → "Pending"). Until then a merge means "the author ran `verify`".
 
