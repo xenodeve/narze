@@ -130,7 +130,10 @@ test("a session shows up live, and its detail replays a track into a server (#10
   // The Bot leaves voice: the session ends live on the open list.
   await page.goto("/sessions");
   await expect(page.getByTestId("session-card").getByText("Live")).toHaveCount(1);
-  await publish(GuildEventTypes.sessionEnd, session({ isActive: false, endTime: Date.now() }));
+  // As the Bot does: the row first, then the announcement (a tab that reloads reads the row).
+  const ended = Date.now();
+  await admin.from("listening_sessions").update({ is_active: false, end_time: ended }).eq("id", SESSION_ID);
+  await publish(GuildEventTypes.sessionEnd, session({ isActive: false, endTime: ended }));
   await expect(page.getByTestId("session-card").getByText("Live")).toHaveCount(0, { timeout: 2000 });
 });
 

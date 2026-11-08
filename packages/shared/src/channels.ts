@@ -68,6 +68,8 @@ export const GuildEventTypes = {
   queueJump: "queue:jump",
   /** data: VoiceChannelList — someone joined, left or moved voice channels in the Guild. */
   voiceUpdate: "voice:update",
+  /** data: null — the guild changed hands (#141); its owner is in bot:guild-owners, tabs get permission again. */
+  ownerUpdate: "guild:owner",
   /** data: GuildSettings — a Guild's settings changed (#106); the Bot refreshes its copy. */
   settingsUpdate: "settings:update",
   /** data: `{ code, reason, byRemote, recovering }` — the Bot's voice connection dropped (spec #28). */

@@ -63,8 +63,19 @@ describe("the Bot's guild set and voice states on Redis (Bot→Backend contract)
       { id: G2, memberCount: 3, voice: [], ownerId: "200" },
     ]);
     expect(await redis.hgetall(RedisKeys.botGuildOwners)).toEqual({ [G1]: "100", [G2]: "200" });
+    const listener = new Redis(process.env.REDIS_URL ?? DEFAULT_REDIS_URL);
+    await listener.subscribe(Channels.guildEvents);
+    const heard = new Promise<string>((resolve) =>
+      listener.on("message", (_c, raw) => {
+        const event = GuildEventSchema.parse(JSON.parse(raw));
+        if (event.type === GuildEventTypes.ownerUpdate && event.guildId === G1) resolve(event.type);
+      }),
+    );
     await registry.owner(G1, "101");
     expect(await redis.hget(RedisKeys.botGuildOwners, G1)).toBe("101");
+    // Key first, then the event the Backend answers with a permission push.
+    expect(await heard).toBe(GuildEventTypes.ownerUpdate);
+    await listener.quit();
     await registry.remove(G1);
     expect(await redis.hexists(RedisKeys.botGuildOwners, G1)).toBe(0);
     await registry.replace([{ id: G2, memberCount: 3, voice: [], ownerId: "200" }]);

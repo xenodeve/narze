@@ -300,6 +300,10 @@ client.on("guildCreate", (guild) => {
 client.on("guildUpdate", (before, after) => {
   if (before.ownerId !== after.ownerId) void registry?.owner(after.id, after.ownerId).catch(logFailure("guild owner"));
 });
+// A guild back after an outage comes as guildAvailable, not guildUpdate: re-record it (owner included).
+client.on("guildAvailable", (guild) => {
+  void registry?.add(voiceSnapshotOf(guild)).catch(logFailure("guild registry"));
+});
 client.on("channelCreate", (channel) => {
   if ("guild" in channel) publishTextChannels(channel.guild);
 });

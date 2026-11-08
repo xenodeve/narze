@@ -68,9 +68,8 @@ export class GuildDirectory {
     @Inject(SettingsStore) private readonly settings: SettingsStore,
   ) {}
 
-  /** Mutual Guilds: the user's guilds that the Bot is also in. */
   /**
-   * The user's guilds the Bot is in, with Server Owner as the Bot sees it now (#141): the sign-in
+   * Mutual Guilds: the user's guilds the Bot is in, with Server Owner as the Bot sees it now (#141): the sign-in
    * snapshot keeps a former owner's rights until they sign in again. Only a guild the Bot has
    * published no owner for (an older Bot) still uses the snapshot.
    */
@@ -114,6 +113,11 @@ export class GuildDirectory {
     });
   }
 
+  /** The guild's owner as the Bot sees it now (#141); null when the Bot has not reported one. */
+  async owner(guildId: string): Promise<string | null> {
+    return (await this.redis.hget(RedisKeys.botGuildOwners, guildId)) || null;
+  }
+
   async memberCount(guildId: string): Promise<number | null> {
     return toCount(await this.redis.hget(RedisKeys.botMemberCounts, guildId));
   }
@@ -131,13 +135,17 @@ export class GuildDirectory {
 
   /** Control Permission of one user in one Guild, plus the voice channel they are in. */
   async permission(discordId: string, guild: StoredGuild): Promise<ControlPermission & { userVoice: string | null }> {
-    const [player, userVoice, settings] = await Promise.all([
+    const [player, userVoice, settings, owner] = await Promise.all([
       this.playerSummary(guild.id),
       this.redis.hget(RedisKeys.voiceStates(guild.id), discordId),
       this.settings.cached(guild.id),
+      this.redis.hget(RedisKeys.botGuildOwners, guild.id),
     ]);
+    // Server Owner as the Bot sees it at this moment (#141): a socket keeps the guilds it read at
+    // connect, so a change of hands must not wait for a reconnect.
+    const current = owner ? { ...guild, isOwner: owner === discordId } : guild;
     // Bot Owner: whoever invited the Bot, from Guild Settings (#106, spec #121).
-    return { ...permissionOf(guild, player, userVoice, settings?.ownerId === discordId), userVoice };
+    return { ...permissionOf(current, player, userVoice, settings?.ownerId === discordId), userVoice };
   }
 
   /** The Guild's voice channels with members, as the Bot last published them (spec #86). */

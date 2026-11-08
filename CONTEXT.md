@@ -45,7 +45,7 @@ Glossary for the whole repo (single-context). When a term appears in **bold**, u
 
 **Control Permission** — the right to change playback, evaluated server-side in this order: **Server Owner** → **Bot Owner** → (no Player: member in any voice channel) → (Player exists: member in the Bot's voice channel). The reason string is shown to the user.
 
-**Server Owner** — the Discord guild owner. **Bot Owner** — the user who invited the Bot (audit log), stored in guild settings; falls back to the Server Owner.
+**Server Owner** — the Discord guild owner, as the **Bot** reports it now (`bot:guild-owners`, #141); the sign-in snapshot only for a guild the Bot has not reported. **Bot Owner** — the user who invited the Bot (audit log), stored in guild settings; falls back to the Server Owner.
 
 **Admin / Developer** — Dashboard roles from the **Admin Whitelist** (`admin_whitelist` in Supabase, keyed by Discord ID, #110), enforced by the **Backend**: one guard on every `/api/admin` route, the same role check before a tab joins the admin socket rooms (stats, and the live log), and removal from the whitelist takes the user's open tabs out of those rooms at once. Both reach the admin area (stats, the Bot's live log); only a Developer manages the whitelist. `NARZE_DEVELOPER_IDS` (env) are always Developers: the way in on a fresh database, not changeable from the Dashboard.
 
@@ -143,7 +143,7 @@ Dashboard ──REST/Socket.io──▶ Backend ──Redis pub/sub──▶ Bot
 
 **Control Permission** — สิทธิ์เปลี่ยนการเล่น ตรวจที่ฝั่ง server ตามลำดับนี้ **Server Owner** → **Bot Owner** → (ไม่มี Player: สมาชิกที่อยู่ห้องเสียงใดก็ได้) → (มี Player แล้ว: สมาชิกที่อยู่ห้องเสียงเดียวกับ Bot) และแสดงข้อความเหตุผลให้ผู้ใช้เห็น
 
-**Server Owner** — เจ้าของ guild ใน Discord **Bot Owner** — คนที่เชิญ Bot เข้ามา (ดูจาก audit log) เก็บไว้ในค่าตั้งของ guild ถ้าหาไม่เจอใช้ Server Owner แทน
+**Server Owner** — เจ้าของ guild ใน Discord ตามที่ **Bot** รายงานตอนนี้ (`bot:guild-owners`, #141) ใช้ snapshot ตอน login เฉพาะ guild ที่ Bot ยังไม่ได้รายงาน **Bot Owner** — คนที่เชิญ Bot เข้ามา (ดูจาก audit log) เก็บไว้ในค่าตั้งของ guild ถ้าหาไม่เจอใช้ Server Owner แทน
 
 **Admin / Developer** — บทบาทใน Dashboard จาก **Admin Whitelist** (`admin_whitelist` ใน Supabase ใช้ Discord ID เป็นกุญแจ, #110) **Backend** เป็นผู้บังคับใช้ ด้วย guard ตัวเดียวที่ครอบทุก route ใต้ `/api/admin` ใช้การตรวจบทบาทแบบเดียวกันก่อนให้แท็บเข้าห้อง socket ของ admin (สถิติ กับ log สด) และพอถอดใครออกจาก whitelist แท็บที่เปิดอยู่ของคนนั้นก็หลุดจากห้องทันที ทั้งสองบทบาทเข้าหน้า admin ได้ (สถิติ, log สดของ Bot) แต่เฉพาะ Developer ที่จัดการ whitelist ได้ ส่วน `NARZE_DEVELOPER_IDS` (env) เป็น Developer เสมอ เป็นทางเดียวที่จะเข้าได้เมื่อฐานข้อมูลยังว่าง และแก้จาก Dashboard ไม่ได้
 

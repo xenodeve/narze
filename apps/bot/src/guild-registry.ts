@@ -56,6 +56,16 @@ export function createGuildRegistry(redis: Redis) {
     /** A guild changed hands (guildUpdate): the new owner's rights apply at once, the old one's end. */
     async owner(guildId: string, ownerId: string): Promise<void> {
       await redis.hset(RedisKeys.botGuildOwners, guildId, ownerId);
+      // Key first, then the event: open tabs re-read their permission (#141).
+      const event: GuildEvent = {
+        type: GuildEventTypes.ownerUpdate,
+        guildId,
+        revision: 0,
+        sequence: 0,
+        ts: Date.now(),
+        data: null,
+      };
+      await redis.publish(Channels.guildEvents, JSON.stringify(event));
     },
     /** The Guild's voice channels and who is in them, for the picker; key first, then the event. */
     async voiceChannels(guildId: string, list: VoiceChannelList): Promise<void> {

@@ -102,6 +102,8 @@ test.beforeAll(async () => {
   await bot.subscribe(Channels.botCommands);
   bot.on("message", (_c, raw) => {
     const cmd = PlayerCommandSchema.parse(JSON.parse(raw));
+    // bot:commands is shared by every spec's pages: count only this spec's guild.
+    if (cmd.guildId !== GUILD) return;
     commands.push(cmd);
     void redis.publish(Channels.botCommandResults, JSON.stringify({ id: cmd.id, ok: true }));
   });
@@ -154,13 +156,23 @@ test("closing the sheet mid-sentence sends nothing (#113 scrutinize B1)", async 
     (window as unknown as { __delay: number }).__delay = 5000;
   });
   const before = commands.length;
-  await say(vera.page, "ข้าม");
+  // Started from the keyboard: a mouse press that a loaded machine stretches past 300 ms counts as
+  // hold-to-talk, and releasing a hold sends what was heard. This test is about cancelling.
+  const sayByKey = async (text: string) => {
+    await vera.page.evaluate((t) => {
+      (window as unknown as { __say: string }).__say = t;
+    }, text);
+    await vera.page.getByRole("button", { name: "สั่งด้วยเสียง" }).focus();
+    await vera.page.keyboard.press("Enter");
+  };
+  await sayByKey("ข้าม");
   const sheet = vera.page.getByRole("dialog", { name: "สั่งด้วยเสียง" });
   await expect(sheet).toBeVisible();
   await sheet.getByRole("button", { name: "ปิด" }).click();
   await expect(sheet).toBeHidden();
   // Escape on the pill cancels too.
-  await say(vera.page, "ข้าม");
+  await sayByKey("ข้าม");
+  await expect(sheet).toBeVisible();
   await vera.page.keyboard.press("Escape");
   await vera.page.waitForTimeout(500);
   expect(commands.length).toBe(before);
