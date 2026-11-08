@@ -55,6 +55,7 @@ export class AdminGateway implements OnModuleInit {
     await this.subscriber.subscribe(Channels.botLogs, Channels.botStats);
     // Spec #114: the users page's "on Dashboard" dots follow tabs opening and closing.
     this.presence.onChange(() => {
+      if (!this.server.sockets.adapter.rooms.get(STATS_ROOM)?.size) return;
       void this.presence
         .online()
         .then((online) => this.server.to(STATS_ROOM).emit(SocketEvents.adminPresence, { online }))

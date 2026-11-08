@@ -8,6 +8,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { Thinking } from "@/components/catalog/thinking";
 import { getStats, powerBot, useAdminRole, useAdminRoom } from "@/lib/admin";
+import { kb } from "@/lib/format";
 import { duration } from "@/lib/history";
 import { useSession } from "@/lib/session";
 import styles from "./admin.module.css";
@@ -69,7 +70,6 @@ function AdminNav({ role }: { role: AdminRole }) {
 }
 
 const gb = (bytes: number) => `${(bytes / 1024 ** 3).toFixed(1)} GB`;
-const kb = (bytes: number) => `${(bytes / 1024).toFixed(1)} KB`;
 
 /** A hex colour from a CSS token, for the SloshGauge (it computes its text colour from hex). */
 function useTokenHex(name: string, fallback: string): string {

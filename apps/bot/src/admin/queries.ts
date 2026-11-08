@@ -181,13 +181,13 @@ export async function answerAdminQuery(query: AdminQuery, { client, exit }: Admi
     }
     case "guilds":
       return ok([...client.guilds.cache.values()].map(toGuild));
-    case "guild": {
-      const guild = client.guilds.cache.get(query.guildId);
-      return guild ? ok(toGuild(guild)) : fail("not-found");
-    }
+  }
+  const guild = client.guilds.cache.get(query.guildId);
+  if (!guild) return fail("not-found");
+  switch (query.kind) {
+    case "guild":
+      return ok(toGuild(guild));
     case "channels": {
-      const guild = client.guilds.cache.get(query.guildId);
-      if (!guild) return fail("not-found");
       const entries: TextChannelEntry[] = [];
       for (const channel of guild.channels.cache.values()) {
         const kind = KINDS.get(channel.type);
@@ -207,8 +207,6 @@ export async function answerAdminQuery(query: AdminQuery, { client, exit }: Admi
       return ok(entries);
     }
     case "messages": {
-      const guild = client.guilds.cache.get(query.guildId);
-      if (!guild) return fail("not-found");
       const channel =
         guild.channels.cache.get(query.channelId) ?? (await guild.channels.fetch(query.channelId).catch(() => null));
       if (!channel || !KINDS.has(channel.type) || !channel.isTextBased()) return fail("not-found");
@@ -233,13 +231,10 @@ export async function startAdminQueries({
     if (channel !== Channels.botAdminQueries) return;
     const query = parseJson(AdminQuerySchema, raw);
     if (!query) return;
-    const result = await answerAdminQuery(query, deps).catch(
-      (error: unknown): AdminQueryResult => ({
-        id: query.id,
-        ok: false,
-        error: error instanceof Error ? error.message : "failed",
-      }),
-    );
+    const result = await answerAdminQuery(query, deps).catch((error: unknown): AdminQueryResult => {
+      console.warn(`[bot] admin ${query.kind}: ${error instanceof Error ? error.message : error}`);
+      return { id: query.id, ok: false, error: "failed" };
+    });
     await redis.publish(Channels.botAdminResults, JSON.stringify(result)).catch(() => {});
   });
   await subscriber.subscribe(Channels.botAdminQueries);

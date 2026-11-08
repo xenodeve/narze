@@ -279,9 +279,12 @@ describe("users, sessions and history for Admins (#111, spec #112, #114)", () =>
     const res = await call(sessions.devb111 ?? null, "GET", `/api/admin/users/${lis.id}`);
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
+      user: { name: string; plays: number } | null;
       history: Array<{ title: string; playCount: number }>;
       sessions: Array<{ id: string }>;
     };
+    // The profile comes with the detail: no second read of the whole user list.
+    expect(body.user).toMatchObject({ name: "Lis", plays: 3 });
     expect(body.history.map((h) => h.title).sort()).toEqual(["Idol", "Yoru"]);
     expect(body.sessions.map((s) => s.id)).toEqual([`${G}-b`, `${G}-a`]);
     // The Developer was in neither session; an Admin still opens it (participants-only is for users).

@@ -1,29 +1,24 @@
 "use client";
 
-import type { AdminGuild, AdminGuildRow, SessionSummary, TextChannelEntry, TopPlayed } from "@narze/shared";
+import {
+  type AdminGuild,
+  type AdminGuildRow,
+  MESSAGE_PAGE,
+  type SessionSummary,
+  type TextChannelEntry,
+  type TopPlayed,
+} from "@narze/shared";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Thinking } from "@/components/catalog/thinking";
-import { getAdminGuild, getAdminGuilds, getChannels, getGuildHistory, getGuildSessions } from "@/lib/admin";
+import { getAdminGuild, getAdminGuilds, getChannels, getGuildHistory, getGuildSessions, useLoad } from "@/lib/admin";
+import { initial, thaiDate, thaiDateTime } from "@/lib/format";
 import { sessionLength } from "@/lib/history";
 import pill from "@/styles/pill-tabs.module.css";
 import styles from "./admin.module.css";
 import { ChannelViewer } from "./channel";
 import { AdminArea } from "./index";
-
-/** AC4: dates in Thai, Buddhist year. */
-export const thaiDate = (ms: number) =>
-  new Date(ms).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" });
-export const thaiDateTime = (ms: number) =>
-  new Date(ms).toLocaleString("th-TH", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-const initial = (name: string) => Array.from(name.replace(/^[เแโใไ]/, ""))[0] ?? "?";
 
 function GuildIcon({ guild, size }: { guild: Pick<AdminGuild, "name" | "iconUrl">; size: number }) {
   return guild.iconUrl ? (
@@ -49,12 +44,9 @@ export function AdminGuilds() {
 }
 
 function GuildList() {
-  const [guilds, setGuilds] = useState<AdminGuildRow[] | "failed" | null>(null);
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<Sort>("members");
-  useEffect(() => {
-    void getAdminGuilds().then((list) => setGuilds(list ?? "failed"));
-  }, []);
+  const guilds = useLoad(() => getAdminGuilds(), "");
   const shown = useMemo(() => {
     if (!Array.isArray(guilds)) return [];
     const q = query.trim().toLowerCase();
@@ -102,7 +94,7 @@ function GuildList() {
               onChange={(e) => setQuery(e.target.value)}
             />
             <fieldset className={`${pill.tabs} ${styles.plainSet}`}>
-              <legend className={styles.srOnly}>เรียงตาม</legend>
+              <legend className="sr-only">เรียงตาม</legend>
               {SORTS.map((s) => (
                 <button
                   key={s.value}
@@ -168,10 +160,7 @@ function GuildDetail({ id }: { id: string }) {
   const path = usePathname();
   const tab: Tab = TABS.some((t) => t.value === params.get("tab")) ? (params.get("tab") as Tab) : "overview";
   const channel = params.get("channel");
-  const [guild, setGuild] = useState<AdminGuild | "failed" | null>(null);
-  useEffect(() => {
-    void getAdminGuild(id).then((g) => setGuild(g ?? "failed"));
-  }, [id]);
+  const guild = useLoad(() => getAdminGuild(id), id);
   const href = (next: { tab: Tab; channel?: string }) =>
     `${path}?tab=${next.tab}${next.channel ? `&channel=${next.channel}` : ""}`;
 
@@ -250,10 +239,7 @@ function Channels({
   channel: string | null;
   href: (id: string) => string;
 }) {
-  const [channels, setChannels] = useState<TextChannelEntry[] | "failed" | null>(null);
-  useEffect(() => {
-    void getChannels(guildId).then((list) => setChannels(list ?? "failed"));
-  }, [guildId]);
+  const channels = useLoad(() => getChannels(guildId), guildId);
   if (channels === null) return <Thinking label="กำลังโหลดช่อง" />;
   if (channels === "failed")
     return (
@@ -282,17 +268,14 @@ function Channels({
       {channel ? (
         <ChannelViewer guildId={guildId} channelId={channel} threadHref={href} />
       ) : (
-        <p className={styles.hint}>เลือกช่องทางซ้ายเพื่ออ่าน 50 ข้อความล่าสุด</p>
+        <p className={styles.hint}>เลือกช่องทางซ้ายเพื่ออ่าน {MESSAGE_PAGE} ข้อความล่าสุด</p>
       )}
     </div>
   );
 }
 
 function GuildSessions({ guildId }: { guildId: string }) {
-  const [sessions, setSessions] = useState<SessionSummary[] | "failed" | null>(null);
-  useEffect(() => {
-    void getGuildSessions(guildId).then((list) => setSessions(list ?? "failed"));
-  }, [guildId]);
+  const sessions = useLoad(() => getGuildSessions(guildId), guildId);
   if (sessions === null) return <Thinking label="กำลังโหลดเซสชัน" />;
   if (sessions === "failed")
     return (
@@ -329,10 +312,7 @@ export function SessionRows({ sessions }: { sessions: SessionSummary[] }) {
 }
 
 function GuildHistory({ guildId }: { guildId: string }) {
-  const [history, setHistory] = useState<TopPlayed[] | "failed" | null>(null);
-  useEffect(() => {
-    void getGuildHistory(guildId).then((list) => setHistory(list ?? "failed"));
-  }, [guildId]);
+  const history = useLoad(() => getGuildHistory(guildId), guildId);
   if (history === null) return <Thinking label="กำลังโหลดประวัติ" />;
   if (history === "failed")
     return (

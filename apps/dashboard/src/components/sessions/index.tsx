@@ -6,11 +6,10 @@ import { useCallback, useEffect, useState } from "react";
 import { SignedIn } from "@/components/catalog/browse";
 import { Thinking } from "@/components/catalog/thinking";
 import { formatTime } from "@/components/now-playing/progress";
+import { initial } from "@/lib/format";
 import { getSession, listSessions, sessionLength, useSessionEvents } from "@/lib/history";
 import styles from "./sessions.module.css";
 
-/** A name's first letter; a Thai leading vowel (เ แ โ ใ ไ) is not a letter on its own. */
-const initial = (name: string) => Array.from(name.replace(/^[เแโใไ]/, ""))[0] ?? "?";
 const SIGNED_OUT = "เข้าสู่ระบบด้วย Discord ก่อน แล้วจะเห็นประวัติการฟังของคุณ";
 /** The Bot could not read the server's name when the session started. */
 const nameOf = (s: Pick<SessionSummary, "guildName">) => s.guildName || "เซิร์ฟเวอร์ที่ไม่ทราบชื่อ";

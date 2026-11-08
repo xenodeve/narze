@@ -22,7 +22,7 @@ import {
   type WhitelistEntry,
   WhitelistEntrySchema,
 } from "@narze/shared";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { answer, apiGet, apiSend, parsed } from "./api";
 import { currentAccessToken, useSession } from "./session";
 import { getSocket, onSocketEvents } from "./socket";
@@ -143,4 +143,24 @@ export function useAdminRoom(handlers: {
       void getSocket().then((socket) => socket.emit(SocketEvents.adminUnsubscribe));
     };
   }, [onHistory, onLine, onStats, onPresence]);
+}
+
+/**
+ * One admin read: null while loading, "failed" when the Backend did not answer with data. Loads again
+ * when `key` changes (name what `load` reads), and ignores an answer that arrives after that.
+ */
+export function useLoad<T>(load: () => Promise<T | null>, key: string): T | "failed" | null {
+  const [state, setState] = useState<T | "failed" | null>(null);
+  const latest = useRef(load);
+  latest.current = load;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `key` names everything `load` reads
+  useEffect(() => {
+    let current = true;
+    setState(null);
+    void latest.current().then((value) => current && setState(value ?? "failed"));
+    return () => {
+      current = false;
+    };
+  }, [key]);
+  return state;
 }

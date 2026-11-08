@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import {
+  AdminGuildSchema,
   type AdminQueryRequest,
   AdminQueryResultSchema,
   Channels,
@@ -7,8 +8,16 @@ import {
   parseJson,
   TextChannelEntrySchema,
 } from "@narze/shared";
-import { createTtlCache } from "@narze/shared/ttl-cache";
-import { GatewayTimeoutException, Inject, Injectable, NotFoundException, type OnModuleInit } from "@nestjs/common";
+import { createTtlCache, type TtlCache } from "@narze/shared/ttl-cache";
+import {
+  BadGatewayException,
+  ForbiddenException,
+  GatewayTimeoutException,
+  Inject,
+  Injectable,
+  NotFoundException,
+  type OnModuleInit,
+} from "@nestjs/common";
 import type Redis from "ioredis";
 import type { z } from "zod";
 import { ADMIN_QUERY_TIMEOUT_MS, REDIS, REDIS_SUBSCRIBER } from "../tokens";
@@ -16,6 +25,16 @@ import { ADMIN_QUERY_TIMEOUT_MS, REDIS, REDIS_SUBSCRIBER } from "../tokens";
 /** How long a read from Discord is reused: a refresh never reaches Discord twice (#111 AC2). */
 const CHANNELS_TTL_MS = 60_000;
 const MESSAGES_TTL_MS = 30_000;
+/** The guild list changes rarely; a short reuse spares the Bot a round trip per page view. */
+const GUILDS_TTL_MS = 10_000;
+
+/** The Bot's error words (apps/bot/src/admin/queries.ts) as HTTP answers; anything else is a 502. */
+const failure = (error: string) =>
+  error === "not-found"
+    ? new NotFoundException(error)
+    : error === "forbidden"
+      ? new ForbiddenException("the Bot may not read this")
+      : new BadGatewayException("the Bot could not answer");
 
 /**
  * Asks the Bot about Discord for the admin pages (#111): only the Bot holds the Discord token
@@ -25,8 +44,9 @@ const MESSAGES_TTL_MS = 30_000;
 @Injectable()
 export class AdminQueries implements OnModuleInit {
   private readonly pending = new Map<string, (result: z.infer<typeof AdminQueryResultSchema>) => void>();
-  private readonly cache = createTtlCache<string, unknown>({ ttlMs: MESSAGES_TTL_MS, max: 200 });
+  private readonly messagesCache = createTtlCache<string, unknown>({ ttlMs: MESSAGES_TTL_MS, max: 200 });
   private readonly channelsCache = createTtlCache<string, unknown>({ ttlMs: CHANNELS_TTL_MS, max: 200 });
+  private readonly guildsCache = createTtlCache<string, unknown>({ ttlMs: GUILDS_TTL_MS, max: 200 });
   private readonly inFlight = new Map<string, Promise<unknown>>();
 
   constructor(
@@ -56,7 +76,7 @@ export class AdminQueries implements OnModuleInit {
         clearTimeout(timer);
         this.pending.delete(id);
         if (result.ok) resolve(result.data);
-        else reject(new NotFoundException(result.error));
+        else reject(failure(result.error));
       });
       this.redis.publish(Channels.botAdminQueries, JSON.stringify({ ...query, id })).catch((error: Error) => {
         clearTimeout(timer);
@@ -66,6 +86,18 @@ export class AdminQueries implements OnModuleInit {
     });
   }
 
+  guilds() {
+    return this.cached(this.guildsCache, "guilds", async () =>
+      AdminGuildSchema.array().parse(await this.ask({ kind: "guilds" })),
+    );
+  }
+
+  guild(guildId: string) {
+    return this.cached(this.guildsCache, `guild:${guildId}`, async () =>
+      AdminGuildSchema.parse(await this.ask({ kind: "guild", guildId })),
+    );
+  }
+
   channels(guildId: string) {
     return this.cached(this.channelsCache, `channels:${guildId}`, async () =>
       TextChannelEntrySchema.array().parse(await this.ask({ kind: "channels", guildId })),
@@ -73,16 +105,12 @@ export class AdminQueries implements OnModuleInit {
   }
 
   messages(guildId: string, channelId: string) {
-    return this.cached(this.cache, `messages:${guildId}:${channelId}`, async () =>
+    return this.cached(this.messagesCache, `messages:${guildId}:${channelId}`, async () =>
       MessagePageSchema.parse(await this.ask({ kind: "messages", guildId, channelId })),
     );
   }
 
-  private async cached<T>(
-    cache: ReturnType<typeof createTtlCache<string, unknown>>,
-    key: string,
-    load: () => Promise<T>,
-  ): Promise<T> {
+  private async cached<T>(cache: TtlCache<string, unknown>, key: string, load: () => Promise<T>): Promise<T> {
     const hit = cache.get(key);
     if (hit !== undefined) return hit as T;
     const running = this.inFlight.get(key);

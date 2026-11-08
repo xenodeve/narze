@@ -1,11 +1,12 @@
 import {
   ADMIN_USER_ROWS,
   type AdminGuildRow,
-  AdminGuildSchema,
   AdminStatsSchema,
   type AdminUser,
   type AdminUserList,
   DiscordIdSchema,
+  PlayerSummarySchema,
+  parseJson,
   RedisKeys,
   SnowflakeSchema,
   STATS_POINTS,
@@ -29,8 +30,8 @@ import {
 } from "@nestjs/common";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type Redis from "ioredis";
-import { GuildDirectory } from "../guilds/guild-directory";
 import { HistoryStore } from "../history/history-store";
+import { Presence } from "../presence/presence";
 import { check } from "../supabase-check";
 import { REDIS, SUPABASE } from "../tokens";
 import { AdminGateway } from "./admin.gateway";
@@ -49,7 +50,7 @@ export class AdminController {
     @Inject(AdminGateway) private readonly gateway: AdminGateway,
     @Inject(AdminQueries) private readonly queries: AdminQueries,
     @Inject(HistoryStore) private readonly history: HistoryStore,
-    @Inject(GuildDirectory) private readonly directory: GuildDirectory,
+    @Inject(Presence) private readonly presence: Presence,
     @Inject(SUPABASE) private readonly db: SupabaseClient,
   ) {}
 
@@ -93,14 +94,16 @@ export class AdminController {
   /** Spec #110: every Guild the Bot is in, with whether a Player is playing there. */
   @Get("guilds")
   async guilds(): Promise<AdminGuildRow[]> {
-    const guilds = AdminGuildSchema.array().parse(await this.queries.ask({ kind: "guilds" }));
-    const summaries = await Promise.all(guilds.map((g) => this.directory.playerSummary(g.id)));
-    return guilds.map((g, i) => ({ ...g, playing: summaries[i]?.playing ?? false }));
+    const guilds = await this.queries.guilds();
+    if (guilds.length === 0) return [];
+    // One MGET for every Guild's Player summary (the GuildDirectory pattern).
+    const raw = await this.redis.mget(guilds.map((g) => RedisKeys.playerSummary(g.id)));
+    return guilds.map((g, i) => ({ ...g, playing: parseJson(PlayerSummarySchema, raw[i])?.playing ?? false }));
   }
 
   @Get("guilds/:guildId")
   async guild(@Param("guildId") guildId: string) {
-    return AdminGuildSchema.parse(await this.queries.ask({ kind: "guild", guildId: snowflake(guildId) }));
+    return this.queries.guild(snowflake(guildId));
   }
 
   @Get("guilds/:guildId/channels")
@@ -127,11 +130,31 @@ export class AdminController {
   /** Spec #114: everyone who played or opened the Dashboard, with live presence and Active Today. */
   @Get("users")
   async users(): Promise<AdminUserList> {
+    const users = await this.userStats(null);
+    const today = startOfDayBangkok(Date.now());
+    return { users, activeToday: users.filter((u) => u.online || (u.lastActiveAt ?? 0) >= today).length };
+  }
+
+  /** Spec #114: one person, up to 500 history items (last played first) and 500 sessions across Guilds. */
+  @Get("users/:discordId")
+  async user(@Param("discordId") discordId: string) {
+    if (!DiscordIdSchema.safeParse(discordId).success) throw new BadRequestException("invalid id");
+    const [users, history, sessions] = await Promise.all([
+      this.userStats(discordId),
+      this.history.recent("", discordId, ADMIN_USER_ROWS),
+      this.history.sessionsOf(discordId, "", ADMIN_USER_ROWS),
+    ]);
+    return { user: users[0] ?? null, history, sessions };
+  }
+
+  /** admin_user_stats() (#111) with Presence; `only` narrows it to one person. */
+  private async userStats(only: string | null): Promise<AdminUser[]> {
     const [{ data, error }, online] = await Promise.all([
-      this.db.rpc("admin_user_stats"),
-      this.redis.hgetall(RedisKeys.presence),
+      this.db.rpc("admin_user_stats", only ? { p_discord_id: only } : {}),
+      this.presence.online(),
     ]);
     check("admin user stats", error);
+    const tabs = new Set(online);
     const rows = (data ?? []) as Array<{
       discord_id: string;
       name: string;
@@ -140,28 +163,15 @@ export class AdminController {
       unique_tracks: number;
       last_active_at: string | null;
     }>;
-    const users: AdminUser[] = rows.map((r) => ({
+    return rows.map((r) => ({
       discordId: r.discord_id,
       name: r.name,
       avatarUrl: r.avatar_url,
       plays: Number(r.plays),
       uniqueTracks: Number(r.unique_tracks),
       lastActiveAt: r.last_active_at ? Date.parse(r.last_active_at) : null,
-      online: Number(online[r.discord_id] ?? 0) > 0,
+      online: tabs.has(r.discord_id),
     }));
-    const today = startOfDayBangkok(Date.now());
-    return { users, activeToday: users.filter((u) => u.online || (u.lastActiveAt ?? 0) >= today).length };
-  }
-
-  /** Spec #114: up to 500 history items (last played first) and 500 sessions across Guilds. */
-  @Get("users/:discordId")
-  async user(@Param("discordId") discordId: string) {
-    const id = snowflake(discordId);
-    const [history, sessions] = await Promise.all([
-      this.history.recent("", id, ADMIN_USER_ROWS),
-      this.history.sessionsOf(id, "", ADMIN_USER_ROWS),
-    ]);
-    return { history, sessions };
   }
 
   /** Spec #112: any session, whoever was in it. */

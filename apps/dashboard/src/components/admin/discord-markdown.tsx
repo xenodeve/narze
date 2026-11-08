@@ -1,7 +1,7 @@
 "use client";
 
 import type { DiscordMessage } from "@narze/shared";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import styles from "./channel.module.css";
 
 /**
@@ -16,9 +16,13 @@ export function DiscordText({
   text: string;
   message: Pick<DiscordMessage, "mentions" | "mentionedRoles">;
 }) {
-  const users = new Map(message.mentions.map((m) => [m.id, m.name]));
-  const roles = new Map(message.mentionedRoles.map((r) => [r.id, r]));
-  return <>{blocks(text, { users, roles })}</>;
+  // Parsed once per text: a message re-renders when its lightbox opens or closes.
+  const nodes = useMemo(() => {
+    const users = new Map(message.mentions.map((m) => [m.id, m.name]));
+    const roles = new Map(message.mentionedRoles.map((r) => [r.id, r]));
+    return blocks(text, { users, roles });
+  }, [text, message.mentions, message.mentionedRoles]);
+  return <>{nodes}</>;
 }
 
 type Names = {
@@ -145,7 +149,7 @@ const RULES: Array<{ re: RegExp; draw: (m: RegExpExecArray, names: Names, key: s
   },
 ];
 
-export function inline(text: string, names: Names): ReactNode[] {
+function inline(text: string, names: Names): ReactNode[] {
   const out: ReactNode[] = [];
   let rest = text;
   while (rest) {

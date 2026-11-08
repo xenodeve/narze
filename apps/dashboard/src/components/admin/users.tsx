@@ -1,18 +1,17 @@
 "use client";
 
-import type { AdminUser, AdminUserDetail, AdminUserList, ListeningSession } from "@narze/shared";
+import type { AdminUser } from "@narze/shared";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Thinking } from "@/components/catalog/thinking";
 import { formatTime } from "@/components/now-playing/progress";
-import { getAdminSession, getAdminUser, getAdminUsers, useAdminRoom } from "@/lib/admin";
+import { getAdminSession, getAdminUser, getAdminUsers, useAdminRoom, useLoad } from "@/lib/admin";
+import { initial, thaiDateTime } from "@/lib/format";
 import { sessionLength } from "@/lib/history";
 import { moodFromArtwork } from "@/lib/mood";
 import styles from "./admin.module.css";
-import { PlayRows, SessionRows, thaiDateTime } from "./guilds";
+import { PlayRows, SessionRows } from "./guilds";
 import { AdminArea } from "./index";
-
-const initial = (name: string) => Array.from(name.replace(/^[เแโใไ]/, ""))[0] ?? "?";
 
 function Face({ name, url, size = 36 }: { name: string; url: string | null; size?: number }) {
   return url ? (
@@ -31,12 +30,9 @@ export function AdminUsers() {
 }
 
 function UserList() {
-  const [list, setList] = useState<AdminUserList | "failed" | null>(null);
   const [online, setOnline] = useState<Set<string> | null>(null);
   const [query, setQuery] = useState("");
-  useEffect(() => {
-    void getAdminUsers().then((l) => setList(l ?? "failed"));
-  }, []);
+  const list = useLoad(() => getAdminUsers(), "");
   useAdminRoom({ onPresence: useCallback((ids: string[]) => setOnline(new Set(ids)), []) });
   const users = useMemo(() => {
     if (typeof list !== "object" || list === null) return [];
@@ -114,12 +110,7 @@ export function AdminUserPage({ id }: { id: string }) {
 }
 
 function UserDetail({ id }: { id: string }) {
-  const [detail, setDetail] = useState<AdminUserDetail | "failed" | null>(null);
-  const [user, setUser] = useState<AdminUser | null>(null);
-  useEffect(() => {
-    void getAdminUser(id).then((d) => setDetail(d ?? "failed"));
-    void getAdminUsers().then((l) => setUser(l?.users.find((u) => u.discordId === id) ?? null));
-  }, [id]);
+  const detail = useLoad(() => getAdminUser(id), id);
   if (detail === null) return <Thinking label="กำลังโหลดผู้ใช้" />;
   if (detail === "failed")
     return (
@@ -127,6 +118,7 @@ function UserDetail({ id }: { id: string }) {
         โหลดข้อมูลผู้ใช้ไม่สำเร็จ
       </p>
     );
+  const { user } = detail;
   return (
     <>
       <header className={styles.guildHead}>
@@ -171,11 +163,8 @@ export function AdminSessionPage({ id }: { id: string }) {
 }
 
 function SessionDetail({ id }: { id: string }) {
-  const [session, setSession] = useState<ListeningSession | "failed" | null>(null);
   const [mood, setMood] = useState<string | null>(null);
-  useEffect(() => {
-    void getAdminSession(id).then((s) => setSession(s ?? "failed"));
-  }, [id]);
+  const session = useLoad(() => getAdminSession(id), id);
   const artwork = typeof session === "object" && session ? session.tracks.find((t) => t.thumbnail)?.thumbnail : null;
   useEffect(() => {
     if (artwork) void moodFromArtwork(artwork).then(setMood);

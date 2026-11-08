@@ -1,25 +1,13 @@
 "use client";
 
-import type { Attachment, DiscordMessage, Embed, MessagePage } from "@narze/shared";
+import { type Attachment, type DiscordMessage, type Embed, MESSAGE_PAGE } from "@narze/shared";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Thinking } from "@/components/catalog/thinking";
-import { getMessages } from "@/lib/admin";
+import { getMessages, useLoad } from "@/lib/admin";
+import { initial, kb, thaiDateTime } from "@/lib/format";
 import styles from "./channel.module.css";
 import { DiscordText } from "./discord-markdown";
-
-/** AC4: Thai dates, Buddhist year, as Discord shows a message's time. */
-const stamp = (ms: number) =>
-  new Date(ms).toLocaleString("th-TH", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-const kb = (bytes: number) =>
-  bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / 1024 ** 2).toFixed(1)} MB`;
-const initial = (name: string) => Array.from(name.replace(/^[เแโใไ]/, ""))[0] ?? "?";
 
 /** Spec #111: the last 50 messages of a channel or thread, read-only, as Discord draws them. */
 export function ChannelViewer({
@@ -31,11 +19,7 @@ export function ChannelViewer({
   channelId: string;
   threadHref: (id: string) => string;
 }) {
-  const [page, setPage] = useState<MessagePage | "failed" | null>(null);
-  useEffect(() => {
-    setPage(null);
-    void getMessages(guildId, channelId).then((p) => setPage(p ?? "failed"));
-  }, [guildId, channelId]);
+  const page = useLoad(() => getMessages(guildId, channelId), `${guildId}:${channelId}`);
   if (page === null) return <Thinking label="กำลังโหลดข้อความ" />;
   if (page === "failed")
     return (
@@ -58,7 +42,9 @@ export function ChannelViewer({
           ))}
         </ol>
       )}
-      <p className={`num ${styles.hint}`}>แสดง {page.messages.length} ข้อความล่าสุด (สูงสุด 50) · อ่านอย่างเดียว</p>
+      <p className={`num ${styles.hint}`}>
+        แสดง {page.messages.length} ข้อความล่าสุด (สูงสุด {MESSAGE_PAGE}) · อ่านอย่างเดียว
+      </p>
     </section>
   );
 }
@@ -86,7 +72,7 @@ function Message({ message: m, threadHref }: { message: DiscordMessage; threadHr
           <span className={styles.author}>{m.author.name}</span>
           {m.author.bot ? <span className={`mono ${styles.badge}`}>BOT</span> : null}
           <time className={`num ${styles.time}`} dateTime={new Date(m.at).toISOString()}>
-            {stamp(m.at)}
+            {thaiDateTime(m.at)}
           </time>
           {m.editedAt ? <span className={styles.time}>(แก้ไขแล้ว)</span> : null}
         </p>
@@ -122,7 +108,7 @@ function Message({ message: m, threadHref }: { message: DiscordMessage; threadHr
           <Link href={threadHref(m.thread.id)} className={styles.thread} data-testid="thread-preview">
             <span className={styles.threadName}>🧵 {m.thread.name}</span>
             <span className={`num ${styles.time}`}>
-              {m.thread.messageCount} ข้อความ · ล่าสุด {stamp(m.thread.lastActivityAt)}
+              {m.thread.messageCount} ข้อความ · ล่าสุด {thaiDateTime(m.thread.lastActivityAt)}
               {m.thread.archived ? " · เก็บถาวรแล้ว" : ""}
             </span>
           </Link>

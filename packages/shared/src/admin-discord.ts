@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { DiscordIdSchema } from "./admin";
+import { SnowflakeSchema } from "./commands";
 import { SessionSummarySchema, TopPlayedSchema } from "./history";
 
 /**
@@ -7,7 +8,7 @@ import { SessionSummarySchema, TopPlayedSchema } from "./history";
  * (ADR-0003), so the Backend asks it over Redis and caches the answers.
  */
 
-const snowflake = z.string().regex(/^\d+$/);
+const snowflake = SnowflakeSchema;
 const url = z.string().url();
 
 export const AdminGuildSchema = z.object({
@@ -171,6 +172,8 @@ export function startOfDayBangkok(at: number): number {
 
 /** GET /api/admin/users/:id (spec #114). */
 export const AdminUserDetailSchema = z.object({
+  /** Null for an ID nobody has seen: no plays and never on the Dashboard. */
+  user: AdminUserSchema.nullable(),
   history: z.array(TopPlayedSchema),
   sessions: z.array(SessionSummarySchema),
 });
