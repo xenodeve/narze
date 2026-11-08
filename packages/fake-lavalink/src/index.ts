@@ -71,9 +71,17 @@ export interface FakeLavalink {
   stop(): void;
 }
 
+/** Like the real sources: a Spotify track's id (LavaSrc), a YouTube video id, else the URI. */
+function identifierOf(uri: string): string {
+  const spotify = /open\.spotify\.com\/track\/([A-Za-z0-9]+)/.exec(uri)?.[1];
+  if (spotify) return spotify;
+  const video = /[?&]v=([\w-]+)/.exec(uri)?.[1];
+  return video ?? uri;
+}
+
 function toLavalinkTrack(t: FakeCatalogTrack): LavalinkTrack {
   const info = {
-    identifier: t.uri,
+    identifier: identifierOf(t.uri),
     isSeekable: true,
     author: t.author,
     length: t.lengthMs,

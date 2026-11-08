@@ -84,6 +84,8 @@ export const SocketEvents = {
   permissionUpdate: "permission:update",
   /** Backend → room: `{ guildId, settings }` after a settings change (#106, spec #92). */
   settingsUpdate: "settings:update",
+  /** Backend → the user's own tabs: `{ playlistId }` after a Library change (#107). */
+  libraryUpdate: "library:update",
   /** Backend → a Guild's room: the Guild's VoiceChannelList changed. */
   voiceChannels: "voice:channels",
 } as const;

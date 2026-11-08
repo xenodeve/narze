@@ -9,6 +9,9 @@ import { Authenticator } from "./auth/authenticator";
 import { CommandRelay } from "./control/command-relay";
 import { DiscordApi } from "./discord/discord-api";
 import { GuildDirectory } from "./guilds/guild-directory";
+import { IMPORTER, LibraryController } from "./library/library.controller";
+import { createImporter } from "./library/library-importer";
+import { LibraryStore } from "./library/library-store";
 import { MeController } from "./me/me.controller";
 import { PlayerController } from "./player/player.controller";
 import { PlayerCache } from "./player/player-cache";
@@ -72,7 +75,7 @@ class AppModule implements OnApplicationShutdown {
   static forRoot(options: AppOptions): DynamicModule {
     return {
       module: AppModule,
-      controllers: [MeController, PlayerController, SearchController, SettingsController],
+      controllers: [MeController, PlayerController, SearchController, SettingsController, LibraryController],
       providers: [
         { provide: REDIS, useFactory: () => new Redis(options.redisUrl) },
         { provide: REDIS_SUBSCRIBER, useFactory: () => new Redis(options.redisUrl) },
@@ -98,6 +101,15 @@ class AppModule implements OnApplicationShutdown {
         DiscordApi,
         UserStore,
         SettingsStore,
+        LibraryStore,
+        {
+          provide: IMPORTER,
+          useFactory: () =>
+            createImporter({
+              loadTracks: createLavalinkRest({ url: options.lavalink?.url, password: options.lavalink?.password }),
+              spotify: createSpotifyApi(options.spotify ?? {}),
+            }),
+        },
         GuildDirectory,
         Presence,
         PlayerCache,
