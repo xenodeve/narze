@@ -20,6 +20,7 @@ import type { INestApplication } from "@nestjs/common";
 import { createClient } from "@supabase/supabase-js";
 import Redis from "ioredis";
 import { io, type Socket } from "socket.io-client";
+import { AdminRoles } from "../src/admin/admin-roles";
 import { createApp } from "../src/app";
 
 const dev = { id: "370000000000000001", username: "dev110", globalName: "Dev" };
@@ -259,5 +260,29 @@ describe("stats and logs (#110, AC3, AC4)", () => {
     await Bun.sleep(100);
     expect(logs).toEqual([]);
     socket.close();
+  });
+});
+
+describe("the last Developer cannot leave (#133)", () => {
+  test("with no Developer in the environment, the only whitelisted one cannot be demoted or removed", async () => {
+    const roles = new AdminRoles(admin, []);
+    // This test needs the whitelist to hold one Developer: others are set aside and put back after.
+    const { data: others } = await admin.from("admin_whitelist").select("*").eq("role", "developer");
+    await admin.from("admin_whitelist").delete().eq("role", "developer");
+    try {
+      await roles.set(fan.id, "developer", dev.id);
+      await expect(roles.set(fan.id, "admin", fan.id)).rejects.toThrow("last Developer");
+      await expect(roles.remove(fan.id)).rejects.toThrow("last Developer");
+      expect(await roles.roleOf(fan.id)).toBe("developer");
+      // With a second Developer, either may go.
+      await roles.set(boss.id, "developer", fan.id);
+      await roles.set(fan.id, "admin", fan.id);
+      expect(await roles.roleOf(fan.id)).toBe("admin");
+      // Admins are never the last Developer.
+      await roles.remove(fan.id);
+    } finally {
+      await admin.from("admin_whitelist").delete().in("discord_id", [fan.id, boss.id]);
+      if (others?.length) await admin.from("admin_whitelist").upsert(others);
+    }
   });
 });

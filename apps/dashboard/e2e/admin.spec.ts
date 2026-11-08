@@ -1,6 +1,8 @@
 import { setFakeDiscordUser } from "@narze/fake-discord";
+import { localSupabase } from "@narze/fake-discord/supabase-local";
 import { Channels, DEFAULT_REDIS_URL, RedisKeys } from "@narze/shared";
 import { expect, test } from "@playwright/test";
+import { createClient } from "@supabase/supabase-js";
 import Redis from "ioredis";
 import { signInThroughPopup } from "./support";
 
@@ -78,4 +80,22 @@ test("only a Developer manages the whitelist (#110, AC2)", async ({ page }) => {
   await expect(page.getByTestId("whitelist-row").filter({ hasText: fan.id })).toContainText("admin");
   await page.getByRole("button", { name: `ลบ ${fan.id}` }).click();
   await expect(page.getByTestId("whitelist-row").filter({ hasText: fan.id })).toHaveCount(0);
+});
+
+test("an Admin who is not a Developer is sent away from the whitelist page (#133)", async ({ page }) => {
+  const supabase = localSupabase();
+  const db = createClient(supabase.url, supabase.secretKey, { auth: { persistSession: false } });
+  await db.from("admin_whitelist").upsert({ discord_id: fan.id, role: "admin", added_by: dev.id });
+  try {
+    await setFakeDiscordUser(fan, []);
+    await signInThroughPopup(page, "Fanny");
+    // The admin area is theirs; the Developer-only page is not.
+    await page.goto("/admin");
+    await expect(page.getByRole("heading", { name: "ภาพรวมบอท", level: 1 })).toBeVisible();
+    await page.goto("/admin/settings");
+    await expect(page).toHaveURL("/");
+    await expect(page.getByTestId("whitelist-row")).toHaveCount(0);
+  } finally {
+    await db.from("admin_whitelist").delete().eq("discord_id", fan.id);
+  }
 });
