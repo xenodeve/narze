@@ -1,5 +1,6 @@
 "use client";
 
+import { SocketEvents } from "@narze/shared/channels";
 import type { Socket } from "socket.io-client";
 import { BACKEND_URL } from "./config";
 
@@ -18,6 +19,8 @@ export function getSocket(): Promise<Socket> {
       withCredentials: true,
       auth: (send) => send(signedIn ? { token: signedIn.accessToken } : {}),
     });
+    // The Backend asks for the current token when the handshake's expires (#142).
+    s.on(SocketEvents.sessionToken, (ack: (token: string | null) => void) => ack(signedIn?.accessToken ?? null));
     // socket.io-client does not reconnect after the server closes a socket; this tab still wants one.
     s.on("disconnect", (reason) => {
       if (reason === "io server disconnect") setTimeout(() => s.connect(), 1000);
@@ -29,12 +32,20 @@ export function getSocket(): Promise<Socket> {
 
 /**
  * Who the socket should be. Signing in, out or as someone else re-handshakes; a refreshed token
- * for the same user is only kept for the next handshake, since the open socket is already verified.
+ * for the same user is kept for the next handshake, since the open socket is already verified.
+ * A socket that is down gets it now: a hidden tab does not refresh, so the Backend may have closed it
+ * at its token's expiry and refused the reconnect with the stale one, and socket.io does not retry
+ * a refused handshake (#142).
  */
 export function setSocketUser(next: { userId: string; accessToken: string } | null): void {
   const sameUser = next?.userId === signedIn?.userId;
   signedIn = next;
-  if (sameUser) return;
+  if (sameUser) {
+    void socket?.then((s) => {
+      if (!s.connected) s.connect();
+    });
+    return;
+  }
   void socket?.then((s) => {
     s.disconnect();
     s.connect();

@@ -27,7 +27,7 @@ import {
 } from "@nestjs/websockets";
 import type Redis from "ioredis";
 import type { Server, Socket } from "socket.io";
-import { Authenticator, type Identity } from "../auth/authenticator";
+import { Authenticator, expiryOf, type Identity } from "../auth/authenticator";
 import { CommandRelay } from "../control/command-relay";
 import { GuildDirectory, permissionOf, summarize } from "../guilds/guild-directory";
 import { PlayerCache } from "../player/player-cache";
@@ -40,7 +40,13 @@ interface SessionData {
   identity?: Identity;
   /** Mutual Guilds at connect time, keyed by id. */
   guilds?: Map<string, StoredGuild>;
+  /** When the current token expires (ms); the tab is asked for a fresh one then (#142). */
+  expiresAt?: number;
+  expiry?: ReturnType<typeof setTimeout>;
 }
+
+/** setTimeout's longest delay; a longer one fires at once. */
+const MAX_DELAY = 2 ** 31 - 1;
 
 const guildRoom = (guildId: string) => `guild:${guildId}`;
 /** One room per signed-in user: their Library changes reach their other tabs (#107). */
@@ -96,8 +102,11 @@ export class UserGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
       if (typeof token !== "string") return next(new Error("unauthorized"));
       this.auth.verify(token).then(
         (identity) => {
-          if (!identity) return next(new Error("unauthorized"));
+          const expiresAt = expiryOf(token);
+          // A token with no exp would give a socket that never ends (#142): refused, fail closed.
+          if (!identity || expiresAt === null) return next(new Error("unauthorized"));
           (client.data as SessionData).identity = identity;
+          (client.data as SessionData).expiresAt = expiresAt;
           next();
         },
         () => next(new Error("unauthorized")),
@@ -106,8 +115,10 @@ export class UserGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   }
 
   async handleConnection(client: Socket): Promise<void> {
-    const { identity } = client.data as SessionData;
+    const data = client.data as SessionData;
+    const { identity, expiresAt } = data;
     if (!identity) return;
+    this.expireAt(client, expiresAt);
     try {
       await this.signIn(client, identity);
     } catch (error) {
@@ -130,8 +141,42 @@ export class UserGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     client.emit(SocketEvents.sessionReady);
   }
 
+  /**
+   * The handshake checked one token; the socket must not outlive it (#142). At its exp the tab is asked
+   * for the token it refreshed meanwhile: a valid one for the same user sets the next check, and
+   * anything else (signed out, another user, no answer) closes the socket.
+   */
+  private expireAt(client: Socket, expiresAt: number | undefined): void {
+    if (expiresAt === undefined) return;
+    const data = client.data as SessionData;
+    data.expiry = setTimeout(
+      () => void this.renew(client).catch(report("token renewal")),
+      Math.min(MAX_DELAY, Math.max(0, expiresAt - Date.now())),
+    );
+  }
+
+  private async renew(client: Socket): Promise<void> {
+    const data = client.data as SessionData;
+    const fresh: unknown = await client
+      .timeout(5000)
+      .emitWithAck(SocketEvents.sessionToken)
+      .catch(() => null);
+    const identity = typeof fresh === "string" ? await this.auth.verify(fresh).catch(() => null) : null;
+    if (client.disconnected) return;
+    const expiresAt = typeof fresh === "string" ? expiryOf(fresh) : null;
+    // Fails closed: no token, a refused one, another user's, or one with no future exp (a clock skew
+    // between Supabase Auth and us must not turn this into a loop).
+    if (!identity || identity.discordId !== data.identity?.discordId || expiresAt === null || expiresAt <= Date.now()) {
+      client.disconnect(true);
+      return;
+    }
+    data.expiresAt = expiresAt;
+    this.expireAt(client, expiresAt);
+  }
+
   async handleDisconnect(client: Socket): Promise<void> {
-    const { identity, guilds } = client.data as SessionData;
+    const { identity, guilds, expiry } = client.data as SessionData;
+    clearTimeout(expiry);
     // `guilds` is set only once the tab was counted, so a socket that left mid-connect is not uncounted.
     if (identity && guilds) await this.presence.close(identity.discordId).catch(report("disconnect"));
   }
