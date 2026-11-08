@@ -22,9 +22,13 @@ export type BotHeartbeat = z.infer<typeof BotHeartbeatSchema>;
 export const BotStatusSchema = z.enum(["online", "offline"]);
 export type BotStatus = z.infer<typeof BotStatusSchema>;
 
-export function botStatusAt(last: BotHeartbeat | null, now: number): BotStatus {
-  if (!last) return "offline";
-  return now - last.at <= HEARTBEAT_TTL_MS ? "online" : "offline";
+/**
+ * Online if a heartbeat was received within the TTL. Both times are on the RECEIVER's clock:
+ * the heartbeat's own `at` comes from the Bot's clock, which may run ahead or behind.
+ */
+export function botStatusAt(lastReceivedAt: number | null, now: number): BotStatus {
+  if (lastReceivedAt === null) return "offline";
+  return now - lastReceivedAt <= HEARTBEAT_TTL_MS ? "online" : "offline";
 }
 
 /** What the Backend tells the Dashboard about the Bot (Socket.io `bot:status`). */

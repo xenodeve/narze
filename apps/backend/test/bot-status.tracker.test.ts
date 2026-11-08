@@ -44,3 +44,18 @@ describe("BotStatusTracker", () => {
     expect(tracker.snapshot().status).toBe("offline");
   });
 });
+
+describe("BotStatusTracker against a Bot whose clock runs ahead", () => {
+  test("expiry is measured on the Backend's clock from receipt, so a fast Bot clock cannot keep a dead Bot online", () => {
+    let now = 1_000;
+    const tracker = new BotStatusTracker(() => now);
+    // The Bot's clock is an hour ahead of the Backend's.
+    tracker.receive(JSON.stringify(beat(now + 3_600_000)));
+    expect(tracker.snapshot().status).toBe("online");
+    expect(tracker.msUntilExpiry()).toBe(HEARTBEAT_TTL_MS);
+
+    now += HEARTBEAT_TTL_MS + 1;
+    tracker.tick();
+    expect(tracker.snapshot().status).toBe("offline");
+  });
+});
