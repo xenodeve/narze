@@ -29,6 +29,10 @@ const app = await createApp({
   },
   youtubeApiKey: env.YOUTUBE_API_KEY,
   chartsUrl: env.CHARTS_URL || undefined,
+  developerIds: (env.NARZE_DEVELOPER_IDS ?? "")
+    .split(",")
+    .map((id) => id.trim())
+    .filter((id) => /^\d{17,20}$/.test(id)),
 });
 await app.listen(Number(env.BACKEND_PORT ?? 4000));
 console.log(`[backend] listening on ${await app.getUrl()}`);
