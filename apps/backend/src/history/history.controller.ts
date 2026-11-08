@@ -18,7 +18,7 @@ export class HistoryController {
   @Get("sessions")
   async sessions(@Headers("authorization") authorization: string | undefined, @Query("q") q: string | undefined) {
     const { discordId } = await this.auth.require(authorization);
-    return this.history.sessionsOf(discordId, (q ?? "").slice(0, 100));
+    return this.history.sessionsOf(discordId, typeof q === "string" ? q.slice(0, 100) : "");
   }
 
   @Get("sessions/:id")

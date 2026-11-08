@@ -70,7 +70,19 @@ export function createSessionRecorder({
     setTimer(() => void flush(), SESSION_FLUSH_MS);
   }
 
-  async function save(id: string): Promise<void> {
+  /** One session's saves run one after another, so an older snapshot never lands after a newer one. */
+  const chains = new Map<string, Promise<void>>();
+  function save(id: string): Promise<void> {
+    const run = (chains.get(id) ?? Promise.resolve()).then(() => saveNow(id));
+    chains.set(id, run);
+    void run.then(() => {
+      if (chains.get(id) === run) chains.delete(id);
+    });
+    return run;
+  }
+
+  async function saveNow(id: string): Promise<void> {
+    // The newest snapshot at the moment this write runs.
     const snapshot = unsaved.get(id);
     if (!snapshot) return;
     try {
@@ -98,7 +110,12 @@ export function createSessionRecorder({
   }
 
   return {
-    async trackStarted(guildId: string, play: SessionPlay): Promise<void> {
+    /**
+     * `recovered`: Queue Recovery restarted the track. A session still open (a Lavalink restart kept
+     * it) already holds it; a Bot restart closed the old one, so the track starts a new session.
+     */
+    async trackStarted(guildId: string, play: SessionPlay, recovered = false): Promise<void> {
+      if (recovered && active.has(guildId)) return;
       const at = now();
       let session = active.get(guildId);
       const isNew = !session;
@@ -106,7 +123,7 @@ export function createSessionRecorder({
         session = {
           id: `${guildId}-${at}`,
           guildId,
-          guildName: play.guildName || "Unknown Server",
+          guildName: play.guildName,
           channelId: play.channelId,
           startTime: at,
           endTime: null,
@@ -151,14 +168,18 @@ export function createSessionRecorder({
      */
     async restore(guildIds: readonly string[]): Promise<void> {
       const at = now();
+      const closed: ListeningSession[] = [];
       for (const session of await file.read().catch(() => [] as ListeningSession[])) {
         if (session.isActive) {
           session.isActive = false;
           session.endTime = at;
+          closed.push(session);
         }
         touch(session);
       }
       await flush();
+      // Open tabs still show them as Live; tell their participants they ended.
+      for (const session of closed) publish(GuildEventTypes.sessionEnd, session);
       await store.closeActive(at, guildIds).catch((error) => log("close active sessions", error));
     },
   };

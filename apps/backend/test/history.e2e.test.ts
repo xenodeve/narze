@@ -15,6 +15,7 @@ import {
   RedisKeys,
   SessionSummarySchema,
   SocketEvents,
+  sessionEvent,
   TopPlayedSchema,
   trackKey,
 } from "@narze/shared";
@@ -170,6 +171,10 @@ describe("sessions belong to their participants (#108, spec #42)", () => {
     expect(await ids("HISTORY club")).toEqual([`${G}-2`, `${G}-1`]);
     expect(await ids("nothing like it")).toEqual([]);
     expect(await ids("%")).toEqual([]);
+    expect(await ids("*")).toEqual([]);
+    // Only names and titles are searched: a JSON key or a URL matches nothing.
+    expect(await ids("requester")).toEqual([]);
+    expect(await ids("https")).toEqual([]);
   });
 
   test("the detail is for participants; anyone else gets a 404, even a member of the Guild", async () => {
@@ -207,9 +212,10 @@ describe("session events (#108, AC2)", () => {
     const updated = new Promise<ListeningSession>((resolve) => umaSocket.once(SocketEvents.sessionUpdate, resolve));
     const ended = new Promise<ListeningSession>((resolve) => umaSocket.once(SocketEvents.sessionEnd, resolve));
     const publish = (type: string, data: ListeningSession) =>
+      // The Bot sends the summary and the newest track (sessionEvent).
       redis.publish(
         Channels.guildEvents,
-        JSON.stringify({ type, guildId: G, revision: 0, sequence: 0, ts: Date.now(), data }),
+        JSON.stringify({ type, guildId: G, revision: 0, sequence: 0, ts: Date.now(), data: sessionEvent(data) }),
       );
     await publish(GuildEventTypes.sessionUpdate, session(`${G}-9`));
     expect((await updated).id).toBe(`${G}-9`);

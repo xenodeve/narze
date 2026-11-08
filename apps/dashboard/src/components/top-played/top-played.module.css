@@ -51,11 +51,12 @@
   font-size: 0.8125rem;
 }
 
+/* Button (DESIGN.md): icon = 36 circle. */
 .play {
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border: 0;
   border-radius: 50%;
   background: transparent;

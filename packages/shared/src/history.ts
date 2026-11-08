@@ -52,6 +52,17 @@ export function sessionSummary(session: ListeningSession): SessionSummary {
   return { ...rest, trackCount: tracks.length };
 }
 
+/**
+ * What `session:update` / `session:end` carry (#108 review): the summary and the newest track. The
+ * whole track list would grow without bound in a 24/7 Guild and go to every participant each time.
+ */
+export const SessionEventSchema = SessionSummarySchema.extend({ track: SessionTrackSchema.nullable() });
+export type SessionEvent = z.infer<typeof SessionEventSchema>;
+
+export function sessionEvent(session: ListeningSession): SessionEvent {
+  return { ...sessionSummary(session), track: session.tracks.at(-1) ?? null };
+}
+
 /** A top-played row (spec #33, #84): one song's plays for a user, a Guild, or a user in a Guild. */
 export const TopPlayedSchema = z.object({
   trackId: z.string(),

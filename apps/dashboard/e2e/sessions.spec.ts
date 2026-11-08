@@ -7,6 +7,7 @@ import {
   type ListeningSession,
   PlayerCommandSchema,
   RedisKeys,
+  sessionEvent,
   trackKey,
 } from "@narze/shared";
 import { expect, test } from "@playwright/test";
@@ -75,7 +76,7 @@ test.afterAll(async () => {
 const publish = (type: string, data: ListeningSession) =>
   redis.publish(
     Channels.guildEvents,
-    JSON.stringify({ type, guildId: G, revision: 0, sequence: 0, ts: Date.now(), data }),
+    JSON.stringify({ type, guildId: G, revision: 0, sequence: 0, ts: Date.now(), data: sessionEvent(data) }),
   );
 
 test("a session shows up live, and its detail replays a track into a server (#108, AC5)", async ({ page }) => {
@@ -105,7 +106,7 @@ test("a session shows up live, and its detail replays a track into a server (#10
   await expect(card.getByText("Live")).toBeVisible();
   await expect(card).toContainText("1 เพลง");
 
-  // Client-side search filters by Guild name and track.
+  // The search runs on the server: by server name, people and track.
   await page.getByRole("searchbox", { name: "ค้นหาเซสชัน" }).fill("nothing like it");
   await expect(card).toHaveCount(0);
   await page.getByRole("searchbox", { name: "ค้นหาเซสชัน" }).fill("idol");
@@ -126,12 +127,11 @@ test("a session shows up live, and its detail replays a track into a server (#10
   });
   await page.keyboard.press("Escape");
 
-  // The Bot leaves voice: the session ends live.
-  await publish(GuildEventTypes.sessionEnd, session({ isActive: false, endTime: Date.now() }));
+  // The Bot leaves voice: the session ends live on the open list.
   await page.goto("/sessions");
-  await admin.from("listening_sessions").update({ is_active: false, end_time: Date.now() }).eq("id", SESSION_ID);
-  await page.reload();
-  await expect(page.getByTestId("session-card").getByText("Live")).toHaveCount(0);
+  await expect(page.getByTestId("session-card").getByText("Live")).toHaveCount(1);
+  await publish(GuildEventTypes.sessionEnd, session({ isActive: false, endTime: Date.now() }));
+  await expect(page.getByTestId("session-card").getByText("Live")).toHaveCount(0, { timeout: 2000 });
 });
 
 test("with nothing playing, the guild page offers my top-played and the server's; a click plays it (#108, AC4)", async ({

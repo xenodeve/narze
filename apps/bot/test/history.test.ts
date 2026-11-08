@@ -105,3 +105,21 @@ describe("a track start (#108)", () => {
     ]);
   });
 });
+
+test("a recovered track is not a new play (#108 review)", async () => {
+  const plays: unknown[] = [];
+  const history = createHistory({
+    store: {
+      save: async () => {},
+      closeActive: async () => {},
+      recordPlay: async (...args) => void plays.push(args),
+    },
+    file: { read: async () => [], write: async () => {} },
+    publish: () => {},
+    guildName: () => "Club",
+    members: () => [],
+  });
+  history.hook.trackStarted(G, track({ source: "spotify", uri: "https://open.spotify.com/track/x" }), "93", true);
+  await Bun.sleep(5);
+  expect(plays).toEqual([]);
+});

@@ -161,3 +161,53 @@ describe("restart (#108, AC1)", () => {
     expect(file.written).toEqual([]);
   });
 });
+
+describe("review fixes (#108)", () => {
+  test("saves of one session land in order: a late start can never reopen an ended session", async () => {
+    const { recorder, store } = rig();
+    const gates: Array<() => void> = [];
+    const realSave = store.save;
+    store.save = async (s) => {
+      await new Promise<void>((resolve) => gates.push(resolve));
+      await realSave(s);
+    };
+    const started = recorder.trackStarted(G, play("Idol"));
+    await settle();
+    const ended = recorder.ended(G);
+    await settle();
+    // Release the end's write first: it must still wait for the start's.
+    gates[1]?.();
+    gates[0]?.();
+    await settle();
+    gates[1]?.();
+    await Promise.all([started, ended]);
+    expect(store.saves.at(-1)).toMatchObject({ isActive: false });
+  });
+
+  test("sessions a restart closes are announced as ended", async () => {
+    const left: ListeningSession = {
+      id: `${G}-500`,
+      guildId: G,
+      guildName: "Club",
+      channelId: null,
+      startTime: 500,
+      endTime: null,
+      isActive: true,
+      tracks: [],
+      participants: [{ ...uma, joinedAt: 500 }],
+    };
+    const { recorder, events } = rig([left]);
+    await recorder.restore([G]);
+    expect(events).toEqual([{ type: "session:end", session: { ...left, isActive: false, endTime: 1_000 } }]);
+  });
+});
+
+test("a recovered track does not join a session that is still open; it starts one after a Bot restart (#108 review)", async () => {
+  const { recorder, events } = rig();
+  await recorder.trackStarted(G, play("Idol"));
+  await recorder.trackStarted(G, play("Idol"), true);
+  expect(events.at(-1)?.session.tracks).toHaveLength(1);
+  await recorder.ended(G);
+  await recorder.trackStarted(G, play("Lemon"), true);
+  expect(events.at(-1)?.session.tracks.map((t) => t.title)).toEqual(["Lemon"]);
+});

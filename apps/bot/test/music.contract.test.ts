@@ -464,6 +464,60 @@ describe("Queue Recovery after a restart (#103, spec #21, #35, #123)", () => {
       now: () => clock,
     });
 
+  test("a restored track is marked recovered for history; a snapshot recovery gives up on ends its session (#108 review)", async () => {
+    const snapshots = await snapshotsDir();
+    music = engine(lavalink, snapshots);
+    await play("lemon");
+    await eventually(stored, (s) => s?.current?.title === "Lemon");
+    await music.flush();
+    lavalink.removeAllListeners();
+    await lavalink.nodeManager.leastUsedNodes()[0]?.destroy?.();
+
+    const heard: string[] = [];
+    lavalink = await connect();
+    music = createMusic({
+      lavalink,
+      publisher: createPlayerPublisher(redis),
+      snapshots,
+      announce: async () => {},
+      now: () => clock,
+      history: {
+        trackStarted: (_g, track, _v, recovered) => heard.push(`${track.title} recovered=${recovered}`),
+        playerGone: (guildId) => heard.push(`gone ${guildId}`),
+      },
+    });
+    expect(await music.recover()).toBe(1);
+    await eventually(
+      () => heard.length,
+      (n) => n > 0,
+    );
+    expect(heard[0]).toBe("Lemon recovered=true");
+    await play("idol");
+    fake.finishTrack(GUILD);
+    await eventually(
+      () => heard.length,
+      (n) => n > 1,
+    );
+    expect(heard[1]).toBe("Idol recovered=false");
+
+    // A snapshot whose Guild is gone is dropped: its session must end, not stay Live.
+    await music.flush();
+    lavalink.removeAllListeners();
+    await lavalink.nodeManager.leastUsedNodes()[0]?.destroy?.();
+    lavalink = await connect();
+    const gone: string[] = [];
+    music = createMusic({
+      lavalink,
+      publisher: createPlayerPublisher(redis),
+      snapshots,
+      announce: async () => {},
+      now: () => clock,
+      history: { trackStarted: () => {}, playerGone: (guildId) => gone.push(guildId) },
+    });
+    expect(await music.recover(() => false)).toBe(0);
+    expect(gone).toEqual([GUILD]);
+  });
+
   test("a restarted Bot restores the queue, current track, position and 24/7", async () => {
     const snapshots = await snapshotsDir();
     music = engine(lavalink, snapshots);

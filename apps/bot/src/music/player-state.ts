@@ -2,10 +2,12 @@ import {
   Channels,
   type GuildEvent,
   GuildEventTypes,
+  type ListeningSession,
   type PlayerState,
   PlayerStateSchema,
   type PlayerSummary,
   RedisKeys,
+  sessionEvent,
   type VoiceEventType,
 } from "@narze/shared";
 import type Redis from "ioredis";
@@ -95,8 +97,11 @@ export function createPlayerPublisher(redis: Redis) {
       await redis.publish(Channels.guildEvents, event(type, guildId, 0, data));
     },
     /** A Listening Session changed or ended (#108); the Backend relays it to its participants only. */
-    async session(type: string, session: { guildId: string }): Promise<void> {
-      await redis.publish(Channels.guildEvents, event(type, session.guildId, 0, session));
+    async session(
+      type: typeof GuildEventTypes.sessionUpdate | typeof GuildEventTypes.sessionEnd,
+      session: ListeningSession,
+    ): Promise<void> {
+      await redis.publish(Channels.guildEvents, event(type, session.guildId, 0, sessionEvent(session)));
     },
     /** Announces that a queued track is about to play now, before the queue update (spec #39). */
     async jump(guildId: string, revision: number, data: { fromIndex: number; title: string }): Promise<void> {

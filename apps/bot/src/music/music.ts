@@ -75,7 +75,8 @@ export interface MusicOptions {
   voiceRetryMs?: [number, number];
   /** #108: Listening Sessions and Play History hear every track start and the Player leaving. */
   history?: {
-    trackStarted(guildId: string, track: Track, voiceChannelId: string | null): void;
+    /** `recovered`: Queue Recovery restarted this track; it is not a new play. */
+    trackStarted(guildId: string, track: Track, voiceChannelId: string | null, recovered: boolean): void;
     playerGone(guildId: string): void;
   };
 }
@@ -374,6 +375,7 @@ export function createMusic({
       }
     }
     bump(player);
+    const recovered = player.get<boolean | undefined>(RECOVERING) === true;
     player.set(RECOVERING, false);
     const flags = { ...flagsOf(player), trackLoop: player.repeatMode === "track" };
     // Spec #25: the per-track flags last one track (terminal playback keeps its flag).
@@ -387,7 +389,7 @@ export function createMusic({
     const announceIt = shown !== null && announceAllowed;
     // The Dashboard first; the Discord notice is a slower round trip.
     await publish(player);
-    if (shown) history?.trackStarted(player.guildId, shown, player.voiceChannelId ?? null);
+    if (shown) history?.trackStarted(player.guildId, shown, player.voiceChannelId ?? null, recovered);
     if (shown && announceIt) {
       const channel = player.get<string | undefined>(TEXT_CHANNEL) ?? player.textChannelId ?? null;
       {
@@ -604,6 +606,8 @@ export function createMusic({
         if (lavalink.getPlayer(snapshot.guildId)) continue;
         if (!keep(snapshot)) {
           await snapshots.clear(snapshot.guildId).catch(warn("clear Queue Snapshot"));
+          // Nothing will play here again: a session a Lavalink restart kept open ends now (#108).
+          history?.playerGone(snapshot.guildId);
           continue;
         }
         try {

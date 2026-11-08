@@ -3,6 +3,8 @@
 import {
   type ListeningSession,
   ListeningSessionSchema,
+  type SessionEvent,
+  SessionEventSchema,
   type SessionSummary,
   SessionSummarySchema,
   SocketEvents,
@@ -41,10 +43,10 @@ export const topPlayed = async (of: { me: true } | { guildId: string }, limit = 
   );
 
 /** A session I am in started a track or ended (#108); the Backend sends these to participants only. */
-export function useSessionEvents(onSession: (session: ListeningSession) => void): void {
+export function useSessionEvents(onSession: (event: SessionEvent) => void): void {
   useEffect(() => {
     const handle = (raw: unknown) => {
-      const parsed = ListeningSessionSchema.safeParse(raw);
+      const parsed = SessionEventSchema.safeParse(raw);
       if (parsed.success) onSession(parsed.data);
     };
     return onSocketEvents({ [SocketEvents.sessionUpdate]: handle, [SocketEvents.sessionEnd]: handle });

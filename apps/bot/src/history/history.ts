@@ -80,22 +80,28 @@ export function createHistory({
   const recorder = createSessionRecorder({ store, file, publish, log });
   return {
     hook: {
-      trackStarted(guildId: string, track: Track, voiceChannelId: string | null): void {
+      trackStarted(guildId: string, track: Track, voiceChannelId: string | null, recovered = false): void {
         recorder
-          .trackStarted(guildId, {
-            guildName: guildName(guildId),
-            channelId: voiceChannelId,
-            members: voiceChannelId ? members(guildId, voiceChannelId) : [],
-            track: {
-              title: track.title,
-              author: track.author,
-              uri: track.uri,
-              thumbnail: track.artworkUrl,
-              durationMs: track.durationMs,
-              requester: track.requester,
+          .trackStarted(
+            guildId,
+            {
+              guildName: guildName(guildId),
+              channelId: voiceChannelId,
+              members: voiceChannelId ? members(guildId, voiceChannelId) : [],
+              track: {
+                title: track.title,
+                author: track.author,
+                uri: track.uri,
+                thumbnail: track.artworkUrl,
+                durationMs: track.durationMs,
+                requester: track.requester,
+              },
             },
-          })
+            recovered,
+          )
           .catch((error) => log("session track", error));
+        // A track Queue Recovery restarted was already counted when it first played.
+        if (recovered) return;
         playFlags(track, facts)
           .then((flags) =>
             store.recordPlay(guildId, track.requester.id, {

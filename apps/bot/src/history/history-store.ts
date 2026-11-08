@@ -36,13 +36,15 @@ export function createSupabaseHistoryStore(db: SupabaseClient) {
     },
 
     async closeActive(at: number, guildIds: readonly string[]): Promise<void> {
-      if (guildIds.length === 0) return;
-      const { error } = await db
-        .from("listening_sessions")
-        .update({ is_active: false, end_time: at, updated_at: new Date().toISOString() })
-        .eq("is_active", true)
-        .in("guild_id", [...guildIds]);
-      if (error) throw new Error(`close sessions: ${error.message}`);
+      // The ids travel in the request URL: a large Bot's Guilds go in batches.
+      for (let i = 0; i < guildIds.length; i += 100) {
+        const { error } = await db
+          .from("listening_sessions")
+          .update({ is_active: false, end_time: at, updated_at: new Date().toISOString() })
+          .eq("is_active", true)
+          .in("guild_id", guildIds.slice(i, i + 100));
+        if (error) throw new Error(`close sessions: ${error.message}`);
+      }
     },
 
     async recordPlay(guildId: string, discordId: string, play: PlayRecord): Promise<void> {

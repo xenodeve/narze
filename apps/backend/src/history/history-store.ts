@@ -58,8 +58,8 @@ export class HistoryStore {
   async sessionsOf(discordId: string, q = "", limit = 50): Promise<SessionSummary[]> {
     let query = this.db.from("listening_sessions").select(SUMMARY).contains("participant_ids", [discordId]);
     const words = q.trim().toLowerCase();
-    // % and _ are LIKE wildcards; a search for them means the characters themselves.
-    if (words) query = query.ilike("search_text", `%${words.replace(/[\\%_]/g, (c) => `\\${c}`)}%`);
+    // % _ (LIKE) and * (PostgREST) are wildcards; a search for them means the characters themselves.
+    if (words) query = query.ilike("search_text", `%${words.replace(/[\\%_*]/g, (c) => `\\${c}`)}%`);
     const { data, error } = await query.order("start_time", { ascending: false }).limit(limit);
     check("list sessions", error);
     return ((data ?? []) as SessionRow[]).map(summaryOf);

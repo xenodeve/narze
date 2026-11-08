@@ -76,3 +76,32 @@ describe("Listening Session contract (#108, spec #31)", () => {
     ).toBe(3);
   });
 });
+
+describe("session events stay small (#108 review)", () => {
+  test("an event carries the summary and only the newest track, however long the session", async () => {
+    const { sessionEvent, SessionEventSchema } = await import("../src/history");
+    const track = (title: string, playedAt: number) => ({
+      title,
+      author: "YOASOBI",
+      uri: `https://x.test/${title}`,
+      thumbnail: null,
+      durationMs: 1,
+      playedAt,
+      requester,
+    });
+    const session = {
+      id: "s",
+      guildId: "939000000000000001",
+      guildName: "Club",
+      channelId: null,
+      startTime: 1,
+      endTime: null,
+      isActive: true,
+      tracks: [track("a", 1), track("b", 2), track("c", 3)],
+      participants: [{ ...requester, joinedAt: 1 }],
+    };
+    const event = SessionEventSchema.parse(sessionEvent(session));
+    expect(event).toMatchObject({ id: "s", trackCount: 3, track: { title: "c" } });
+    expect("tracks" in event).toBe(false);
+  });
+});
