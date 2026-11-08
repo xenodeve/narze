@@ -1,5 +1,6 @@
 import "reflect-metadata";
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { prepareLocalSupabase } from "@narze/fake-discord/supabase-local";
 import { type BotHeartbeat, type BotStatusPayload, Channels, DEFAULT_REDIS_URL, SocketEvents } from "@narze/shared";
 import type { INestApplication } from "@nestjs/common";
 import Redis from "ioredis";
@@ -15,7 +16,12 @@ const publisher = new Redis(REDIS_URL);
 // ~5.4 s (Bun's 5 s hook default). It did not reproduce in 7 later runs, including with the
 // transpiler cache disabled, so the cause is unknown. If it recurs, time createApp vs listen to locate it.
 beforeAll(async () => {
-  app = await createApp({ redisUrl: REDIS_URL, dashboardOrigin: "http://localhost:3000" });
+  app = await createApp({
+    redisUrl: REDIS_URL,
+    dashboardOrigin: "http://localhost:3000",
+    supabase: prepareLocalSupabase(),
+    discordApiUrl: "http://127.0.0.1:9/unused",
+  });
   await app.listen(0);
   url = await app.getUrl();
 }, 30_000);

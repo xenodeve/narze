@@ -1,0 +1,92 @@
+.account {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.placeholder {
+  display: block;
+  width: 180px;
+  height: 44px;
+  border-radius: var(--r-pill);
+  background: var(--fill);
+}
+
+.primary,
+.ghost {
+  font: inherit;
+  font-weight: 500;
+  border-radius: var(--r-pill);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background-color var(--t1) var(--ease),
+    border-color var(--t1) var(--ease),
+    opacity var(--t1) var(--ease);
+}
+
+.primary:active,
+.ghost:active {
+  transform: translateY(1px);
+}
+
+.primary:disabled,
+.ghost:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}
+
+/* Primary buttons are ink-filled, not blue (DESIGN.md §2 rule 2). */
+.primary {
+  height: 44px;
+  padding: 0 20px;
+  border: 1px solid var(--ink);
+  background: var(--ink);
+  color: var(--bg);
+}
+
+.ghost {
+  height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+}
+
+.ghost:hover:not(:disabled) {
+  border-color: var(--ink-3);
+}
+
+.who {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.face {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.name {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 14em;
+}
+
+.error {
+  color: var(--danger);
+  font-size: 0.875rem;
+}
+
+@media (max-width: 520px) {
+  .name {
+    display: none;
+  }
+}

@@ -47,6 +47,12 @@ Glossary for the whole repo (single-context). When a term appears in **bold**, u
 
 **Admin / Developer** — dashboard roles from the **Admin Whitelist** (Supabase, keyed by Discord ID), enforced by the **Backend**. Both reach the Admin area; only Developer manages the whitelist.
 
+**Mutual Guild** — a **Guild** both the signed-in user and the **Bot** are in: the user's guild snapshot (taken from Discord at sign-in, `public.user_guilds`) intersected with the Bot's guild set in Redis. The Dashboard lists only these.
+
+**Permission Badge** — the one-word summary of **Control Permission** on a server-list row: `owner` · `in-voice` (in the Bot's voice channel) · `can-play` (no Player yet, member in voice) · `view-only`. Computed by `controlPermission()` in `packages/shared`.
+
+**Presence** — whether a user has at least one Dashboard tab open. Each signed-in socket counts one tab (Redis `presence:tabs`); the user turns active on the first and inactive when the last closes (`users.active`). Reset on Backend start.
+
 ## History
 
 **Listening Session** — one per **Guild**, from the first track until the Bot leaves voice. Records every started track and every participant. Session events reach only participants.
@@ -122,6 +128,12 @@ Dashboard ──REST/Socket.io──▶ Backend ──Redis pub/sub──▶ Bot
 **Server Owner** — เจ้าของ guild ใน Discord **Bot Owner** — คนที่เชิญ Bot เข้ามา (ดูจาก audit log) เก็บไว้ในค่าตั้งของ guild ถ้าหาไม่เจอใช้ Server Owner แทน
 
 **Admin / Developer** — บทบาทใน dashboard ที่มาจาก **Admin Whitelist** (อยู่ใน Supabase ใช้ Discord ID เป็นคีย์) และ **Backend** เป็นตัวบังคับ ทั้งสองบทบาทเข้าส่วน Admin ได้ แต่มีแค่ Developer ที่จัดการ whitelist ได้
+
+**Mutual Guild** — **Guild** ที่ทั้งผู้ใช้ที่ login อยู่และ **Bot** อยู่ด้วยกัน คือ snapshot รายชื่อ guild ของผู้ใช้ (ดึงจาก Discord ตอน login เก็บใน `public.user_guilds`) ตัดกับชุด guild ของ Bot ใน Redis Dashboard แสดงเฉพาะ guild กลุ่มนี้
+
+**Permission Badge** — คำเดียวที่สรุป **Control Permission** บนแถวของรายการเซิร์ฟเวอร์: `owner` · `in-voice` (อยู่ห้องเสียงเดียวกับ Bot) · `can-play` (ยังไม่มี Player และผู้ใช้อยู่ในห้องเสียง) · `view-only` คำนวณโดย `controlPermission()` ใน `packages/shared`
+
+**Presence** — ผู้ใช้เปิดแท็บ Dashboard อยู่อย่างน้อยหนึ่งแท็บหรือไม่ ทุก socket ที่ login แล้วนับเป็นหนึ่งแท็บ (Redis `presence:tabs`) ผู้ใช้เป็น active ตอนแท็บแรกเปิด และกลับเป็นไม่ active ตอนแท็บสุดท้ายปิด (`users.active`) ล้างค่าทุกครั้งที่ Backend เริ่มทำงาน
 
 ## ประวัติ
 

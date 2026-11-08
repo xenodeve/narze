@@ -1,0 +1,15 @@
+{
+  "name": "@narze/fake-discord",
+  "version": "7.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./supabase-local": "./src/supabase-local.ts"
+  },
+  "scripts": {
+    "start": "bun src/main.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit -p ."
+  }
+}

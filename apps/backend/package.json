@@ -16,12 +16,15 @@
     "@nestjs/platform-express": "12.4.0",
     "@nestjs/platform-socket.io": "12.4.0",
     "@nestjs/websockets": "12.4.0",
+    "@supabase/supabase-js": "2.119.0",
     "ioredis": "6.0.0",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
-    "socket.io": "4.8.4"
+    "socket.io": "4.8.4",
+    "zod": "4.6.7"
   },
   "devDependencies": {
+    "@narze/fake-discord": "workspace:*",
     "socket.io-client": "4.8.4"
   }
 }

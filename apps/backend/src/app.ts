@@ -2,15 +2,27 @@ import "reflect-metadata";
 import { type DynamicModule, type INestApplication, Module } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { IoAdapter } from "@nestjs/platform-socket.io";
+import { createClient } from "@supabase/supabase-js";
 import Redis from "ioredis";
-import { REDIS_SUBSCRIBER } from "./redis.tokens";
+import { Authenticator } from "./auth/authenticator";
+import { DiscordApi } from "./discord/discord-api";
+import { GuildDirectory } from "./guilds/guild-directory";
+import { MeController } from "./me/me.controller";
+import { Presence } from "./presence/presence";
+import { UserGateway } from "./realtime/user.gateway";
 import { BotStatusTracker } from "./status/bot-status.tracker";
 import { StatusGateway } from "./status/status.gateway";
+import { DISCORD_API_URL, REDIS, REDIS_SUBSCRIBER, SUPABASE } from "./tokens";
+import { UserStore } from "./users/user-store";
 
 export interface AppOptions {
   redisUrl: string;
-  /** The only browser origin allowed to open a socket (the Dashboard). */
+  /** The only browser origin allowed to call the REST API or open a socket (the Dashboard). */
   dashboardOrigin: string;
+  /** Supabase project URL and its secret key (server only; bypasses RLS). */
+  supabase: { url: string; secretKey: string };
+  /** Discord REST base, e.g. https://discord.com/api/v10 (the fake Discord in tests). */
+  discordApiUrl: string;
 }
 
 /** Applies the Dashboard origin to every Socket.io server, so CORS lives in one place. */
@@ -35,10 +47,26 @@ class AppModule {
   static forRoot(options: AppOptions): DynamicModule {
     return {
       module: AppModule,
+      controllers: [MeController],
       providers: [
+        { provide: REDIS, useFactory: () => new Redis(options.redisUrl) },
         { provide: REDIS_SUBSCRIBER, useFactory: () => new Redis(options.redisUrl) },
+        {
+          provide: SUPABASE,
+          useFactory: () =>
+            createClient(options.supabase.url, options.supabase.secretKey, {
+              auth: { persistSession: false, autoRefreshToken: false },
+            }),
+        },
+        { provide: DISCORD_API_URL, useValue: options.discordApiUrl },
         { provide: BotStatusTracker, useFactory: () => new BotStatusTracker() },
+        Authenticator,
+        DiscordApi,
+        UserStore,
+        GuildDirectory,
+        Presence,
         StatusGateway,
+        UserGateway,
       ],
     };
   }
@@ -46,6 +74,7 @@ class AppModule {
 
 export async function createApp(options: AppOptions): Promise<INestApplication> {
   const app = await NestFactory.create(AppModule.forRoot(options), { logger: ["error", "warn"] });
+  app.enableCors({ origin: options.dashboardOrigin });
   app.useWebSocketAdapter(new CorsIoAdapter(app, options.dashboardOrigin));
   app.enableShutdownHooks();
   return app;

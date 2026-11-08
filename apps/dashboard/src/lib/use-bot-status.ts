@@ -26,7 +26,11 @@ export function useBotStatus(): BotStatusView {
     const onStatus = (payload: unknown) => {
       if (isBotStatusPayload(payload)) setView(payload);
     };
-    const onDisconnect = () => setView({ status: "offline", heartbeat: null });
+    // A sign-in or sign-out re-handshakes on purpose ("io client disconnect"); the Backend sends
+    // the status again on connect, so only a real loss of connection reads as offline.
+    const onDisconnect = (reason: string) => {
+      if (reason !== "io client disconnect") setView({ status: "offline", heartbeat: null });
+    };
     void getSocket().then((socket) => {
       if (cancelled) return;
       socket.on(SocketEvents.botStatus, onStatus);

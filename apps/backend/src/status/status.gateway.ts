@@ -3,7 +3,7 @@ import { Inject, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common"
 import { type OnGatewayConnection, WebSocketGateway, WebSocketServer } from "@nestjs/websockets";
 import type Redis from "ioredis";
 import type { Server, Socket } from "socket.io";
-import { REDIS_SUBSCRIBER } from "../redis.tokens";
+import { REDIS_SUBSCRIBER } from "../tokens";
 import { BotStatusTracker } from "./bot-status.tracker";
 
 /** Margin past expiry before re-checking, so the TTL comparison has certainly lapsed. */
