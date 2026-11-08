@@ -53,7 +53,7 @@ export function toPlayerState(
   return parsed.success ? parsed.data : null;
 }
 
-export const summaryOf = (state: PlayerState): PlayerSummary => ({
+const summaryOf = (state: PlayerState): PlayerSummary => ({
   playing: state.current !== null && !state.paused,
   queueLength: state.queue.length,
   voiceChannelId: state.voiceChannelId,

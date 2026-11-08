@@ -7,8 +7,9 @@ import {
   type PlayerState,
   RedisKeys,
 } from "@narze/shared";
-import { expect, type Page, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import Redis from "ioredis";
+import { signInThroughPopup } from "./support";
 
 const GUILD = "931000000000000001";
 const frank = { id: "410000000000000001", username: "frank", globalName: "Frank" };
@@ -52,14 +53,6 @@ async function botPublishes(s: PlayerState): Promise<void> {
   await redis.publish(Channels.guildEvents, JSON.stringify(event));
 }
 
-async function signIn(page: Page): Promise<void> {
-  await page.goto("/");
-  const popup = page.waitForEvent("popup");
-  await page.getByRole("button", { name: "เข้าสู่ระบบด้วย Discord" }).click();
-  await (await popup).waitForEvent("close");
-  await expect(page.getByTestId("account-name")).toHaveText("Frank");
-}
-
 test.beforeAll(async () => {
   await redis.sadd(RedisKeys.botGuilds, GUILD);
   await redis.del(RedisKeys.playerState(GUILD));
@@ -76,7 +69,7 @@ test("a track started elsewhere shows on every open tab within 1 s, and the serv
   page,
   context,
 }) => {
-  await signIn(page);
+  await signInThroughPopup(page, "Frank");
   await page.getByRole("link", { name: "Now Playing Club" }).click();
   await expect(page).toHaveURL(`/guilds/${GUILD}`);
   expect(await page.evaluate(() => sessionStorage.getItem("selectedGuildId"))).toBe(GUILD);
@@ -93,7 +86,7 @@ test("a track started elsewhere shows on every open tab within 1 s, and the serv
 });
 
 test("a page load reads the Hot Cache: the state renders after its Redis key is gone", async ({ page }) => {
-  await signIn(page);
+  await signInThroughPopup(page, "Frank");
   await botPublishes(state("Cached Song"));
   await page.goto(`/guilds/${GUILD}`);
   await expect(page.getByTestId("now-title")).toHaveText("Cached Song");
@@ -103,7 +96,7 @@ test("a page load reads the Hot Cache: the state renders after its Redis key is 
 });
 
 test("progress runs forward from the published position while playing", async ({ page }) => {
-  await signIn(page);
+  await signInThroughPopup(page, "Frank");
   await botPublishes(state("Running", { positionMs: 61_000 }));
   await page.goto(`/guilds/${GUILD}`);
   const elapsed = page.getByTestId("elapsed");

@@ -11,6 +11,7 @@ import {
 import { expect, type Page, test } from "@playwright/test";
 import Redis from "ioredis";
 import { AUTH_STORAGE_KEY } from "../src/lib/supabase";
+import { signInThroughPopup } from "./support";
 
 const BACKEND = "http://localhost:4100";
 const G_OWNED = "930000000000000001";
@@ -47,12 +48,7 @@ test("Discord sign-in in a popup lists only Mutual Guilds, updates live, and Sig
   page,
   request,
 }) => {
-  await page.goto("/");
-  const popup = page.waitForEvent("popup");
-  await page.getByRole("button", { name: "เข้าสู่ระบบด้วย Discord" }).click();
-  await (await popup).waitForEvent("close");
-
-  await expect(page.getByTestId("account-name")).toHaveText("Carol");
+  await signInThroughPopup(page, "Carol");
   const rows = page.getByTestId("guild-row");
   await expect(rows).toHaveCount(2);
   await expect(page.getByText("Bot-free zone")).toHaveCount(0);
