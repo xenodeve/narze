@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import {
   Channels,
   DEFAULT_REDIS_URL,
@@ -12,6 +13,8 @@ import { startCommandBus } from "./command-bus";
 import { announcer, handleInteractions } from "./discord/interactions";
 import { createGuildRegistry, type GuildVoiceSnapshot } from "./guild-registry";
 import { startHeartbeat } from "./heartbeat";
+import { createHistory, createSessionFile } from "./history/history";
+import { createSupabaseHistoryStore } from "./history/history-store";
 import { createLavalink } from "./lavalink";
 import { createArtwork, iconModesFrom } from "./music/artwork";
 import { createMusic } from "./music/music";
@@ -61,16 +64,33 @@ const silent: Pick<PlayerPublisher, "publish" | "gone" | "jump" | "voice"> = {
   jump: async () => {},
   voice: async () => {},
 };
-// Guild Settings (#106): Supabase in both Runtime Modes (ADR-0003); without credentials the Bot
-// plays without a Music Channel or a recorded Bot Owner.
-const settings =
+// Supabase holds Guild Settings (#106) and history (#108) in both Runtime Modes (ADR-0003); without
+// credentials the Bot plays without a Music Channel, a recorded Bot Owner, sessions or play history.
+const db =
   env.SUPABASE_URL && env.SUPABASE_SECRET_KEY
-    ? createGuildSettings(
-        createSupabaseSettingsStore(
-          createClient(env.SUPABASE_URL, env.SUPABASE_SECRET_KEY, { auth: { persistSession: false } }),
-        ),
-      )
+    ? createClient(env.SUPABASE_URL, env.SUPABASE_SECRET_KEY, { auth: { persistSession: false } })
     : null;
+const settings = db ? createGuildSettings(createSupabaseSettingsStore(db)) : null;
+const youtube = createYouTube({ apiKey: env.YOUTUBE_API_KEY });
+const sessionPublisher = redis ? createPlayerPublisher(redis) : null;
+// Listening Sessions and Play History (#108). The local file keeps unsaved sessions across a crash.
+const history = db
+  ? createHistory({
+      store: createSupabaseHistoryStore(db),
+      file: createSessionFile(join(env.HISTORY_DIR ?? ".data", "listening-sessions.json")),
+      publish: (type, session) => void sessionPublisher?.session(type, session).catch(logFailure("publish session")),
+      guildName: (guildId) => client.guilds.cache.get(guildId)?.name ?? "",
+      members: (guildId, channelId) => {
+        const channel = client.guilds.cache.get(guildId)?.channels.cache.get(channelId);
+        if (!channel?.isVoiceBased()) return [];
+        return channel.members
+          .filter((m) => !m.user.bot)
+          .map((m) => ({ id: m.id, name: m.displayName, avatarUrl: m.displayAvatarURL({ size: 64 }) }));
+      },
+      facts: (id) => youtube.videoFacts(id),
+      log: (what, error) => console.warn(`[bot] ${what}: ${error instanceof Error ? error.message : error}`),
+    })
+  : null;
 
 const music = createMusic({
   lavalink,
@@ -81,13 +101,14 @@ const music = createMusic({
   // Track Resolution pictures (#104). Credentials only from the environment; without them the
   // Bot classifies from Lavalink's data and falls back to avatars (spec #62–#67).
   artwork: createArtwork({
-    youtube: createYouTube({ apiKey: env.YOUTUBE_API_KEY }),
+    youtube,
     spotify: createSpotify({ clientId: env.SPOTIFY_CLIENT_ID, clientSecret: env.SPOTIFY_CLIENT_SECRET }),
     modes: iconModesFrom(env),
     botIcon: () => client.user?.displayAvatarURL() ?? null,
   }),
   usePlaylistUrl: env.USE_PLAYLIST_URL === "true",
   noticeChannel: (guildId) => settings?.musicChannel(guildId) ?? null,
+  history: history?.hook,
 });
 function scheduleRecovery(): void {
   setTimeout(() => {
@@ -180,6 +201,8 @@ client.once("clientReady", async (ready) => {
   await lavalink.init({ id: ready.user.id, username: ready.user.username });
   await registry?.replace(ready.guilds.cache.map(voiceSnapshotOf)).catch(logFailure("guild registry"));
   if (redis) await createPlayerPublisher(redis).sweep().catch(logFailure("sweep stale Player States"));
+  // #108 AC1: sessions a previous process left active end now, before any new one starts.
+  await history?.restore([...ready.guilds.cache.keys()]).catch(logFailure("close left-over sessions"));
   for (const guild of ready.guilds.cache.values()) {
     publishVoiceChannels(guild);
     publishTextChannels(guild);
@@ -246,6 +269,7 @@ const shutdown = async () => {
   clearInterval(snapshotTimer);
   // The exact position survives a clean stop; a hard kill keeps the last periodic write.
   await music.flush();
+  await history?.flush().catch(logFailure("save sessions"));
   await client.destroy();
   await redis?.quit();
   process.exit(0);

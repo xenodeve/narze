@@ -968,3 +968,31 @@ test("a Music Channel the Bot cannot post in falls back to the command's channel
   );
   expect(notices[0]?.channelId).toBe(TEXT);
 });
+
+test("Listening Sessions hear each track start and the Player leaving (#108)", async () => {
+  for (const event of ["trackStart", "queueEnd", "playerDestroy", "playerSocketClosed"] as const) {
+    lavalink.removeAllListeners(event);
+  }
+  const heard: string[] = [];
+  music = createMusic({
+    lavalink,
+    publisher: createPlayerPublisher(redis),
+    announce: async () => {},
+    now: () => clock,
+    history: {
+      trackStarted: (guildId, track, voiceChannelId) => heard.push(`start ${guildId} ${track.title} ${voiceChannelId}`),
+      playerGone: (guildId) => heard.push(`gone ${guildId}`),
+    },
+  });
+  await play("lemon");
+  await eventually(
+    () => heard.length,
+    (n) => n > 0,
+  );
+  fake.finishTrack(GUILD);
+  await eventually(
+    () => heard.length,
+    (n) => n > 1,
+  );
+  expect(heard).toEqual([`start ${GUILD} Lemon ${VOICE}`, `gone ${GUILD}`]);
+});

@@ -73,6 +73,11 @@ export interface MusicOptions {
   noticeChannel?: (guildId: string) => string | null;
   /** Spec #28: wait before reconnecting after a voice drop, then before seeking back. */
   voiceRetryMs?: [number, number];
+  /** #108: Listening Sessions and Play History hear every track start and the Player leaving. */
+  history?: {
+    trackStarted(guildId: string, track: Track, voiceChannelId: string | null): void;
+    playerGone(guildId: string): void;
+  };
 }
 
 /** Spec #28: Discord voice close codes worth reconnecting on (plus any close from Discord's side). */
@@ -134,6 +139,7 @@ export function createMusic({
   artwork,
   usePlaylistUrl = false,
   noticeChannel = () => null,
+  history,
 }: MusicOptions) {
   /**
    * Spec #12: a notice goes to the Guild's Music Channel; when that channel cannot take it (deleted,
@@ -381,6 +387,7 @@ export function createMusic({
     const announceIt = shown !== null && announceAllowed;
     // The Dashboard first; the Discord notice is a slower round trip.
     await publish(player);
+    if (shown) history?.trackStarted(player.guildId, shown, player.voiceChannelId ?? null);
     if (shown && announceIt) {
       const channel = player.get<string | undefined>(TEXT_CHANNEL) ?? player.textChannelId ?? null;
       {
@@ -461,6 +468,8 @@ export function createMusic({
   });
   lavalink.on("playerDestroy", (player, reason) => {
     publisher.gone(player.guildId).catch(warn("publish player gone"));
+    // However the Bot left voice, its Listening Session ends (#108).
+    history?.playerGone(player.guildId);
     // A Player that left (queue end without 24/7, /leave, kicked) is not restored after a restart.
     // One that Lavalink took down (the node failed or was destroyed) is exactly what to restore.
     if (String(reason ?? "").startsWith("Node")) return;
