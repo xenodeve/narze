@@ -36,20 +36,24 @@ test.describe("Bot status on the landing page", () => {
     bot = undefined;
   });
 
-  test("stopping the Bot flips the page to offline within 5 s of the TTL, and starting it flips back", async ({
+  test("stopping the Bot flips the page and the avatar to offline within 5 s, and starting it flips back", async ({
     page,
   }) => {
     await page.goto("/");
     const status = page.getByRole("status", { name: "สถานะบอท" });
+    // The avatar's own canvas carries role="img" and a per-state label ("<shape> bot, <state>").
+    const avatar = page.locator('canvas[role="img"]');
     await expect(status).toContainText("ออฟไลน์");
 
     bot = startBot();
     await expect(status).toContainText("ออนไลน์", { timeout: 10_000 });
+    await expect(avatar).toHaveAttribute("aria-label", /, idle$/);
     await expect(page.getByText("0 เซิร์ฟเวอร์")).toBeVisible();
 
     await stopBot(bot);
-    // Heartbeat TTL 5 s + one 1 s re-check; the acceptance criterion allows 5 s after that.
-    await expect(status).toContainText("ออฟไลน์", { timeout: 11_000 });
+    // #98's criterion, measured from the moment the Bot process is gone.
+    await expect(status).toContainText("ออฟไลน์", { timeout: 5_000 });
+    await expect(avatar).toHaveAttribute("aria-label", /, sleeping$/);
 
     bot = startBot();
     await expect(status).toContainText("ออนไลน์", { timeout: 10_000 });

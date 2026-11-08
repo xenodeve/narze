@@ -1,7 +1,7 @@
 /**
  * A Lavalink v4 node that speaks just enough of the protocol for lavalink-client to connect.
- * Used by Bot tests and the whole-system Playwright suite so CI never needs real audio.
- * Later slices extend it with /loadtracks and player updates.
+ * Used by the Bot's Lavalink tests so they never need a real node. The whole-system Playwright
+ * suite will use it once the Bot plays tracks there (#100); later slices add /loadtracks and player updates.
  */
 import type { ServerWebSocket } from "bun";
 

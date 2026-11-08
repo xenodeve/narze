@@ -2,8 +2,9 @@ import { z } from "zod";
 
 /** How often the Bot publishes a heartbeat. */
 export const HEARTBEAT_INTERVAL_MS = 2000;
-/** A Bot whose last heartbeat is older than this is shown as offline. */
-export const HEARTBEAT_TTL_MS = 5000;
+/** A Bot whose last heartbeat is older than this is shown as offline: two intervals, so one lost
+ * heartbeat is tolerated, and short enough that the Dashboard flips within #98's 5 s. */
+export const HEARTBEAT_TTL_MS = 4000;
 
 export const RuntimeModeSchema = z.enum(["connected", "standalone"]);
 export type RuntimeMode = z.infer<typeof RuntimeModeSchema>;

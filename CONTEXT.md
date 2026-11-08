@@ -11,7 +11,7 @@ Glossary for the whole repo (single-context). When a term appears in **bold**, u
 
 **Dashboard** — `apps/dashboard`. The Next.js web app. Talks only to the **Backend** (REST + Socket.io) and to Supabase Auth. Never calls the **Bot** directly. _Avoid_: frontend, web panel.
 
-**Connected Mode / Standalone Mode** — how the **Bot** runs depending on whether Redis is reachable at startup (ADR-0003). Playback works in both; only Connected Mode syncs the **Dashboard**.
+**Connected Mode / Standalone Mode** — how the **Bot** runs depending on whether Redis is reachable at startup (ADR-0003). Playback works in both; only Connected Mode syncs the **Dashboard**. Together they are the Bot's **Runtime Mode** (`RuntimeMode` in code).
 
 ## Music
 
@@ -87,7 +87,7 @@ Dashboard ──REST/Socket.io──▶ Backend ──Redis pub/sub──▶ Bot
 
 **Dashboard** — `apps/dashboard` คือเว็บแอป Next.js คุยกับ **Backend** (REST + Socket.io) และ Supabase Auth เท่านั้น ไม่เรียก **Bot** ตรง ๆ _เลี่ยงคำว่า_: frontend, web panel
 
-**Connected Mode / Standalone Mode** — โหมดการทำงานของ **Bot** ตามว่าตอนเริ่มต่อ Redis ได้หรือไม่ (ADR-0003) เล่นเพลงได้ทั้งสองโหมด แต่มีแค่ Connected Mode ที่ซิงก์กับ **Dashboard**
+**Connected Mode / Standalone Mode** — โหมดการทำงานของ **Bot** ตามว่าตอนเริ่มต่อ Redis ได้หรือไม่ (ADR-0003) เล่นเพลงได้ทั้งสองโหมด แต่มีแค่ Connected Mode ที่ซิงก์กับ **Dashboard** สองโหมดนี้รวมกันเรียกว่า **Runtime Mode** ของ Bot (`RuntimeMode` ในโค้ด)
 
 ## เพลง
 

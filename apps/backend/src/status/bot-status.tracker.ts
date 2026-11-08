@@ -7,9 +7,7 @@ import {
   HEARTBEAT_TTL_MS,
 } from "@narze/shared";
 
-export type BotStatusSnapshot = BotStatusPayload;
-
-type Listener = (snapshot: BotStatusSnapshot) => void;
+type Listener = (payload: BotStatusPayload) => void;
 
 /** Turns raw heartbeat messages into an online/offline status and reports changes. */
 export class BotStatusTracker {
@@ -51,7 +49,7 @@ export class BotStatusTracker {
     return () => this.listeners.delete(listener);
   }
 
-  snapshot(): BotStatusSnapshot {
+  snapshot(): BotStatusPayload {
     return { status: this.status, heartbeat: this.last };
   }
 }

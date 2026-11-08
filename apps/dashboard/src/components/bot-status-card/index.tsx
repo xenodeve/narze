@@ -20,7 +20,7 @@ export function BotStatusCard() {
         <BotAvatar type="clover" size={72} state={online ? "default" : "sleeping"} headphones />
       </div>
       <div className={styles.body}>
-        <h2 id="bot-status-title" className={`mono ${styles.label}`}>
+        <h2 id="bot-status-title" className={styles.label}>
           บอท
         </h2>
         <p role="status" aria-label="สถานะบอท" aria-live="polite" className={styles.status} data-status={view.status}>
@@ -30,7 +30,7 @@ export function BotStatusCard() {
         {view.heartbeat ? (
           <p className={styles.meta}>
             <span className="num">{view.heartbeat.guilds} เซิร์ฟเวอร์</span>
-            <span className="mono">{MODE[view.heartbeat.mode]}</span>
+            <span>{MODE[view.heartbeat.mode]}</span>
           </p>
         ) : (
           <p className={styles.meta}>ยังไม่ได้รับสัญญาณจากบอท</p>

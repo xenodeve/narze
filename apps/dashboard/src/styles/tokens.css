@@ -71,6 +71,22 @@
   color-scheme: light;
 }
 
+/* Always-dark island: derived tokens are computed on :root and do not re-derive here, so they are
+   re-declared as literals (DESIGN.md §3 "Islands"). */
+.deep {
+  --bg: #0b0b0d;
+  --surface: #151518;
+  --ink: #f1f1f3;
+  --accent: #5aa2ff;
+  --ok: #4cc380;
+  --ink-2: #a8a8b2;
+  --ink-3: #6f6f7a;
+  --line: rgb(255 255 255 / 0.14);
+  --fill: rgb(255 255 255 / 0.07);
+  background: var(--bg);
+  color: var(--ink);
+}
+
 @property --mood {
   syntax: "<color>";
   inherits: true;

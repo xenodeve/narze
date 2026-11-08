@@ -21,12 +21,13 @@
   min-width: 0;
 }
 
+/* Thai label: the sans stack (Anuphan) with zero tracking — mono and wide tracking are for Latin only (DESIGN.md §2 rule 4). */
 .label {
   margin: 0;
   color: var(--ink-2);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  font-weight: 400;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0;
 }
 
 .status {

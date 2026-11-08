@@ -64,7 +64,7 @@ House components (built here, Strata-styled):
 | `Toast` | 240 ms y 8, scale .98; surface, r2, menu shadow, `aria-live="polite"` |
 | `Chart` | HTML/CSS bars, zero-based, written values, hidden `<table>` |
 
-Vendored components (`apps/dashboard/src/components/vendor/`, kept as supplied, re-tokenised to Strata colours through their CSS variables):
+Supplied components — `bot-avatars` and `thinking-orbs` are npm packages; the rest are vendored into `apps/dashboard/src/components/vendor/`. All are kept as supplied and re-tokenised to Strata colours through their CSS variables:
 
 | Component | Where it lives in Narze |
 |---|---|
@@ -86,7 +86,7 @@ Vendored components (`apps/dashboard/src/components/vendor/`, kept as supplied, 
 ## 6. Effects budget
 
 - **At most one continuously animating canvas per view.** Opening the voice sheet pauses Aurora; leaving the viewport pauses everything (all vendored canvases already observe visibility).
-- Canvases mount client-only via `next/dynamic({ ssr: false })` after a WebGL2 probe; `?fx=0`, `prefers-reduced-motion`, `deviceMemory ≤ 2` and Save-Data render the static fallback (a flat `--mood` wash).
+- Canvases mount client-only via `next/dynamic({ ssr: false })`. **WebGL** canvases (Aurora, Strands, CursorGrid, HalftoneReveal) also wait for a WebGL2 probe, and `?fx=0`, `prefers-reduced-motion`, `deviceMemory ≤ 2` and Save-Data render the static fallback (a flat `--mood` wash). `BotAvatar` and `ThinkingOrb` draw on a 2D canvas, need no probe, and honour reduced motion themselves.
 - DPR capped at 2 for orbs/avatars and 1.5 for full-bleed canvases.
 - BotAvatar instances: at most 6 animating at once; roster views pass `seed` so blinks never sync, and off-screen ones pause themselves.
 
@@ -185,7 +185,7 @@ component ที่เราสร้างเอง (สไตล์ Strata):
 | `Toast` | 240 ms y 8, scale .98 พื้น surface, r2, เงาแบบเมนู, `aria-live="polite"` |
 | `Chart` | แท่ง HTML/CSS เริ่มที่ศูนย์ เขียนค่ากำกับ มี `<table>` ซ่อนไว้ให้ screen reader |
 
-component ที่รับมา (`apps/dashboard/src/components/vendor/` คงไว้ตามที่ได้มา แต่ map สีเข้า token ของ Strata ผ่านตัวแปร CSS ของมันเอง):
+component ที่รับมา (`bot-avatars` กับ `thinking-orbs` เป็นแพ็กเกจ npm ส่วนที่เหลือคัดลอกมาไว้ใน `apps/dashboard/src/components/vendor/` ทุกตัวคงไว้ตามที่ได้มา แต่ map สีเข้า token ของ Strata ผ่านตัวแปร CSS ของมันเอง):
 
 | Component | ใช้ตรงไหนใน Narze |
 |---|---|
@@ -207,7 +207,7 @@ component ที่รับมา (`apps/dashboard/src/components/vendor/` ค�
 ## 6. งบเอฟเฟกต์
 
 - **หนึ่งหน้าจอมี canvas ที่ขยับต่อเนื่องได้ไม่เกินหนึ่งตัว** เปิด sheet เสียงแล้ว Aurora หยุด เลื่อนพ้นจอแล้วทุกตัวหยุด (component ที่รับมาทุกตัวคอยดูการมองเห็นของตัวเองอยู่แล้ว)
-- canvas โหลดฝั่ง client เท่านั้นผ่าน `next/dynamic({ ssr: false })` หลังตรวจว่ามี WebGL2 ถ้าเจอ `?fx=0`, `prefers-reduced-motion`, `deviceMemory ≤ 2` หรือ Save-Data จะแสดงภาพนิ่งแทน (พื้นสี `--mood` เรียบ ๆ)
+- canvas โหลดฝั่ง client เท่านั้นผ่าน `next/dynamic({ ssr: false })` canvas ที่เป็น **WebGL** (Aurora, Strands, CursorGrid, HalftoneReveal) ต้องรอตรวจว่ามี WebGL2 ก่อนด้วย และถ้าเจอ `?fx=0`, `prefers-reduced-motion`, `deviceMemory ≤ 2` หรือ Save-Data จะแสดงภาพนิ่งแทน (พื้นสี `--mood` เรียบ ๆ) ส่วน `BotAvatar` กับ `ThinkingOrb` วาดบน canvas 2D ไม่ต้องตรวจ WebGL และรองรับการลดการเคลื่อนไหวในตัวเอง
 - จำกัด DPR ไว้ที่ 2 สำหรับ orb/avatar และ 1.5 สำหรับ canvas เต็มจอ
 - BotAvatar ขยับพร้อมกันได้ไม่เกิน 6 ตัว หน้ารายชื่อส่ง `seed` ให้กะพริบตาไม่พร้อมกัน ตัวที่พ้นจอหยุดเอง
 

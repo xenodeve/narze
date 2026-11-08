@@ -1,0 +1,54 @@
+# Lavalink 4 for local development (docker compose --profile audio up -d lavalink).
+# Plugin versions match the ones v5.0.2 ran in production. Spotify via LavaSrc needs credentials
+# and lands with Track Resolution (#100); until then only YouTube / YouTube Music resolve here.
+server:
+  port: 2333
+  address: 0.0.0.0
+
+lavalink:
+  plugins:
+    - dependency: "dev.lavalink.youtube:youtube-plugin:1.18.1"
+      snapshot: false
+    - dependency: "com.github.topi314.lavasrc:lavasrc-plugin:4.8.3"
+      snapshot: false
+  server:
+    # LAVALINK_SERVER_PASSWORD from docker-compose.yml overrides this.
+    password: "youshallnotpass"
+    sources:
+      # The built-in YouTube source is deprecated; youtube-plugin replaces it.
+      youtube: false
+      bandcamp: true
+      soundcloud: true
+      twitch: false
+      vimeo: false
+      http: true
+      local: false
+    bufferDurationMs: 400
+    frameBufferDurationMs: 5000
+    trackStuckThresholdMs: 10000
+    playerUpdateInterval: 5
+    youtubePlaylistLoadLimit: 6
+    resamplingQuality: LOW
+    gc-warnings: true
+
+plugins:
+  youtube:
+    enabled: true
+    allowSearch: true
+    allowDirectVideoIds: true
+    allowDirectPlaylistIds: true
+    clients: ["MUSIC", "WEB", "ANDROID_VR"]
+  lavasrc:
+    providers:
+      - 'ytsearch:"%ISRC%"'
+      - "ytsearch:%QUERY%"
+    sources:
+      spotify: false
+      applemusic: false
+      deezer: false
+      yandexmusic: false
+
+logging:
+  level:
+    root: INFO
+    lavalink: INFO
