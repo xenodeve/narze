@@ -268,6 +268,7 @@ describe("web controls on the engine (#101)", () => {
 
 describe("queue editing on the engine (#102)", () => {
   const titles = async () => (await stored())?.queue.map((t) => t.title);
+  const uriAt = async (i: number) => (await stored())?.queue[i]?.uri ?? "";
   async function four() {
     await play("lemon");
     for (const q of ["idol", "gurenge", "pretender"]) await play(q);
@@ -276,26 +277,28 @@ describe("queue editing on the engine (#102)", () => {
 
   test("move follows spec #46 (to may equal length; moving down drops before the target)", async () => {
     await four();
-    expect(await music.move(GUILD, 0, 3)).toBe(true);
+    expect(await music.move(GUILD, 0, 3, await uriAt(0))).toBe("ok");
     expect(await eventually(titles, (t) => t?.[2] === "Idol")).toEqual(["Gurenge", "Pretender", "Idol"]);
-    expect(await music.move(GUILD, 0, 9)).toBe(false);
+    expect(await music.move(GUILD, 0, 9, await uriAt(0))).toBe("invalid-index");
   });
 
   test("remove and clear edit the queue and bump the revision", async () => {
     await four();
     const before = (await stored())?.revision ?? 0;
-    expect(await music.remove(GUILD, 1)).toBe(true);
+    expect(await music.remove(GUILD, 1, await uriAt(1))).toBe("ok");
     expect(await eventually(titles, (t) => t?.length === 2)).toEqual(["Idol", "Pretender"]);
     expect(await music.clear(GUILD)).toBe(true);
     const after = await eventually(stored, (s) => s?.queue.length === 0);
     expect(after?.revision).toBeGreaterThan(before + 1);
   });
 
-  test("skip-to drops the tracks before it and plays it", async () => {
+  test("an edit naming a track that is no longer at that index is refused as stale, untouched", async () => {
     await four();
-    expect(await music.skipTo(GUILD, 1)).toBe(true);
-    const state = await eventually(stored, (s) => s?.current?.title === "Gurenge");
-    expect(state?.queue.map((t) => t.title)).toEqual(["Pretender"]);
+    const idol = await uriAt(0);
+    expect(await music.remove(GUILD, 1, idol)).toBe("stale");
+    expect(await music.playNow(GUILD, 1, idol)).toBe("stale");
+    expect(await music.move(GUILD, 1, 3, idol)).toBe("stale");
+    expect(await titles()).toEqual(["Idol", "Gurenge", "Pretender"]);
   });
 
   test("play at a position inserts there (/playat); out of range clamps to the end (v5)", async () => {
@@ -316,6 +319,7 @@ describe("queue editing on the engine (#102)", () => {
   test("skipplay plays the new track now, keeps the queue, and posts no notice (spec #7, #24)", async () => {
     await play("lemon");
     await play("idol");
+    const before = (await eventually(stored, (s) => s?.queue.length === 1))?.revision ?? 0;
     await music.play({
       guildId: GUILD,
       voiceChannelId: VOICE,
@@ -326,6 +330,8 @@ describe("queue editing on the engine (#102)", () => {
     });
     const state = await eventually(stored, (s) => s?.current?.title === "Gurenge");
     expect(state?.queue.map((t) => t.title)).toEqual(["Idol"]);
+    // One edit, one revision (ADR-0007): the track start is the bump, not a second one before it.
+    expect(state?.revision).toBe(before + 1);
     expect(notices.filter((n) => n.notice.description?.includes("Gurenge"))).toHaveLength(0);
   });
 
@@ -338,12 +344,14 @@ describe("queue editing on the engine (#102)", () => {
         resolve();
       };
     });
-    expect(await music.playNow(GUILD, 2)).toBe(true);
+    const before = (await stored())?.revision ?? 0;
+    expect(await music.playNow(GUILD, 2, await uriAt(2))).toBe("ok");
     await jumped;
     const state = await eventually(stored, (s) => s?.current?.title === "Pretender");
     order.push(`now:${state?.current?.title}`);
     expect(order).toEqual(["jump:Pretender", "now:Pretender"]);
     expect(state?.queue.map((t) => t.title)).toEqual(["Idol", "Gurenge"]);
+    expect(state?.revision).toBe(before + 1);
     expect(notices.filter((n) => n.notice.description?.includes("Pretender"))).toHaveLength(0);
   });
 });

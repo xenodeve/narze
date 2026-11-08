@@ -1,6 +1,6 @@
 import { SlashCommandBuilder } from "discord.js";
 import { formatDuration } from "../music/format";
-import type { Music, PlayRequest } from "../music/music";
+import type { Music, PlayRequest, PlayResult } from "../music/music";
 import { fail, ok } from "./replies";
 import type { Command, CommandContext, Reply } from "./types";
 
@@ -11,18 +11,16 @@ const REASON = {
   failed: "ไม่สามารถเล่นเพลงได้",
 } as const;
 
-/** The voice checks /play makes, then a play at a place in the queue. */
-async function placedPlay(
-  ctx: CommandContext,
-  music: Music,
-  place: Pick<PlayRequest, "next" | "position" | "skipplay">,
-): Promise<Reply> {
+type Place = Pick<PlayRequest, "next" | "position" | "skipplay">;
+
+/** The voice checks every play command makes, then the play: a refusal, or what the engine did. */
+async function playAt(ctx: CommandContext, music: Music, place: Place): Promise<Reply | PlayResult> {
   const voice = ctx.memberVoiceChannelId;
   if (!voice) return fail("กรุณาเข้าห้องเสียงด้วย");
   const status = music.status(ctx.guildId);
   if (status && status.voiceChannelId !== voice) return fail("กรุณาอยู่ในห้องเสียงเดียวกับบอท");
   if (!status && !ctx.canSpeakIn(voice)) return fail(`บอทไม่มีอำนาจเปิดเพลงในห้อง <#${voice}>`);
-  const result = await music.play({
+  return music.play({
     guildId: ctx.guildId,
     voiceChannelId: voice,
     textChannelId: ctx.channelId,
@@ -30,6 +28,12 @@ async function placedPlay(
     requester: ctx.user,
     ...place,
   });
+}
+
+/** /play, /playnext and /playat: the track and where it landed. */
+export async function placedPlay(ctx: CommandContext, music: Music, place: Place = {}): Promise<Reply> {
+  const result = await playAt(ctx, music, place);
+  if ("notice" in result) return result;
   if (result.kind === "error") return fail(REASON[result.reason]);
   const line = `**${result.track.title}** \` ${formatDuration(result.track.durationMs)} \``;
   if (result.kind === "started") return ok(`\`▶️\`┃${line}`);
@@ -74,9 +78,9 @@ export const skipplay: Command = {
   data: withQuery(new SlashCommandBuilder().setName("skipplay").setDescription("ลัดคิวเล่นทันที")),
   async run(ctx, music) {
     if (!music.status(ctx.guildId)?.current) return fail("ไม่มีเพลงก่อนหน้า");
-    const reply = await placedPlay(ctx, music, { skipplay: true });
-    if (reply.ephemeral) return reply;
-    const title = reply.notice.description?.match(/\*\*(.+?)\*\*/)?.[1] ?? "";
-    return ok(`\`⏭️\`┃**Skipped** ไปยังเพลง **${title}** โดย: <@${ctx.user.id}>`);
+    const result = await playAt(ctx, music, { skipplay: true });
+    if ("notice" in result) return result;
+    if (result.kind === "error") return fail(REASON[result.reason]);
+    return ok(`\`⏭️\`┃**Skipped** ไปยังเพลง **${result.track.title}** โดย: <@${ctx.user.id}>`);
   },
 };

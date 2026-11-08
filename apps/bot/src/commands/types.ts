@@ -21,7 +21,8 @@ export interface Reply {
   /** Errors are private, successes public (spec #14). */
   ephemeral: boolean;
   /** /queue: more pages behind prev/next buttons; `render` reads the live queue (null: nothing playing). */
-  pager?: { pages: number; render(page: number): Notice | null };
+  /** `render` re-reads the queue: it answers the page actually shown and the page count now. */
+  pager?: { pages: number; render(page: number): { notice: Notice; page: number; pages: number } | null };
 }
 
 export interface Choice {

@@ -66,6 +66,9 @@ async function publish(): Promise<void> {
 
 function apply(cmd: PlayerCommand): boolean {
   const c = cmd.command;
+  // Like the Bot: an edit naming a track that is no longer at that index is refused (#102).
+  if ("uri" in c && "index" in c && model.queue[c.index]?.uri !== c.uri) return false;
+  if (c.action === "move" && model.queue[c.from]?.uri !== c.uri) return false;
   if (c.action === "play") model.queue = c.next ? [track(c.query), ...model.queue] : [...model.queue, track(c.query)];
   else if (c.action === "move") {
     const next = moveTrack(model.queue, c.from, c.to);
@@ -165,4 +168,41 @@ test("two tabs reordering at the same time converge to the server's order", asyn
   await expect.poll(() => model.revision).toBe(base + 2);
   await expect(rows(page)).toHaveText(model.queue.map((t) => t.title));
   await expect(rows(other)).toHaveText(model.queue.map((t) => t.title));
+});
+
+test("dragging a row by its handle moves it, and a cancelled drag moves nothing", async ({ page }) => {
+  model.queue = ["P1", "Q2", "R3"].map(track);
+  await publish();
+  await setFakeDiscordUser(owner, [{ id: GUILD, name: "Queue Club", icon: null, owner: true }]);
+  await signInThroughPopup(page, "Quinn");
+  await page.goto(`/guilds/${GUILD}`);
+  await expect(rows(page)).toHaveText(["P1", "Q2", "R3"]);
+
+  const handle = page.getByRole("button", { name: /ย้าย R3/ });
+  const first = await page.getByTestId("queue-row").first().boundingBox();
+  const box = await handle.boundingBox();
+  if (!first || !box) throw new Error("no layout");
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  // Past the list's edge: the captured pointer still drives the drag.
+  await page.mouse.move(box.x + box.width / 2, first.y - 40, { steps: 8 });
+  await page.mouse.up();
+  await expect(rows(page)).toHaveText(["R3", "P1", "Q2"]);
+  expect(model.queue.map((t) => t.title)).toEqual(["R3", "P1", "Q2"]);
+
+  // A pointer the browser cancels ends the drag in place.
+  const before = model.revision;
+  const q2 = page.getByRole("button", { name: /ย้าย Q2/ });
+  const q2box = await q2.boundingBox();
+  if (!q2box) throw new Error("no layout");
+  await page.mouse.move(q2box.x + q2box.width / 2, q2box.y + q2box.height / 2);
+  await page.mouse.down();
+  await expect(page.locator("[data-dragging]")).toHaveCount(1);
+  // Chromium's mouse is pointer 1; a real cancel comes from the browser, not the page.
+  await q2.dispatchEvent("pointercancel", { pointerId: 1, isPrimary: true });
+  await expect(page.locator("[data-dragging]")).toHaveCount(0);
+  await page.mouse.move(q2box.x + q2box.width / 2, first.y - 40, { steps: 4 });
+  await page.mouse.up();
+  await expect(rows(page)).toHaveText(["R3", "P1", "Q2"]);
+  expect(model.revision).toBe(before);
 });

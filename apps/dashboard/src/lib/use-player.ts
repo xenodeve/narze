@@ -38,6 +38,8 @@ const permissionOf = (view: PlayerView): Permission => (view.status === "ready" 
  * One Guild's Player State: loaded from the Backend's Hot Cache, then kept live from the Guild
  * room's events, reconciled by revision (ADR-0007) — older events dropped, a gap refetches.
  */
+const JUMP_TIMEOUT_MS = 3_000;
+
 export function usePlayer(guildId: string, userId: string): PlayerView {
   const [view, setView] = useState<PlayerView>({ status: "loading" });
   /** What the server last said, before clock conversion (the reducer's input). */
@@ -48,6 +50,8 @@ export function usePlayer(guildId: string, userId: string): PlayerView {
   // biome-ignore lint/correctness/useExhaustiveDependencies: a different user must refetch; the token is read at fetch time
   useEffect(() => {
     let cancelled = false;
+    /** A jump whose queue update never arrives (the Bot failed after announcing it) still ends. */
+    let jumpTimer: ReturnType<typeof setTimeout> | undefined;
     snapshot.current = EMPTY_SNAPSHOT;
 
     const load = async () => {
@@ -81,6 +85,10 @@ export function usePlayer(guildId: string, userId: string): PlayerView {
       if (event.type === GuildEventTypes.queueJump) {
         const { fromIndex } = event.data as { fromIndex: number };
         setView((current) => (current.status === "ready" ? { ...current, jumping: fromIndex } : current));
+        clearTimeout(jumpTimer);
+        jumpTimer = setTimeout(() => {
+          setView((current) => (current.status === "ready" ? { ...current, jumping: null } : current));
+        }, JUMP_TIMEOUT_MS);
         return;
       }
       const { next, decision } = reducePlayer(snapshot.current, event);
@@ -118,6 +126,7 @@ export function usePlayer(guildId: string, userId: string): PlayerView {
     });
     return () => {
       cancelled = true;
+      clearTimeout(jumpTimer);
       off();
     };
   }, [guildId, userId]);

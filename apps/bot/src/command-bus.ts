@@ -1,6 +1,6 @@
 import { Channels, type CommandResult, type PlayerCommand, PlayerCommandSchema, parseJson } from "@narze/shared";
 import type Redis from "ioredis";
-import type { Music } from "./music/music";
+import type { Music, QueueEdit } from "./music/music";
 
 export interface CommandBusOptions {
   /** A dedicated connection: Redis subscriber mode blocks other commands on it. */
@@ -14,6 +14,7 @@ export interface CommandBusOptions {
 type Outcome = Omit<CommandResult, "id">;
 const ok: Outcome = { ok: true };
 const fail = (error: string): Outcome => ({ ok: false, error });
+const edited = (result: QueueEdit): Outcome => (result === "ok" ? ok : fail(result));
 
 /**
  * Carries out commands the Backend relays (#101). Control Permission was already decided there;
@@ -62,15 +63,13 @@ export async function startCommandBus({ subscriber, redis, music, textChannelFor
       case "shuffle":
         return (await music.shuffle(guildId)) ? ok : fail("queue-too-short");
       case "move":
-        return (await music.move(guildId, command.from, command.to)) ? ok : fail("invalid-index");
+        return edited(await music.move(guildId, command.from, command.to, command.uri));
       case "remove":
-        return (await music.remove(guildId, command.index)) ? ok : fail("invalid-index");
+        return edited(await music.remove(guildId, command.index, command.uri));
       case "clear":
         return (await music.clear(guildId)) ? ok : fail("no-player");
-      case "skipTo":
-        return (await music.skipTo(guildId, command.index)) ? ok : fail("invalid-index");
       case "playNow":
-        return (await music.playNow(guildId, command.index)) ? ok : fail("invalid-index");
+        return edited(await music.playNow(guildId, command.index, command.uri));
     }
   }
 

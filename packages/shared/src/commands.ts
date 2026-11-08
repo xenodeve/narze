@@ -19,12 +19,17 @@ export const PlayerActionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("loop"), mode: z.enum(["off", "track", "queue"]).nullable() }),
   // Queue editing (#102). Indexes are 0-based positions in the upcoming queue (not the current track).
   /** Spec #46: `to` may equal the queue length (append); moving down drops before the target. */
-  z.object({ action: z.literal("move"), from: z.number().int().nonnegative(), to: z.number().int().nonnegative() }),
-  /** Skip to a queued track, dropping the ones before it. */
-  z.object({ action: z.literal("skipTo"), index: z.number().int().nonnegative() }),
+  // Each edit names the track it means by `uri`: an index alone goes stale when the queue moves
+  // under it (a track ends, another tab edits), and the Bot refuses with "stale" instead.
+  z.object({
+    action: z.literal("move"),
+    from: z.number().int().nonnegative(),
+    to: z.number().int().nonnegative(),
+    uri: z.string().min(1),
+  }),
   /** Play a queued track now; the rest of the queue keeps its order (spec #39: jump first, then the update). */
-  z.object({ action: z.literal("playNow"), index: z.number().int().nonnegative() }),
-  z.object({ action: z.literal("remove"), index: z.number().int().nonnegative() }),
+  z.object({ action: z.literal("playNow"), index: z.number().int().nonnegative(), uri: z.string().min(1) }),
+  z.object({ action: z.literal("remove"), index: z.number().int().nonnegative(), uri: z.string().min(1) }),
   z.object({ action: z.literal("clear") }),
   z.object({
     action: z.literal("play"),

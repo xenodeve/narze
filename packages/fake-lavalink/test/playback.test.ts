@@ -75,9 +75,18 @@ describe("Fake Lavalink playback", () => {
     const ended = new Promise<string>((resolve) =>
       manager.on("trackEnd", (_p, _t, payload) => resolve(payload.reason)),
     );
+    let starts = 0;
+    // The client's request that starts the next track must land before the fake stops (afterEach).
+    const nextStarted = new Promise<void>((resolve) =>
+      manager.on("trackStart", () => {
+        starts += 1;
+        if (starts === 2) resolve();
+      }),
+    );
     await player.play();
     await Bun.sleep(20);
     await player.skip();
     expect(await ended).toBe("stopped");
+    await nextStarted;
   });
 });

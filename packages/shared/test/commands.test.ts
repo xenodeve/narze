@@ -22,10 +22,9 @@ describe("Player commands relayed Backend → Bot (#101)", () => {
       { action: "loop", mode: "track" },
       { action: "loop", mode: null },
       { action: "play", query: "lemon", next: true, voiceChannelId: "70" },
-      { action: "move", from: 0, to: 3 },
-      { action: "skipTo", index: 2 },
-      { action: "playNow", index: 1 },
-      { action: "remove", index: 0 },
+      { action: "move", from: 0, to: 3, uri: "https://x.test/a" },
+      { action: "playNow", index: 1, uri: "https://x.test/b" },
+      { action: "remove", index: 0, uri: "https://x.test/a" },
       { action: "clear" },
     ]) {
       expect(PlayerCommandSchema.safeParse(command(body)).success).toBe(true);
@@ -39,8 +38,11 @@ describe("Player commands relayed Backend → Bot (#101)", () => {
       { action: "loop", mode: "all" },
       { action: "play", query: "", next: false, voiceChannelId: null },
       { action: "destroy" },
-      { action: "move", from: -1, to: 0 },
-      { action: "remove", index: 1.5 },
+      { action: "move", from: -1, to: 0, uri: "u" },
+      { action: "remove", index: 1.5, uri: "u" },
+      // Queue edits name the track they mean: an index alone goes stale when the queue moves (#102).
+      { action: "remove", index: 0 },
+      { action: "skipTo", index: 2 },
     ]) {
       expect(PlayerCommandSchema.safeParse(command(body)).success).toBe(false);
     }

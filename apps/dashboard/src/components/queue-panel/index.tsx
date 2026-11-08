@@ -3,7 +3,8 @@
 import type { PlayerAction, Track } from "@narze/shared";
 import { moveTrack } from "@narze/shared/queue";
 import dynamic from "next/dynamic";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { formatTime } from "@/components/now-playing/progress";
 import { explain, sendCommand } from "@/lib/control";
 import type { Permission } from "@/lib/use-player";
 import styles from "./queue-panel.module.css";
@@ -11,16 +12,16 @@ import styles from "./queue-panel.module.css";
 // Touch: swipe a row to remove it (the supplied SwipeRow); client-only, like every supplied canvas/gesture.
 const SwipeRow = dynamic(() => import("@/components/vendor/swipe-row/SwipeRow"), { ssr: false });
 
-const formatTime = (ms: number) => {
-  const total = Math.floor(ms / 1000);
-  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
-};
-
 /**
  * SwipeRow captures the pointer on its surface at pointerdown, which retargets the click away from
  * buttons inside the row. Buttons and the drag handle keep their pointer to themselves.
  */
 const keepFromSwipe = (e: React.PointerEvent) => e.stopPropagation();
+
+const removeAt = (queue: Track[], index: number) => queue.filter((_, i) => i !== index);
+
+/** An acknowledged edit whose state update never arrives (lost event) stops showing the guess. */
+const GUESS_TIMEOUT_MS = 5_000;
 
 /** Stable keys: v5 used positions, so every edit re-keyed every row. A repeated track gets #2, #3… */
 function keysOf(queue: Track[]): string[] {
@@ -54,7 +55,7 @@ export function QueuePanel({ guildId, queue, revision, permission, jumping }: Qu
   const [confirming, setConfirming] = useState(false);
   const list = useRef<HTMLOListElement>(null);
   const shown = optimistic ?? queue;
-  const keys = keysOf(shown);
+  const keys = useMemo(() => keysOf(shown), [shown]);
   const canEdit = permission.canControl;
 
   // A new server state is the truth: drop the optimistic copy.
@@ -68,22 +69,37 @@ export function QueuePanel({ guildId, queue, revision, permission, jumping }: Qu
     if (!ack.ok) {
       setOptimistic(null);
       setMessage(explain(ack));
+    } else if (guess) {
+      setTimeout(() => setOptimistic((current) => (current === guess ? null : current)), GUESS_TIMEOUT_MS);
     }
   };
+
+  /** Every edit names its track: an index alone may point at another one by the time it lands. */
+  const removeTrack = (index: number) =>
+    void edit({ action: "remove", index, uri: shown[index]?.uri ?? "" }, removeAt(shown, index));
 
   const move = (from: number, to: number) => {
     const next = moveTrack(shown, from, to);
     if (!next || to === from || to === from + 1) return;
-    void edit({ action: "move", from, to }, next);
+    void edit({ action: "move", from, to, uri: shown[from]?.uri ?? "" }, next);
     const landed = to > from ? to : to + 1;
     setAnnounce(`ย้าย ${shown[from]?.title ?? ""} ไปลำดับที่ ${landed}`);
   };
 
-  /** Pointer drag on the handle: the drop index is where the pointer sits between row midpoints. */
+  /** Ends a drag in progress (also on unmount, so no listener outlives the panel). */
+  const endDrag = useRef<(() => void) | null>(null);
+  useEffect(() => () => endDrag.current?.(), []);
+
+  /**
+   * Pointer drag on the handle: the drop index is where the pointer sits between row midpoints.
+   * The handle captures the pointer, so the drag follows it outside the list; a cancelled pointer
+   * (a scroll gesture, a system dialog) ends the drag without moving anything.
+   */
   const startDrag = (from: number) => (e: React.PointerEvent<HTMLButtonElement>) => {
     keepFromSwipe(e);
     if (!canEdit || e.button !== 0) return;
     e.preventDefault();
+    const handle = e.currentTarget;
     const rows = [...(list.current?.querySelectorAll<HTMLElement>("[data-row]") ?? [])];
     const targetAt = (y: number) => {
       const index = rows.findIndex((row) => {
@@ -92,15 +108,31 @@ export function QueuePanel({ guildId, queue, revision, permission, jumping }: Qu
       });
       return index === -1 ? rows.length : index;
     };
-    setDrag({ from, to: from });
-    const onMove = (ev: PointerEvent) => setDrag({ from, to: targetAt(ev.clientY) });
-    const onUp = (ev: PointerEvent) => {
-      window.removeEventListener("pointermove", onMove);
+    let to = from;
+    const onMove = (ev: PointerEvent) => {
+      const next = targetAt(ev.clientY);
+      if (next === to) return;
+      to = next;
+      setDrag({ from, to });
+    };
+    const stop = () => {
+      handle.removeEventListener("pointermove", onMove);
+      handle.removeEventListener("pointerup", onUp);
+      handle.removeEventListener("pointercancel", stop);
+      endDrag.current = null;
       setDrag(null);
+    };
+    const onUp = (ev: PointerEvent) => {
+      stop();
       move(from, targetAt(ev.clientY));
     };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp, { once: true });
+    endDrag.current?.();
+    endDrag.current = stop;
+    handle.setPointerCapture(e.pointerId);
+    handle.addEventListener("pointermove", onMove);
+    handle.addEventListener("pointerup", onUp);
+    handle.addEventListener("pointercancel", stop);
+    setDrag({ from, to });
   };
 
   const onHandleKey = (index: number) => (e: React.KeyboardEvent<HTMLButtonElement>) => {
@@ -199,7 +231,7 @@ export function QueuePanel({ guildId, queue, revision, permission, jumping }: Qu
                       onPointerDown={keepFromSwipe}
                       aria-label={`เล่น ${track.title} ตอนนี้`}
                       title="เล่นตอนนี้"
-                      onClick={() => void edit({ action: "playNow", index: i }, null)}
+                      onClick={() => void edit({ action: "playNow", index: i, uri: track.uri }, null)}
                     >
                       <svg aria-hidden="true" viewBox="0 0 16 16" width="14" height="14">
                         <path d="M5 3l8 5-8 5z" fill="currentColor" />
@@ -211,12 +243,7 @@ export function QueuePanel({ guildId, queue, revision, permission, jumping }: Qu
                       onPointerDown={keepFromSwipe}
                       aria-label={`ลบ ${track.title} ออกจากคิว`}
                       title="ลบออกจากคิว"
-                      onClick={() =>
-                        void edit(
-                          { action: "remove", index: i },
-                          shown.filter((_, j) => j !== i),
-                        )
-                      }
+                      onClick={() => removeTrack(i)}
                     >
                       <svg aria-hidden="true" viewBox="0 0 16 16" width="14" height="14">
                         <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -248,12 +275,7 @@ export function QueuePanel({ guildId, queue, revision, permission, jumping }: Qu
                     textColor="var(--ink)"
                     label={track.title}
                     actions={[{ id: "remove", label: "ลบ" }]}
-                    onCommit={() =>
-                      void edit(
-                        { action: "remove", index: i },
-                        shown.filter((_, j) => j !== i),
-                      )
-                    }
+                    onCommit={() => removeTrack(i)}
                   >
                     {row}
                   </SwipeRow>

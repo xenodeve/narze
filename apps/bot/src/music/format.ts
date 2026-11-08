@@ -24,3 +24,18 @@ export function formatDuration(ms: number): string {
   const seconds = total % 60;
   return ms < 3_600_000 ? `${pad(minutes)}:${pad(seconds)}` : `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
 }
+
+const MARKDOWN = /[\\*_~`|[\]()<>]/g;
+/** Text from a track source, shown literally in Discord markdown. */
+export const escapeText = (text: string) => text.replace(MARKDOWN, "\\$&");
+
+/**
+ * `[title](uri)` for an embed description. Titles and uris come from the track source, so the
+ * title is escaped (no breaking out of the link, no formatting) and the uri cannot close it early.
+ */
+export function trackLink(track: { title: string; uri: string }, maxTitle = 100): string {
+  const chars = Array.from(track.title);
+  const title = chars.length > maxTitle ? `${chars.slice(0, maxTitle - 1).join("")}…` : track.title;
+  const uri = track.uri.replace(/[\s()<>]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase().padStart(2, "0")}`);
+  return `[${escapeText(title)}](${uri})`;
+}

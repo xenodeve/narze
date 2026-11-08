@@ -43,7 +43,7 @@ function music(queue: Track[], over: Partial<Music> = {}): Music {
     play: mock(async () => ({ kind: "queued", track: track("New"), position: 1 })),
     clear: mock(async () => true),
     setLoop: mock(async (_g: string, mode: string | null) => mode ?? "track"),
-    playNow: mock(async () => true),
+    playNow: mock(async () => "ok"),
     ...over,
   } as unknown as Music;
 }
@@ -65,7 +65,19 @@ describe("/queue (spec #8)", () => {
     expect(text(reply)).not.toContain("**11)**");
     expect(text(reply)).toContain("**เวลารวมคิว:** ` 12:00 `");
     expect(reply.pager?.pages).toBe(2);
-    expect(reply.pager?.render(1)?.description).toContain("**11)** **[T11]");
+    expect(reply.pager?.render(1)?.notice.description).toContain("**11)** **[T11]");
+  });
+
+  test("each click re-counts the pages: the queue may have grown or shrunk since the command (#102)", async () => {
+    let queue = Array.from({ length: 12 }, (_, i) => track(`T${i + 1}`));
+    const m = music([], { status: mock(() => ({ ...music(queue).status("g"), queue })) as never });
+    const reply = await command("queue").run(ctx(), m);
+    queue = Array.from({ length: 25 }, (_, i) => track(`T${i + 1}`));
+    expect(reply.pager?.render(2)).toMatchObject({ page: 2, pages: 3 });
+    queue = queue.slice(0, 5);
+    const shrunk = reply.pager?.render(1);
+    expect(shrunk).toMatchObject({ page: 0, pages: 1 });
+    expect(shrunk?.notice.description).toContain("**1)** **[T1]");
   });
 
   test("an empty queue says so, with no pages", async () => {
@@ -133,12 +145,27 @@ describe("/playnext, /playat, /playqueue, /skipplay (spec #7)", () => {
     ]);
   });
 
-  test("/playqueue autocomplete lists queued tracks; running it plays that one now", async () => {
+  test("/playqueue autocomplete names the track it means; running it plays that one now", async () => {
     const m = music([track("a"), track("b")]);
-    expect(await command("playqueue").autocomplete?.(ctx(), m, "b")).toEqual([{ name: "2. (b Artist) b", value: "2" }]);
-    const reply = await command("playqueue").run(ctx({ song: "2" }), m);
-    expect((m.playNow as ReturnType<typeof mock>).mock.calls[0]?.[1]).toBe(1);
+    const b = track("b").uri;
+    expect(await command("playqueue").autocomplete?.(ctx(), m, "b")).toEqual([
+      { name: "2. (b Artist) b", value: `2|${b}` },
+    ]);
+    const reply = await command("playqueue").run(ctx({ song: `2|${b}` }), m);
+    expect((m.playNow as ReturnType<typeof mock>).mock.calls[0]?.slice(1)).toEqual([1, b]);
     expect(text(reply)).toContain("Skipped ไปคิวเพลง");
+  });
+
+  test("/playqueue refuses when the queue moved since the choice was offered (#102)", async () => {
+    // The choice was b at 2; a track ended, so b is now at 1 and 2 is something else.
+    const m = music([track("b"), track("c")]);
+    const reply = await command("playqueue").run(ctx({ song: `2|${track("b").uri}` }), m);
+    expect(m.playNow).not.toHaveBeenCalled();
+    expect(text(reply)).toBe("> `❌` คิวเปลี่ยนไปแล้ว ลองเลือกเพลงใหม่อีกครั้ง");
+    const raced = music([track("a"), track("b")], { playNow: mock(async () => "stale") as never });
+    expect(text(await command("playqueue").run(ctx({ song: `2|${track("b").uri}` }), raced))).toBe(
+      "> `❌` คิวเปลี่ยนไปแล้ว ลองเลือกเพลงใหม่อีกครั้ง",
+    );
   });
 
   test("/skipplay needs something playing", async () => {

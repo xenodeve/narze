@@ -102,6 +102,7 @@ async function page(
   pager: NonNullable<Reply["pager"]>,
 ): Promise<void> {
   let current = 0;
+  let pages = pager.pages;
   const buttons = (disabled = false) =>
     new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
@@ -111,14 +112,14 @@ async function page(
         .setDisabled(disabled || current === 0),
       new ButtonBuilder()
         .setCustomId("queue_page_info")
-        .setLabel(`${current + 1}/${pager.pages}`)
+        .setLabel(`${current + 1}/${pages}`)
         .setStyle(ButtonStyle.Primary)
         .setDisabled(true),
       new ButtonBuilder()
         .setCustomId("queue_next")
         .setLabel("หน้าถัดไป →")
         .setStyle(ButtonStyle.Secondary)
-        .setDisabled(disabled || current >= pager.pages - 1),
+        .setDisabled(disabled || current >= pages - 1),
     );
   const message = await interaction.reply({ embeds: [toEmbed(first)], components: [buttons()], withResponse: true });
   const collector = message.resource?.message?.createMessageComponentCollector({
@@ -130,9 +131,8 @@ async function page(
       await click.reply({ content: "คุณไม่สามารถใช้ปุ่มนี้ได้", flags: MessageFlags.Ephemeral }).catch(() => {});
       return;
     }
-    current = Math.max(0, Math.min(pager.pages - 1, current + (click.customId === "queue_next" ? 1 : -1)));
-    const notice = pager.render(current);
-    if (!notice) {
+    const shown = pager.render(Math.max(0, current + (click.customId === "queue_next" ? 1 : -1)));
+    if (!shown) {
       collector.stop();
       await click
         .update({
@@ -142,7 +142,9 @@ async function page(
         .catch(() => {});
       return;
     }
-    await click.update({ embeds: [toEmbed(notice)], components: [buttons()] }).catch(() => {});
+    current = shown.page;
+    pages = shown.pages;
+    await click.update({ embeds: [toEmbed(shown.notice)], components: [buttons()] }).catch(() => {});
   });
   collector?.on("end", () => {
     void interaction.editReply({ components: [buttons(true)] }).catch(() => {});
