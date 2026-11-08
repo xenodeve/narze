@@ -1,3 +1,4 @@
+import os from "node:os";
 import { join } from "node:path";
 import {
   Channels,
@@ -6,9 +7,14 @@ import {
   GuildEventTypes,
   GuildSettingsSchema,
   parseJson,
+  RedisKeys,
+  STATS_POINTS,
 } from "@narze/shared";
+import { cacheStats } from "@narze/shared/ttl-cache";
 import { createClient } from "@supabase/supabase-js";
 import { AuditLogEvent, Client, GatewayIntentBits, type Guild } from "discord.js";
+import { captureConsole, createLogSink } from "./admin/logs";
+import { createStatsSampler } from "./admin/stats";
 import { startCommandBus } from "./command-bus";
 import { announcer, handleInteractions } from "./discord/interactions";
 import { createGuildRegistry, type GuildVoiceSnapshot } from "./guild-registry";
@@ -40,8 +46,12 @@ const RECOVERY_DELAY_MS = 5_000;
 let swept = false;
 /** A hard kill restores the position of the last write, at most this old (#103). */
 const SNAPSHOT_EVERY_MS = 10_000;
+/** Spec #109: the admin stats sample window. */
+const STATS_EVERY_MS = 5_000;
 
 const { mode, redis } = await detectRuntimeMode(env.REDIS_URL ?? DEFAULT_REDIS_URL, 1500);
+// #110, spec #120: in Connected Mode the console also feeds the admin log viewer.
+if (redis) captureConsole(createLogSink(redis));
 console.log(`[bot] ${mode} mode`);
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates] });
@@ -119,6 +129,34 @@ function scheduleRecovery(): void {
   }, RECOVERY_DELAY_MS);
 }
 const snapshotTimer = setInterval(() => void music.flush(), SNAPSHOT_EVERY_MS);
+// #110, spec #109: a stats sample every 5 s for the admin pages (Connected Mode only).
+const sampler = createStatsSampler({
+  now: Date.now,
+  cpuMicros: () => {
+    const { user, system } = process.cpuUsage();
+    return user + system;
+  },
+  cores: () => os.cpus().length,
+  memory: () => ({ usedBytes: os.totalmem() - os.freemem(), totalBytes: os.totalmem() }),
+  uptimeMs: () => client.uptime ?? 0,
+  online: () => client.isReady(),
+  pingMs: () => (client.ws.ping >= 0 ? client.ws.ping : null),
+  guilds: () => client.guilds.cache.size,
+  activePlayers: () => [...lavalink.players.values()].filter((p) => p.playing).length,
+  caches: cacheStats,
+});
+const statsTimer = redis
+  ? setInterval(() => {
+      const raw = JSON.stringify(sampler.sample());
+      void redis
+        .multi()
+        .lpush(RedisKeys.botStatsRing, raw)
+        .ltrim(RedisKeys.botStatsRing, 0, STATS_POINTS - 1)
+        .publish(Channels.botStats, raw)
+        .exec()
+        .catch(logFailure("publish stats"));
+    }, STATS_EVERY_MS)
+  : null;
 handleInteractions(client, music, () => lavalink.nodeManager.leastUsedNodes().length > 0, {
   settings: settings ?? undefined,
   log:
@@ -265,6 +303,7 @@ else console.warn("[bot] DISCORD_TOKEN not set — running without Discord (hear
 const shutdown = async () => {
   stopHeartbeat();
   clearInterval(snapshotTimer);
+  if (statsTimer) clearInterval(statsTimer);
   // The exact position survives a clean stop; a hard kill keeps the last periodic write.
   await music.flush();
   await history?.flush().catch(logFailure("save sessions"));

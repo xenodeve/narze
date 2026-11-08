@@ -21,7 +21,7 @@ export function createYouTube({
   fetch?: typeof globalThis.fetch;
   now?: () => number;
 } = {}) {
-  const facts = createTtlCache<string, VideoFacts>({ ttlMs: WEEK_MS, max: 5000, now });
+  const facts = createTtlCache<string, VideoFacts>({ ttlMs: WEEK_MS, max: 5000, now, name: "youtube-facts" });
   return {
     async videoFacts(videoId: string): Promise<VideoFacts | null> {
       if (!apiKey) return null;

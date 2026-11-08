@@ -177,7 +177,7 @@ export function createMusic({
 
   // Spec #69: autocomplete answers are kept 30 minutes, at most 1000 of them, in this process
   // (it works without Redis, ADR-0003).
-  const suggestions = createTtlCache<string, Choice[]>({ ttlMs: 30 * 60_000, max: 1000, now });
+  const suggestions = createTtlCache<string, Choice[]>({ ttlMs: 30 * 60_000, max: 1000, now, name: "autocomplete" });
   const suggester = createSuggester({
     cache: suggestions,
     sources: sourceManagers,

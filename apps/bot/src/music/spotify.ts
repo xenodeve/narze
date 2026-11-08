@@ -19,7 +19,7 @@ export function createSpotify({
   now?: () => number;
 } = {}) {
   const api = createSpotifyApi({ clientId, clientSecret, fetch, now });
-  const artists = createTtlCache<string, string | null>({ ttlMs: WEEK_MS, max: 2000, now });
+  const artists = createTtlCache<string, string | null>({ ttlMs: WEEK_MS, max: 2000, now, name: "spotify-artists" });
 
   return {
     /** Spec #67: the image of the artist found by the track's author, cached for 7 days. */
