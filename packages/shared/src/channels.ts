@@ -107,10 +107,15 @@ export const SocketEvents = {
   sessionUpdate: "session:update",
   /** Backend → each participant's own tabs: a ListeningSession ended (#108). */
   sessionEnd: "session:end",
-  /** Dashboard → Backend with ack: join the admin room; ack `{ ok, history?: LogLine[] }` (#110). */
+  /**
+   * Dashboard → Backend with ack, `{ token, logs? }`: join the admin rooms (stats; the console unless
+   * `logs: false`); ack `{ ok, history?: LogLine[] }` (#110).
+   */
   adminSubscribe: "admin:subscribe",
-  /** Backend → the admin room: one live LogLine of the Bot's console (#110). */
+  /** Dashboard → Backend with ack: leave the admin rooms (#110). */
+  adminUnsubscribe: "admin:unsubscribe",
+  /** Backend → the admin log room: one live LogLine of the Bot's console (#110). */
   adminLog: "admin:log",
-  /** Backend → the admin room: one AdminStats sample (#110). */
+  /** Backend → the admin stats room: one AdminStats sample (#110). */
   adminStats: "admin:stats",
 } as const;

@@ -53,10 +53,10 @@ const STATS_EVERY_MS = 5_000;
 
 const { mode, redis } = await detectRuntimeMode(env.REDIS_URL ?? DEFAULT_REDIS_URL, 1500);
 // #110, spec #120: in Connected Mode the console also feeds the admin log viewer.
-if (redis)
-  captureConsole(
-    createRingSink<LogLine>(redis, { ring: RedisKeys.botLogRing, channel: Channels.botLogs, cap: LOG_RING }),
-  );
+const logSink = redis
+  ? createRingSink<LogLine>(redis, { ring: RedisKeys.botLogRing, channel: Channels.botLogs, cap: LOG_RING })
+  : null;
+if (logSink) captureConsole(logSink);
 console.log(`[bot] ${mode} mode`);
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates] });
@@ -144,23 +144,17 @@ const cpu = createCpuMeter({
   },
   cores: os.cpus().length,
 });
-// Cache sizes take a JSON pass over every entry, so they are measured once a minute.
-let caches: AdminStats["caches"] = [];
-let samplesTaken = 0;
-const cacheSizes = () => {
-  if (samplesTaken++ % 12 === 0) {
-    const named = {
-      autocomplete: music.suggestionStats,
-      "spotify-artists": spotify.cacheStats,
-      "youtube-facts": youtube.cacheStats,
-    };
-    caches = Object.entries(named).map(([name, stats]) => {
-      const { entries, bytes } = stats();
-      return { name, items: entries, bytes };
-    });
-  }
-  return caches;
+// Measured on every sample, so each number belongs to that sample's window (#110 AC).
+const caches = {
+  autocomplete: music.suggestionStats,
+  "spotify-artists": spotify.cacheStats,
+  "youtube-facts": youtube.cacheStats,
 };
+const cacheSizes = (): AdminStats["caches"] =>
+  Object.entries(caches).map(([name, stats]) => {
+    const { entries, bytes } = stats();
+    return { name, items: entries, bytes };
+  });
 const statsSink = redis
   ? createRingSink<AdminStats>(redis, { ring: RedisKeys.botStatsRing, channel: Channels.botStats, cap: STATS_POINTS })
   : null;
@@ -171,10 +165,11 @@ const statsTimer = statsSink
           ...cpu(),
           online: client.isReady(),
           pingMs: client.ws.ping >= 0 ? client.ws.ping : null,
-          uptimeMs: client.uptime ?? 0,
+          uptimeMs: Math.round(process.uptime() * 1000),
           guilds: client.guilds.cache.size,
           activePlayers: [...lavalink.players.values()].filter((p) => p.playing).length,
-          memory: { usedBytes: os.totalmem() - os.freemem(), totalBytes: os.totalmem() },
+          // The Bot process's resident memory against the machine's total.
+          memory: { usedBytes: process.memoryUsage.rss(), totalBytes: os.totalmem() },
           caches: cacheSizes(),
         }),
       STATS_EVERY_MS,
@@ -331,6 +326,8 @@ const shutdown = async () => {
   await music.flush();
   await history?.flush().catch(logFailure("save sessions"));
   await client.destroy();
+  // The last lines of the shutdown reach the log ring before the connection closes.
+  await logSink?.flushed();
   await redis?.quit();
   process.exit(0);
 };

@@ -1,5 +1,6 @@
 "use client";
 
+import { isAtLeast } from "@narze/shared";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useState } from "react";
 import { Account } from "@/components/account";
@@ -29,7 +30,7 @@ function GuildNav({ userId, activeGuildId }: { userId: string; activeGuildId: st
   const guilds = view.status === "ready" ? view.guilds : [];
   // The admin area is listed for Admins only (#110); the Backend refuses everyone else anyway.
   const role = useAdminRole();
-  const isAdmin = role === "admin" || role === "developer";
+  const isAdmin = role !== "loading" && isAtLeast(role, "admin");
   // Remount when the list arrives: BranchedMenu reads its items and active row once.
   const key = `${guilds.map((g) => g.id).join(",")}|${isAdmin}`;
   const items = [

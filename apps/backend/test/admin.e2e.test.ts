@@ -168,14 +168,20 @@ describe("stats and logs (#110, AC3, AC4)", () => {
     };
     const devSocket = await connect(sessions.dev110 as FakeSession);
     const fanSocket = await connect(sessions.fan110 as FakeSession);
-    const ack = (socket: Socket) =>
-      new Promise<{ ok: boolean; history?: LogLine[] }>((resolve) => socket.emit(SocketEvents.adminSubscribe, resolve));
-    const mine = await ack(devSocket);
+    const ack = (socket: Socket, body: unknown) =>
+      new Promise<{ ok: boolean; history?: LogLine[] }>((resolve) =>
+        socket.emit(SocketEvents.adminSubscribe, body, resolve),
+      );
+    const devToken = (sessions.dev110 as FakeSession).access_token;
+    // The tab's current token is checked on every join (ADR-0005), not only the handshake's.
+    expect((await ack(devSocket, {})).ok).toBe(false);
+    expect((await ack(devSocket, { token: (sessions.fan110 as FakeSession).access_token })).ok).toBe(false);
+    const mine = await ack(devSocket, { token: devToken });
     expect(mine.ok).toBe(true);
     expect(mine.history).toHaveLength(LOG_HISTORY);
     expect(mine.history?.[0]?.text).toBe("line 50");
     expect(mine.history?.at(-1)?.text).toBe("line 149");
-    expect((await ack(fanSocket)).ok).toBe(false);
+    expect((await ack(fanSocket, { token: (sessions.fan110 as FakeSession).access_token })).ok).toBe(false);
 
     const fanGot: unknown[] = [];
     fanSocket.on(SocketEvents.adminLog, (l) => fanGot.push(l));
@@ -188,6 +194,48 @@ describe("stats and logs (#110, AC3, AC4)", () => {
     fanSocket.close();
   });
 
+  test("an Admin removed from the whitelist stops receiving the rooms at once", async () => {
+    const devS = sessions.dev110 as FakeSession;
+    expect((await call(devS, "PUT", "/api/admin/whitelist", { discordId: boss.id, role: "admin" })).status).toBe(204);
+    const socket = io(url, {
+      transports: ["websocket"],
+      auth: { token: (sessions.boss110 as FakeSession).access_token },
+    });
+    await new Promise((resolve) => socket.once(SocketEvents.sessionReady, resolve));
+    const ack = await new Promise<{ ok: boolean }>((resolve) =>
+      socket.emit(SocketEvents.adminSubscribe, { token: (sessions.boss110 as FakeSession).access_token }, resolve),
+    );
+    expect(ack.ok).toBe(true);
+    const got: unknown[] = [];
+    socket.on(SocketEvents.adminLog, (l) => got.push(l));
+    socket.on(SocketEvents.adminStats, (s) => got.push(s));
+    expect((await call(devS, "DELETE", `/api/admin/whitelist/${boss.id}`)).status).toBe(204);
+    await redis.publish(Channels.botLogs, JSON.stringify({ at: 2, level: "info", text: "after removal" }));
+    await redis.publish(Channels.botStats, JSON.stringify(sample(4)));
+    await Bun.sleep(150);
+    expect(got).toEqual([]);
+    socket.close();
+  });
+
+  test("a tab that leaves the admin pages leaves both rooms", async () => {
+    const devS = sessions.dev110 as FakeSession;
+    const socket = io(url, { transports: ["websocket"], auth: { token: devS.access_token } });
+    await new Promise((resolve) => socket.once(SocketEvents.sessionReady, resolve));
+    const ack = await new Promise<{ ok: boolean }>((resolve) =>
+      socket.emit(SocketEvents.adminSubscribe, { token: devS.access_token }, resolve),
+    );
+    expect(ack.ok).toBe(true);
+    await new Promise((resolve) => socket.emit(SocketEvents.adminUnsubscribe, resolve));
+    const got: unknown[] = [];
+    socket.on(SocketEvents.adminLog, (l) => got.push(l));
+    socket.on(SocketEvents.adminStats, (x) => got.push(x));
+    await redis.publish(Channels.botLogs, JSON.stringify({ at: 5, level: "info", text: "after leaving" }));
+    await redis.publish(Channels.botStats, JSON.stringify(sample(5)));
+    await Bun.sleep(150);
+    expect(got).toEqual([]);
+    socket.close();
+  });
+
   test("a stats-only tab ({ logs: false }) gets stats samples but no console lines", async () => {
     const socket = io(url, {
       transports: ["websocket"],
@@ -195,7 +243,11 @@ describe("stats and logs (#110, AC3, AC4)", () => {
     });
     await new Promise((resolve) => socket.once(SocketEvents.sessionReady, resolve));
     const ack = await new Promise<{ ok: boolean; history?: LogLine[] }>((resolve) =>
-      socket.emit(SocketEvents.adminSubscribe, { logs: false }, resolve),
+      socket.emit(
+        SocketEvents.adminSubscribe,
+        { logs: false, token: (sessions.dev110 as FakeSession).access_token },
+        resolve,
+      ),
     );
     expect(ack).toEqual({ ok: true, history: [] });
     const logs: unknown[] = [];

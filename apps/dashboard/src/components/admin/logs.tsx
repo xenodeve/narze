@@ -8,7 +8,7 @@ import { AdminArea } from "./index";
 
 const LEVELS: Array<LogLevel | "all"> = ["all", "info", "warn", "error"];
 /** SGR foreground codes 30–37 and 90–97 (bright), drawn as the design's tones. */
-const TONES = ["ink-3", "danger", "ok", "warn", "accent", "accent", "accent", "ink"];
+const TONES = ["ink-2", "danger", "ok", "warn", "accent", "accent", "accent", "ink"];
 
 /** Spec #113: ANSI colours are drawn, never shown as escape codes. */
 export function ansi(text: string): ReactNode[] {
@@ -84,7 +84,15 @@ function Terminal() {
   const box = useRef<HTMLOListElement>(null);
 
   useAdminRoom({
-    onHistory: useCallback((history: LogLine[]) => setEntries(history.map(toEntry)), []),
+    // After a reconnect the history overlaps what is on screen: only lines newer than the last one join.
+    onHistory: useCallback(
+      (history: LogLine[]) =>
+        setEntries((all) => {
+          const lastAt = all.at(-1)?.at ?? Number.NEGATIVE_INFINITY;
+          return [...all, ...history.filter((l) => l.at > lastAt).map(toEntry)].slice(-LOG_RING);
+        }),
+      [],
+    ),
     onLine: useCallback((line: LogLine) => setEntries((all) => [...all, toEntry(line)].slice(-LOG_RING)), []),
   });
   const lastFrozen = frozen?.at(-1)?.id ?? -1;
@@ -138,7 +146,13 @@ function Terminal() {
           onChange={(e) => setQuery(e.target.value)}
         />
         <button type="button" className={styles.ghost} onClick={() => setFrozen(frozen ? null : entries)}>
-          {frozen ? `ทำต่อ (${waiting})` : "หยุดชั่วคราว"}
+          {frozen ? (
+            <>
+              ทำต่อ (<span className="num">{waiting}</span>)
+            </>
+          ) : (
+            "หยุดชั่วคราว"
+          )}
         </button>
         <label className={styles.level}>
           <input type="checkbox" checked={follow} onChange={(e) => setFollow(e.target.checked)} />
@@ -151,7 +165,7 @@ function Terminal() {
           ดาวน์โหลด .txt
         </button>
       </div>
-      <ol ref={box} className={styles.terminal} aria-label="log ของบอท">
+      <ol ref={box} className={`deep ${styles.terminal}`} aria-label="log ของบอท">
         {shown.map((e) => (
           <Row key={e.id} entry={e} />
         ))}

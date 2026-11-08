@@ -79,18 +79,20 @@ function Card({ label, value, hint }: { label: string; value: ReactNode; hint?: 
     <li className={styles.card} data-testid="admin-card">
       <span className={styles.cardLabel}>{label}</span>
       <span className={`num ${styles.cardValue}`}>{value}</span>
-      {hint ? <span className={styles.hint}>{hint}</span> : null}
+      {hint ? <span className={`num ${styles.hint}`}>{hint}</span> : null}
     </li>
   );
 }
 
-/** The CPU line of the last STATS_POINTS samples (5 minutes): the performance view. */
-function CpuLine({ samples }: { samples: AdminStats[] }) {
+const memoryPercent = (s: AdminStats) => (s.memory.usedBytes / Math.max(1, s.memory.totalBytes)) * 100;
+
+/** One measure over the last STATS_POINTS samples (5 minutes): the performance view. */
+function Trend({ samples, label, value }: { samples: AdminStats[]; label: string; value: (s: AdminStats) => number }) {
   const points = samples.slice(-STATS_POINTS);
   if (points.length < 2) return null;
-  const top = Math.max(10, ...points.map((s) => s.cpuPercent));
+  const top = Math.max(10, ...points.map(value));
   const path = points
-    .map((s, i) => `${((i / (STATS_POINTS - 1)) * 100).toFixed(2)},${(40 - (s.cpuPercent / top) * 38).toFixed(2)}`)
+    .map((s, i) => `${((i / (STATS_POINTS - 1)) * 100).toFixed(2)},${(40 - (value(s) / top) * 38).toFixed(2)}`)
     .join(" ");
   return (
     <figure className={styles.figure}>
@@ -99,12 +101,13 @@ function CpuLine({ samples }: { samples: AdminStats[] }) {
         preserveAspectRatio="none"
         className={styles.spark}
         role="img"
-        aria-label="CPU 5 นาทีล่าสุด"
+        aria-label={`${label} 5 นาทีล่าสุด`}
       >
         <polyline points={path} fill="none" stroke="var(--accent)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
       </svg>
       <figcaption className={styles.hint}>
-        CPU {points.length} ตัวอย่างล่าสุด (สูงสุด <span className="num">{top.toFixed(1)}%</span>)
+        {label} <span className="num">{points.length}</span> ตัวอย่างล่าสุด (สูงสุด{" "}
+        <span className="num">{top.toFixed(1)}%</span>)
       </figcaption>
     </figure>
   );
@@ -115,38 +118,64 @@ export function AdminOverview() {
   return <AdminArea>{() => <Overview />}</AdminArea>;
 }
 
+/** Samples by time, one per `at`, the last STATS_POINTS: the stored ones and live ones can overlap. */
+const mergeSamples = (a: AdminStats[], b: AdminStats[]) =>
+  [...new Map([...a, ...b].map((s) => [s.at, s])).values()].sort((x, y) => x.at - y.at).slice(-STATS_POINTS);
+
+/** The time now, refreshed every `everyMs`: a sample that stops arriving still ages on screen. */
+function useNow(everyMs: number): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), everyMs);
+    return () => clearInterval(timer);
+  }, [everyMs]);
+  return now;
+}
+
 function Overview() {
   const [samples, setSamples] = useState<AdminStats[] | null>(null);
+  const [failed, setFailed] = useState(false);
   const liquid = useTokenHex("--accent", "#0a6cff");
   const glass = useTokenHex("--surface", "#ffffff");
+  const now = useNow(5000);
   useEffect(() => {
-    void getStats().then((s) => setSamples(s?.samples ?? []));
+    void getStats().then((stored) => {
+      if (!stored) setFailed(true);
+      setSamples((live) => mergeSamples(stored?.samples ?? [], live ?? []));
+    });
   }, []);
   useAdminRoom({
-    onStats: useCallback((sample: AdminStats) => {
-      setSamples((all) => [...(all ?? []), sample].slice(-STATS_POINTS));
-    }, []),
+    onStats: useCallback((sample: AdminStats) => setSamples((all) => mergeSamples(all ?? [], [sample])), []),
   });
   if (samples === null) return <Thinking label="กำลังโหลดสถิติ" />;
   const last = samples.at(-1);
+  // A Bot that stopped (or lost Redis) leaves its last sample behind; past three windows it is old news.
+  const stale = last ? now - last.at > 3 * last.windowMs : false;
   return (
     <>
       <h1 className={styles.title}>ภาพรวมบอท</h1>
+      {failed ? (
+        <p role="alert" className={styles.error}>
+          โหลดสถิติที่เก็บไว้ไม่สำเร็จ หน้านี้จะแสดงเฉพาะค่าที่เข้ามาใหม่
+        </p>
+      ) : null}
       {!last ? (
         <p role="status" className={styles.hint}>
-          ยังไม่มีสถิติจากบอท บอทส่งทุก 5 วินาทีเมื่อเชื่อมต่อ Redis อยู่
+          ยังไม่มีสถิติจากบอท พอบอทออนไลน์ก็จะส่งมาทุก 5 วินาที
         </p>
       ) : (
         <>
           <p className={styles.hint}>
-            วัดทุก {Math.round(last.windowMs / 1000)} วินาที · ล่าสุด{" "}
-            <span className="mono num">{new Date(last.at).toLocaleTimeString("th-TH")}</span>
+            วัดทุก <span className="num">{Math.round(last.windowMs / 1000)}</span> วินาที · ล่าสุด{" "}
+            <span className="mono num">
+              {stale ? new Date(last.at).toLocaleString("th-TH") : new Date(last.at).toLocaleTimeString("th-TH")}
+            </span>
           </p>
           <ul className={styles.cards}>
             <Card
               label="สถานะ"
-              value={last.online ? "ออนไลน์" : "ออฟไลน์"}
-              hint={last.pingMs === null ? undefined : `ping ${last.pingMs} ms`}
+              value={stale ? "ไม่มีข้อมูลล่าสุด" : last.online ? "ออนไลน์" : "ออฟไลน์"}
+              hint={stale || last.pingMs === null ? undefined : `ping ${last.pingMs} ms`}
             />
             <Card label="ทำงานมาแล้ว" value={duration(last.uptimeMs)} />
             <Card label="เซิร์ฟเวอร์" value={last.guilds} />
@@ -162,11 +191,13 @@ function Overview() {
                 width={72}
                 height={140}
               />
-              <span className={styles.hint}>CPU (เฉลี่ยใน {Math.round(last.windowMs / 1000)} วินาที)</span>
+              <span className={styles.hint}>
+                CPU (เฉลี่ยใน <span className="num">{Math.round(last.windowMs / 1000)}</span> วินาที)
+              </span>
             </div>
             <div className={styles.gauge}>
               <SloshGauge
-                value={Math.round((last.memory.usedBytes / Math.max(1, last.memory.totalBytes)) * 100)}
+                value={Math.round(memoryPercent(last))}
                 ariaLabel="หน่วยความจำ"
                 liquidColor={liquid}
                 glassColor={glass}
@@ -177,7 +208,8 @@ function Overview() {
                 {gb(last.memory.usedBytes)} / {gb(last.memory.totalBytes)}
               </span>
             </div>
-            <CpuLine samples={samples} />
+            <Trend samples={samples} label="CPU" value={(s) => s.cpuPercent} />
+            <Trend samples={samples} label="หน่วยความจำ" value={memoryPercent} />
           </div>
           <table className={styles.table}>
             <caption className={styles.hint}>Cache ของบอท</caption>

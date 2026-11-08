@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { DEFAULT_REDIS_URL, LOG_RING, type LogLine, LogLineSchema } from "@narze/shared";
 import Redis from "ioredis";
-import { captureConsole, createRingSink } from "../src/admin/logs";
+import { captureConsole, createRingSink, MAX_LOG_TEXT } from "../src/admin/logs";
 import { createCpuMeter } from "../src/admin/stats";
 
 const redis = new Redis(process.env.REDIS_URL ?? DEFAULT_REDIS_URL);
@@ -41,6 +41,17 @@ describe("the Bot's console, captured (#110, spec #120)", () => {
       ["warn", "[bot] slow"],
       ["error", "Error: boom"],
     ]);
+  });
+
+  test("a huge line is cut to MAX_LOG_TEXT characters before it reaches the sink", () => {
+    const noop = (..._args: unknown[]) => {};
+    const target = { log: noop, info: noop, debug: noop, warn: noop, error: noop };
+    const lines: Array<{ text: string }> = [];
+    const release = captureConsole((line) => lines.push(line), { target });
+    target.log("x".repeat(MAX_LOG_TEXT * 3));
+    release();
+    expect(lines[0]?.text.length).toBeLessThanOrEqual(MAX_LOG_TEXT + 20);
+    expect(lines[0]?.text.endsWith("… (cut)")).toBe(true);
   });
 
   test("the ring keeps the last 1000 lines, newest first, and each line is published", async () => {

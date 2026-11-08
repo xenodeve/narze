@@ -14,20 +14,20 @@ import {
 } from "@narze/shared";
 import { useEffect, useState } from "react";
 import { answer, apiGet, apiSend, parsed } from "./api";
-import { useSession } from "./session";
+import { currentAccessToken, useSession } from "./session";
 import { getSocket, onSocketEvents } from "./socket";
 
-// One /api/admin/me per user per page load: the nav and the admin pages share it. A failed request
-// (no answer at all) is not remembered.
+// One /api/admin/me per user per page load: the nav and the admin pages share it. Only a real answer
+// (200: my role, 403: not on the whitelist) is remembered; a network error, a 401 or a 5xx asks again.
 const roles = new Map<string, Promise<AdminRole | null>>();
 const known = new Map<string, AdminRole | null>();
 function fetchRole(userId: string): Promise<AdminRole | null> {
   let role = roles.get(userId);
   if (!role) {
     role = answer(apiGet("/api/admin/me")).then(async (res) => {
-      if (!res) roles.delete(userId);
       const body = await parsed(res, AdminMeSchema);
-      if (res) known.set(userId, body?.role ?? null);
+      if (res?.ok || res?.status === 403) known.set(userId, body?.role ?? null);
+      else roles.delete(userId);
       return body?.role ?? null;
     });
     roles.set(userId, role);
@@ -81,7 +81,7 @@ export function useAdminRoom(handlers: {
       const socket = await getSocket();
       const ack = (await socket
         .timeout(7000)
-        .emitWithAck(SocketEvents.adminSubscribe, { logs: Boolean(onLine) })
+        .emitWithAck(SocketEvents.adminSubscribe, { logs: Boolean(onLine), token: currentAccessToken() })
         .catch(() => null)) as { ok?: boolean; history?: unknown } | null;
       const history = LogLineSchema.array().safeParse(ack?.history);
       if (alive && ack?.ok && history.success) onHistory?.(history.data);
@@ -101,6 +101,8 @@ export function useAdminRoom(handlers: {
     return () => {
       alive = false;
       off();
+      // Leaving the admin pages leaves the rooms: no console lines for a tab that is elsewhere.
+      void getSocket().then((socket) => socket.emit(SocketEvents.adminUnsubscribe));
     };
   }, [onHistory, onLine, onStats]);
 }

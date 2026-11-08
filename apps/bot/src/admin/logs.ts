@@ -3,6 +3,10 @@ import { type LogLine, logLevelOf } from "@narze/shared";
 import type Redis from "ioredis";
 
 type ConsoleLike = Pick<Console, "log" | "info" | "debug" | "warn" | "error">;
+/** A line longer than this (an object dump, a long stack) is cut before it is stored and broadcast. */
+export const MAX_LOG_TEXT = 8 * 1024;
+const cut = (text: string) => (text.length > MAX_LOG_TEXT ? `${text.slice(0, MAX_LOG_TEXT)}… (cut)` : text);
+
 const METHODS = ["log", "info", "debug", "warn", "error"] as const;
 
 /**
@@ -23,7 +27,7 @@ export function captureConsole(
       if (inSink) return;
       inSink = true;
       try {
-        sink({ at: now(), level: logLevelOf(method), text: format(...args) });
+        sink({ at: now(), level: logLevelOf(method), text: cut(format(...args)) });
       } catch {
         // The print above already happened; losing a log line is better than losing the Bot.
       } finally {
@@ -39,8 +43,8 @@ export function captureConsole(
 /**
  * A capped ring in Redis, newest first, with each item published for admin tabs watching live:
  * the log ring (spec #120, LOG_RING lines across restarts) and the stats ring (spec #109). Items
- * that arrive while a write is in flight go out together in the next one, in order; while Redis is
- * unreachable at most `cap` items wait.
+ * that arrive while a write is in flight go out together in the next one, in order, and at most
+ * `cap` wait. A write that fails loses its batch: the console itself already printed every line.
  */
 export function createRingSink<T>(
   redis: Redis,
