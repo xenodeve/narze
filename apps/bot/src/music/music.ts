@@ -28,6 +28,11 @@ export interface PlayRequest {
   position?: number;
   /** /skipplay: play it now, dropping the current track and keeping the queue (#102). */
   skipplay?: boolean;
+  /**
+   * Operator console (#112, spec #119): this Player posts nothing to Discord for the rest of its
+   * session, whoever queues next. Ends when the Player is gone.
+   */
+  silent?: boolean;
 }
 
 /** A playlist added by one play request (spec #4): what the reply shows. */
@@ -267,6 +272,7 @@ export function createMusic({
       volume: player.volume,
       repeatMode: player.repeatMode,
       twentyFourSeven: is247(player),
+      silent: flagsOf(player).terminal,
       savedAt: now(),
     };
     await snapshots.save(snapshot).catch(warn("save Queue Snapshot"));
@@ -289,7 +295,8 @@ export function createMusic({
     await player.setVolume(snapshot.volume);
     await player.setRepeatMode(snapshot.repeatMode);
     if (rest.length > 0) await player.queue.add(rest.map(fromStoredTrack));
-    {
+    if (snapshot.silent) player.set(FLAGS, { ...NO_FLAGS, terminal: true });
+    else {
       const notice = recoveryNotice(current ? toTrack(current) : null, positionMs, rest.length);
       await notify(snapshot.guildId, snapshot.textChannelId, notice).catch(warn("recovery notice"));
     }
@@ -298,7 +305,7 @@ export function createMusic({
       return;
     }
     // The Dashboard shows "recovering" until the track starts; the notice above replaces Now Playing.
-    player.set(FLAGS, { ...NO_FLAGS, dontShow: true });
+    player.set(FLAGS, { ...NO_FLAGS, dontShow: true, terminal: snapshot.silent });
     await commit(player);
     await player.play({ clientTrack: current, position: positionMs, paused: snapshot.paused });
   }
@@ -542,7 +549,13 @@ export function createMusic({
       return { kind: "playlist", playlist, started: false, firstPosition: index + 1 };
     }
     const placed = at !== undefined || request.skipplay;
-    player.set(FLAGS, { ...NO_FLAGS, firstFromCommand: !placed, dontShow: Boolean(placed) });
+    player.set(FLAGS, {
+      ...NO_FLAGS,
+      firstFromCommand: !placed,
+      dontShow: Boolean(placed),
+      // A console session stays silent (#112).
+      terminal: flagsOf(player).terminal,
+    });
     await player.queue.add(tracks);
     await player.play();
     return { kind: "playlist", playlist, started: true, firstPosition: 1 };
@@ -551,6 +564,8 @@ export function createMusic({
   async function startOrQueue(request: PlayRequest): Promise<PlayResult> {
     const fresh = !existing(request.guildId);
     const player = playerFor(request);
+    // Spec #119: the console's silent mode holds for the whole Player session.
+    if (request.silent) player.set(FLAGS, { ...flagsOf(player), terminal: true });
     // A player created for this request must not outlive a request that plays nothing.
     const abandon = async (result: PlayResult): Promise<PlayResult> => {
       if (fresh && !player.queue.current) await player.destroy();
@@ -588,7 +603,13 @@ export function createMusic({
     }
     // From idle, /play announces in its own reply; /playnext, /playat and /skipplay never post a notice (spec #24).
     const placed = at !== undefined || request.skipplay;
-    player.set(FLAGS, { ...NO_FLAGS, firstFromCommand: !placed, dontShow: Boolean(placed) });
+    player.set(FLAGS, {
+      ...NO_FLAGS,
+      firstFromCommand: !placed,
+      dontShow: Boolean(placed),
+      // A console session stays silent (#112).
+      terminal: flagsOf(player).terminal,
+    });
     await player.queue.add(first);
     await player.play();
     return { kind: "started", track: shown };

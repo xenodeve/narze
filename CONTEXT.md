@@ -51,6 +51,8 @@ Glossary for the whole repo (single-context). When a term appears in **bold**, u
 
 **Admin Query** — a question the **Backend** asks the **Bot** for the admin area over Redis (`bot:admin-queries` → `bot:admin-results`, answered by id, #111): the guild list, one guild, its readable channels, the last 50 messages of a channel, and restart / shutdown. Only the Bot holds the Discord token (ADR-0003), so Discord data never comes from the Backend directly; the Backend caches the answers. Restart exits 75 and shutdown exits 0; `bun run start:supervised` (apps/bot) starts the Bot again only after a restart.
 
+**Operator Console** — the prompt on the **Bot** process's own terminal (#112, spec #119): `play`, `stop`, `skip`, `leave`, `status`, `list`, `find`, `help`, `clear`, `exit`, with guilds and channels by ID or name. Its playback is **silent**: the Player posts nothing to Discord for the rest of its session, even after a restart. It needs only Discord and Lavalink, so it works in both **Runtime Modes**; with no terminal on stdin it stays off.
+
 **Mutual Guild** — a **Guild** both the signed-in user and the **Bot** are in: the user's guild snapshot (taken from Discord at sign-in, `public.user_guilds`) intersected with the Bot's guild set in Redis. The Dashboard lists only these.
 
 **Permission Badge** — the one-word summary of **Control Permission** on a server-list row: `owner` · `in-voice` (in the Bot's voice channel) · `can-play` (no Player yet, member in voice) · `view-only`. Computed by `controlPermission()` in `packages/shared`.
@@ -146,6 +148,8 @@ Dashboard ──REST/Socket.io──▶ Backend ──Redis pub/sub──▶ Bot
 **Admin / Developer** — บทบาทใน Dashboard จาก **Admin Whitelist** (`admin_whitelist` ใน Supabase ใช้ Discord ID เป็นกุญแจ, #110) **Backend** เป็นผู้บังคับใช้ ด้วย guard ตัวเดียวที่ครอบทุก route ใต้ `/api/admin` ใช้การตรวจบทบาทแบบเดียวกันก่อนให้แท็บเข้าห้อง socket ของ admin (สถิติ กับ log สด) และพอถอดใครออกจาก whitelist แท็บที่เปิดอยู่ของคนนั้นก็หลุดจากห้องทันที ทั้งสองบทบาทเข้าหน้า admin ได้ (สถิติ, log สดของ Bot) แต่เฉพาะ Developer ที่จัดการ whitelist ได้ ส่วน `NARZE_DEVELOPER_IDS` (env) เป็น Developer เสมอ เป็นทางเดียวที่จะเข้าได้เมื่อฐานข้อมูลยังว่าง และแก้จาก Dashboard ไม่ได้
 
 **Admin Query** — คำถามที่ **Backend** ถาม **Bot** เพื่อใช้ในหน้าแอดมิน ส่งผ่าน Redis (`bot:admin-queries` → `bot:admin-results` ตอบกลับตาม id, #111) ได้แก่ รายชื่อ guild, ข้อมูล guild เดียว, ช่องที่อ่านได้, 50 ข้อความล่าสุดของช่อง และ restart / shutdown มีแค่ Bot ที่ถือ token ของ Discord (ADR-0003) ข้อมูลจาก Discord จึงไม่เคยมาจาก Backend โดยตรง ฝั่ง Backend cache คำตอบไว้ restart ออกด้วยรหัส 75 ส่วน shutdown ออกด้วยรหัส 0 ถ้ารันด้วย `bun run start:supervised` (apps/bot) Bot จะเปิดใหม่เองเฉพาะหลัง restart
+
+**Operator Console** — prompt บน terminal ของ process **Bot** เอง (#112, spec #119) มีคำสั่ง `play`, `stop`, `skip`, `leave`, `status`, `list`, `find`, `help`, `clear`, `exit` ใส่ guild และช่องได้ทั้ง ID และชื่อ การเล่นจาก console เป็นแบบ **เงียบ** คือ Player จะไม่โพสต์อะไรลง Discord จนจบ session แม้ Bot จะ restart ไปแล้ว ใช้แค่ Discord กับ Lavalink จึงทำงานได้ในทั้งสอง **Runtime Mode** ถ้า stdin ไม่ใช่ terminal console จะไม่เปิด
 
 **Mutual Guild** — **Guild** ที่ทั้งผู้ใช้ที่ login อยู่และ **Bot** อยู่ด้วยกัน คือ snapshot รายชื่อ guild ของผู้ใช้ (ดึงจาก Discord ตอน login เก็บใน `public.user_guilds`) ตัดกับชุด guild ของ Bot ใน Redis Dashboard แสดงเฉพาะ guild กลุ่มนี้
 

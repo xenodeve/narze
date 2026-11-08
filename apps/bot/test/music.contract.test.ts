@@ -552,6 +552,34 @@ describe("Queue Recovery after a restart (#103, spec #21, #35, #123)", () => {
     expect(notices[0]?.notice.description).toContain("กู้คิวเพลง");
   });
 
+  test("a silent console session stays silent after a restart: no recovery notice (#112)", async () => {
+    const snapshots = await snapshotsDir();
+    music = engine(lavalink, snapshots);
+    await music.play({
+      guildId: GUILD,
+      voiceChannelId: VOICE,
+      textChannelId: TEXT,
+      query: "lemon",
+      requester: dee,
+      silent: true,
+    });
+    await eventually(stored, (s) => s?.current?.title === "Lemon");
+    await music.flush();
+    lavalink.removeAllListeners();
+    await lavalink.nodeManager.leastUsedNodes()[0]?.destroy?.();
+    notices = [];
+
+    lavalink = await connect();
+    music = engine(lavalink, snapshots);
+    expect(await music.recover()).toBe(1);
+    await eventually(stored, (s) => s?.current?.title === "Lemon" && !s.recovering);
+    await play("idol");
+    fake.finishTrack(GUILD);
+    await eventually(stored, (s) => s?.current?.title === "Idol");
+    await Bun.sleep(200);
+    expect(notices).toEqual([]);
+  });
+
   test("a Lavalink failure that destroys the Player keeps its snapshot; /leave clears it", async () => {
     const snapshots = await snapshotsDir();
     music = engine(lavalink, snapshots);
@@ -1071,4 +1099,36 @@ test("a Player Lavalink took down keeps its Listening Session: Queue Recovery br
   lavalink.emit("playerDestroy", player as never, "NodeDestroy" as never);
   await Bun.sleep(50);
   expect(gone).toEqual([]);
+});
+
+describe("silent playback from the operator console (#112, spec #119)", () => {
+  test("a silent session posts nothing to Discord, even when someone queues from Discord later", async () => {
+    for (const event of ["trackStart", "queueEnd", "playerDestroy", "playerSocketClosed"] as const) {
+      lavalink.removeAllListeners(event);
+    }
+    const mine: typeof notices = [];
+    music = createMusic({
+      lavalink,
+      publisher: createPlayerPublisher(redis),
+      announce: async (channelId, notice) => {
+        mine.push({ channelId, notice });
+      },
+      now: () => clock,
+    });
+    await music.play({
+      guildId: GUILD,
+      voiceChannelId: VOICE,
+      textChannelId: TEXT,
+      query: "lemon",
+      requester: dee,
+      silent: true,
+    });
+    await eventually(stored, (s) => s?.current?.title === "Lemon");
+    // A Discord /play into the same session does not end the silence (v5: the flag lasts the session).
+    await play("idol");
+    fake.finishTrack(GUILD);
+    await eventually(stored, (s) => s?.current?.title === "Idol");
+    await Bun.sleep(200);
+    expect(mine).toEqual([]);
+  });
 });

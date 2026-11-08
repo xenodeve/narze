@@ -14,11 +14,14 @@ import {
   STATS_POINTS,
 } from "@narze/shared";
 import { createClient } from "@supabase/supabase-js";
-import { AuditLogEvent, Client, GatewayIntentBits, type Guild } from "discord.js";
+import { AuditLogEvent, ChannelType, Client, GatewayIntentBits, type Guild, PermissionFlagsBits } from "discord.js";
 import { captureConsole, createRingSink } from "./admin/logs";
 import { startAdminQueries } from "./admin/queries";
 import { createCpuMeter } from "./admin/stats";
 import { startCommandBus } from "./command-bus";
+import { createConsole } from "./console/console";
+import { startRepl } from "./console/repl";
+import type { ConsoleChannel, ConsoleGuild } from "./console/resolve";
 import { announcer, handleInteractions } from "./discord/interactions";
 import { createGuildRegistry, type GuildVoiceSnapshot } from "./guild-registry";
 import { startHeartbeat } from "./heartbeat";
@@ -328,6 +331,42 @@ const stopHeartbeat = redis
 
 if (env.DISCORD_TOKEN) await client.login(env.DISCORD_TOKEN);
 else console.warn("[bot] DISCORD_TOKEN not set — running without Discord (heartbeat only)");
+
+// The operator console (#112, spec #119), in both Runtime Modes: it needs Discord and Lavalink only.
+const consoleGuilds = (): ConsoleGuild[] =>
+  [...client.guilds.cache.values()].map((guild) => {
+    const me = guild.members.me;
+    const channels: ConsoleChannel[] = [];
+    for (const channel of guild.channels.cache.values()) {
+      if (channel.type === ChannelType.GuildVoice || channel.type === ChannelType.GuildStageVoice) {
+        channels.push({
+          id: channel.id,
+          name: channel.name,
+          kind: "voice",
+          canSend: false,
+          members: channel.members.size,
+        });
+      } else if (channel.type === ChannelType.GuildText) {
+        const allowed = me
+          ? channel.permissionsFor(me)?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages])
+          : false;
+        channels.push({ id: channel.id, name: channel.name, kind: "text", canSend: Boolean(allowed) });
+      }
+    }
+    return { id: guild.id, name: guild.name, channels };
+  });
+const operator = createConsole({
+  guilds: consoleGuilds,
+  music,
+  bot: {
+    id: client.user?.id ?? "0",
+    name: client.user?.username ?? "Narze",
+    avatarUrl: client.user?.displayAvatarURL() ?? null,
+  },
+  print: (line) => console.log(line),
+  clear: () => console.clear(),
+});
+startRepl({ run: operator.run, interrupt: () => void shutdown() });
 
 let stopping = false;
 shutdown = async (code = 0) => {

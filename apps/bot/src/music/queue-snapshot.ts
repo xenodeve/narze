@@ -28,6 +28,8 @@ export const QueueSnapshotSchema = z.object({
   volume: z.number(),
   repeatMode: z.enum(["off", "track", "queue"]),
   twentyFourSeven: z.boolean(),
+  /** A console session (#112) stays silent after a restart; older snapshots have no field. */
+  silent: z.boolean().default(false),
   savedAt: z.number(),
 });
 export type QueueSnapshot = z.infer<typeof QueueSnapshotSchema>;
