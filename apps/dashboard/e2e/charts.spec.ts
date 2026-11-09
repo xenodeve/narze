@@ -43,9 +43,20 @@ test("the idle guild page shows the chart; a song plays; a chart that is down sa
   await expect.poll(() => received.length).toBeGreaterThan(0);
   expect(received.at(-1)).toMatchObject({ guildId: G, command: { action: "play", query: "Lemon Kenshi Yonezu" } });
 
+  const asked: string[] = [];
+  page.on("request", (r) => r.url().includes("/api/charts/us") && asked.push(r.url()));
   await chart.getByRole("tab", { name: "สหรัฐฯ" }).click();
   await expect(chart.getByRole("status")).toHaveText(/ชาร์ตนี้ยังโหลดไม่ได้/);
   await expect(chart.getByTestId("chart-entry")).toHaveCount(0);
+  // Asked once while the tab stays open, not in a loop (#161: 212 requests in 5 s on the real stack).
+  await page.waitForTimeout(1500);
+  expect(asked).toHaveLength(1);
+  // Coming back to the tab tries again, once.
+  await chart.getByRole("tab", { name: "ไทย" }).click();
+  await chart.getByRole("tab", { name: "สหรัฐฯ" }).click();
+  await expect(chart.getByRole("status")).toHaveText(/ชาร์ตนี้ยังโหลดไม่ได้/);
+  await page.waitForTimeout(1500);
+  expect(asked).toHaveLength(2);
 });
 
 test("when the source is down, the last chart shows with its date (#109, AC3)", async ({ page }) => {

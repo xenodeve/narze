@@ -1,7 +1,7 @@
 "use client";
 
 import { CHART_SHOWN, type Chart, type ChartEntry, type ChartRegion, ChartSchema } from "@narze/shared";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { answer, apiGet, parsed } from "@/lib/api";
 import { playInGuild } from "@/lib/control";
 import pill from "@/styles/pill-tabs.module.css";
@@ -50,16 +50,20 @@ export function ChartPanel({ guildId }: { guildId: string }) {
   const [charts, setCharts] = useState<Partial<Record<ChartRegion, Chart | "unavailable">>>({});
   const chart = charts[region] ?? null;
   const [message, setMessage] = useState<string | null>(null);
+  // Read through a ref: storing an answer must not re-run the fetch (#161, a refetch loop on 503).
+  const kept = useRef(charts);
+  kept.current = charts;
   useEffect(() => {
     setMessage(null);
     // A chart is kept for the visit; "unavailable" is not, so coming back to the tab tries again.
-    if (charts[region] && charts[region] !== "unavailable") return;
+    const have = kept.current[region];
+    if (have && have !== "unavailable") return;
     let current = true;
     void getChart(region).then((c) => current && setCharts((all) => ({ ...all, [region]: c })));
     return () => {
       current = false;
     };
-  }, [region, charts]);
+  }, [region]);
   const play = async (entry: ChartEntry) => {
     setMessage(null);
     // The exact Spotify track when we know it; otherwise the words, like a typed play.

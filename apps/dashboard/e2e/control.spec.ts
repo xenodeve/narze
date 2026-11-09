@@ -114,6 +114,12 @@ test.beforeAll(async () => {
   });
 });
 
+// A command from an earlier test that arrives late is answered plainly, and is not counted here (#162).
+test.beforeEach(() => {
+  commands.length = 0;
+  answer = () => ({ ok: true });
+});
+
 test.afterAll(async () => {
   await redis.srem(RedisKeys.botGuilds, GUILD);
   await redis.del(
@@ -145,7 +151,10 @@ test("two users: the owner pauses; a member outside voice is refused, then allow
   };
   await olive.getByTestId("toggle-pause").click();
   await expect(olive.getByRole("button", { name: "เล่นต่อ", exact: true })).toBeVisible();
-  expect(commands.at(-1)).toMatchObject({ actor: { id: owner.id }, command: { action: "pause" } });
+  // The button flips optimistically on click, before the command reaches the Bot: wait for it (#162).
+  await expect
+    .poll(() => commands.at(-1))
+    .toMatchObject({ actor: { id: owner.id }, command: { action: "pause" } });
 
   // The member joins the Bot's channel: their controls turn on within 2 s.
   await voiceUpdate([{ id: member.id, name: "Milo" }]);
