@@ -6,6 +6,18 @@
 
 ---
 
+## #147 Register slash commands (2026-11-09, branch `fix/register-slash-commands`)
+
+**Goal:** the Bot handled slash commands but never registered them with Discord, so no `/play` appeared on a real application. Every test so far ran against the fake Discord. Found while preparing the first real run (#121).
+
+**Shipped:** `apps/bot/src/commands/register.ts` `registerCommands` sends every command's JSON in one global `commands.set` on `clientReady`, as v5 did. A failure is logged and the Bot keeps running.
+
+**Validated:** `apps/bot/test/register.test.ts`, written red first: every command is sent by name, in one call, as plain JSON. `bun run verify` exit 0 (bot 225). **Not yet validated against Discord:** that needs the developer's first real run (#121).
+
+**Also this session:** the narze Supabase cloud project was migrated to v7. The pre-v7 tables were empty; they were dropped, the old migration history was marked reverted, and `supabase db push --remote` was run. The developer ran the destructive steps.
+
+---
+
 ## #142 Rate limiting (2026-11-09, branch `fix/142-rate-limit`) — items 2 and 4 open
 
 **Goal:** #142 item 3. Every REST call and every handshake costs a Supabase Auth round trip, and one playlist preview can read up to 50 Spotify pages.
