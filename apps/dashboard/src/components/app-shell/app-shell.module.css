@@ -32,6 +32,28 @@
   margin-inline: auto;
 }
 
+.body[data-sidebar="none"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/*
+ * DESIGN.md §7 `page`: 260 ms, blur 6px → 0, scale .985 → 1 (#172). Fill `backwards` only: after the
+ * entrance no transform or filter stays on the wrapper, which would otherwise become the
+ * containing block of fixed children. Reduced motion: base.css.
+ */
+.page {
+  animation: page 260ms var(--ease) backwards;
+  transform-origin: 50% 0;
+}
+
+@keyframes page {
+  from {
+    opacity: 0;
+    filter: blur(6px);
+    transform: scale(0.985);
+  }
+}
+
 .side {
   position: sticky;
   top: var(--nav-h);
@@ -50,7 +72,9 @@
   font-size: 0.9375rem;
 }
 
+/* The content always sits in the last column, whether or not the sidebar has rendered yet. */
 .content {
+  grid-column: -2 / -1;
   min-width: 0;
   padding: clamp(24px, 4vw, 48px) var(--gutter);
 }

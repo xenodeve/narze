@@ -24,15 +24,15 @@
   transition: --mood 800ms var(--ease-soft);
 }
 
+/* The stage skeleton is as tall as an idle stage, so the page does not jump when it lands (#172). */
 .loading {
-  background: linear-gradient(90deg, var(--surface), var(--fill), var(--surface)) 0 0 / 200% 100%;
-  animation: shimmer 1.4s linear infinite;
+  min-height: min(640px, 78vh);
 }
 
-@keyframes shimmer {
-  to {
-    background-position: -200% 0;
-  }
+.stageFill {
+  position: absolute;
+  inset: 0;
+  border-radius: 0;
 }
 
 .content {
@@ -278,4 +278,18 @@
   justify-self: end;
   color: var(--ink-2);
   font-size: 0.8125rem;
+}
+
+/* The side column while the Player loads (#172): the tabs and a few queue rows. */
+.sideSkeleton {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+}
+
+.tabsSkeleton {
+  width: 128px;
+  height: 32px;
+  margin-bottom: 16px;
+  border-radius: var(--r-pill);
 }
