@@ -6,6 +6,27 @@
 
 ---
 
+## #161 #162 Full-system test: a chart refetch loop and a flaky e2e (2026-11-09, branch `fix/161-chart-loop`)
+
+**Goal:** the developer asked for every case to be tested before real use. A full run (verify, e2e, `LAVALINK_REAL=1`), then the Dashboard on the real stack in the developer's browser.
+
+**Found:**
+- **#161:** with the Apple chart down (`/api/charts/th` → 503), the idle guild page fetched the chart in a tight loop: 212 requests in about 5 s from one tab. The tab froze, and the `/api` rate limit ran out. Other calls then failed: "โหลดสถานะเพลงไม่ได้" and "บอทไม่ตอบ ลองอีกครั้ง". Cause: the effect depended on `charts`, and storing `"unavailable"` (which is never kept) re-ran it.
+- **#162:** in a full e2e run, `control.spec.ts` read `commands.at(-1)` as soon as the optimistic button flipped, before the command arrived. The late pause then broke the next test.
+
+**Shipped:**
+- `components/charts/index.tsx`: the fetch effect depends on `region` only, with a reasoned `biome-ignore` like `controls/index.tsx`.
+- `control.spec.ts`: `expect.poll` for the command, and a `beforeEach` that resets `commands` and `answer`.
+
+**Validated:**
+- `charts.spec.ts`: a down chart is asked once while the tab stays open, and once more after switching back. It was red first (196 requests against 1), then green.
+- `control.spec.ts`: 3/3.
+- Full gate on merge.
+
+**Lesson:** an e2e that checks only the message of a failure path cannot see a refetch loop. Count the requests. Also: a live Bot answers e2e commands too (not just backend tests), and leaves `player:*` keys and a Queue Snapshot for the fake guild. Stop it before any test run.
+
+---
+
 ## #159 An owner's Dashboard play uses their voice channel (2026-11-09, branch `fix/159-owner-voice`)
 
 **Goal:** the developer's first real use failed. As the owner of "Space", in a voice channel there, with no Player in the guild, pressing play from the Dashboard showed "ทำไม่สำเร็จ ลองอีกครั้ง".

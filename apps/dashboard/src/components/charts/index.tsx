@@ -50,6 +50,7 @@ export function ChartPanel({ guildId }: { guildId: string }) {
   const [charts, setCharts] = useState<Partial<Record<ChartRegion, Chart | "unavailable">>>({});
   const chart = charts[region] ?? null;
   const [message, setMessage] = useState<string | null>(null);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: only a region change fetches; storing an answer in `charts` must not (#161, a refetch loop on 503)
   useEffect(() => {
     setMessage(null);
     // A chart is kept for the visit; "unavailable" is not, so coming back to the tab tries again.
@@ -59,7 +60,7 @@ export function ChartPanel({ guildId }: { guildId: string }) {
     return () => {
       current = false;
     };
-  }, [region, charts]);
+  }, [region]);
   const play = async (entry: ChartEntry) => {
     setMessage(null);
     // The exact Spotify track when we know it; otherwise the words, like a typed play.
