@@ -6,6 +6,28 @@
 
 ---
 
+## #164 The search's match percentage is measured (2026-11-09, branch `fix/164-real-score`)
+
+**Goal:** the developer: "อยากให้คำนวนใกล้เคียงจริง ไม่เอา mockup". The full-system test showed a nonsense YouTube query's top result as "ตรง 90%".
+
+**Shipped:**
+- YouTube, YouTube Music and spotify-api use the shared `topResult` (Dice similarity), like the Lavalink Spotify mode. `spotifyApiTop` and the fixed 1 / 0.9 / 0.8 scores are gone.
+- The fallback first track carries its own best rating instead of 0.
+- `v5-feature-inventory.md` notes where v7 differs.
+
+**Validated:**
+- Shared and backend tests went red first: 0 where a real rating was expected, and 0.9 where < 0.2 was expected in three modes.
+- Then green: shared 107, backend search 12, catalog and library e2e 9/9.
+- Realistic queries:
+  - `yoasobi` → 100% artist
+  - `kenshi yonezu lemon` → 94% track
+  - nonsense → 0%
+- code-review on both axes. Applied: one `topResult` call, `firstRating`, a test that pins down the best candidate, and doc notes.
+
+**Note:** a YouTube channel is the top result only if its name is close to the query (an exact match, or ≥ 0.6 and within 0.1 of the best). The old rule was "name contains the query".
+
+---
+
 ## #161 #162 Full-system test: a chart refetch loop and a flaky e2e (2026-11-09, branch `fix/161-chart-loop`)
 
 **Goal:** the developer asked for every case to be tested before real use. A full run (verify, e2e, `LAVALINK_REAL=1`), then the Dashboard on the real stack in the developer's browser.

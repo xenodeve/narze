@@ -45,10 +45,23 @@ describe("top result (#105, spec #58, v5 §7.2)", () => {
     expect(result?.score).toBeGreaterThan(0.6);
   });
 
-  test("an artist below 0.6 does not win: the first track does, with score 0; nothing at all is null", () => {
+  test("an artist below 0.6 does not win: the first track does, with its own real rating; nothing at all is null", () => {
     const found = { tracks: [track("Zzz", "Q")], artists: [artist("Elisabeth")], albums: [] };
     expect(topResult("lisa", found)).toEqual({ type: "track", data: track("Zzz", "Q"), score: 0 });
     expect(topResult("lisa", { tracks: [], artists: [], albums: [] })).toBeNull();
+  });
+
+  test("the fallback track's score is measured, not a constant (#164)", () => {
+    const weak = track("Isolation Sessions Extended Mix", "Q");
+    const result = topResult("lisa", { tracks: [weak], artists: [artist("Elisabeth")], albums: [] });
+    expect(result?.data).toEqual(weak);
+    expect(result?.score).toBeGreaterThan(0);
+    // Its best candidate: the title alone or `title artist`, whichever is closer.
+    const best = Math.max(
+      diceSimilarity("lisa", "isolation sessions extended mix"),
+      diceSimilarity("lisa", "isolation sessions extended mix q"),
+    );
+    expect(result?.score).toBe(best);
   });
 });
 

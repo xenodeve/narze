@@ -181,7 +181,8 @@ describe("catalog search, every mode answers the shared schema (#105, spec #49, 
       followers: 100,
       youtubeUrl: "https://www.youtube.com/channel/UC1",
     });
-    expect(yt.topResult).toMatchObject({ type: "artist", score: 1 });
+    // The channel's name is the query: an exact match (#164: measured like every mode).
+    expect(yt.topResult).toMatchObject({ type: "artist", score: 1.1 });
     expect(yt.albums).toEqual([]);
 
     await search.search("yoasobi", "youtubemusic");
@@ -239,13 +240,14 @@ describe("#105 review fixes", () => {
     expect(found.tracks[0]?.title).toBe("Idol");
   });
 
-  test("spotify-api keeps v5's own top result: exact artist, exact track, first track 0.9, first artist 0.8", async () => {
+  test("every mode measures its top result; an unrelated query scores low, never a fixed 0.9 (#164)", async () => {
     const { search } = service();
     expect((await search.search("idol", "spotify-api")).topResult).toMatchObject({ type: "track", score: 1.1 });
-    expect((await search.search("something else", "spotify-api")).topResult).toMatchObject({
-      type: "track",
-      score: 0.9,
-    });
+    for (const source of ["spotify-api", "youtube", "youtubemusic"] as const) {
+      const top = (await search.search("qzxwvkjhgfq zzqxv", source)).topResult;
+      expect(top?.type).toBe("track");
+      expect(top?.score).toBeLessThan(0.2);
+    }
   });
 
   test("a YouTube upload that is not YouTube Music is marked as a video (VIDEO chip)", async () => {
