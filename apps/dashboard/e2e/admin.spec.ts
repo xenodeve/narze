@@ -83,9 +83,10 @@ test("only a Developer manages the whitelist (#110, AC2)", async ({ page }) => {
   // A change the Backend refuses as a conflict says why, not "check the Discord ID" (#133).
   await page.getByLabel("Discord ID").fill(dev.id);
   await page.getByRole("button", { name: "เพิ่ม" }).click();
-  await expect(page.getByRole("alert")).toHaveText(
-    "เปลี่ยนไม่ได้: Developer ที่ตั้งไว้ใน env แก้จากหน้านี้ไม่ได้ และต้องเหลือ Developer อย่างน้อยหนึ่งคน",
-  );
+  // Next's route announcer is also role="alert": find the message by its text.
+  await expect(
+    page.getByText("เปลี่ยนไม่ได้: Developer ที่ตั้งไว้ใน env แก้จากหน้านี้ไม่ได้ และต้องเหลือ Developer อย่างน้อยหนึ่งคน"),
+  ).toBeVisible();
 });
 
 test("an Admin who is not a Developer is sent away from the whitelist page (#133)", async ({ page }) => {
