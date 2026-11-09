@@ -8,8 +8,11 @@
   box-shadow: var(--shadow-window);
 }
 
-/* Dialog (DESIGN.md): enter 200 ms, y 8 → 0, scale .98 → 1. */
+/* Dialog (DESIGN.md): enter 200 ms, y 8 → 0, scale .98 → 1. A long list scrolls inside (#170). */
 .dialog[open] {
+  display: flex;
+  flex-direction: column;
+  max-height: min(640px, calc(100dvh - 48px));
   animation: enter 200ms var(--ease) both;
 }
 
@@ -96,7 +99,7 @@
   white-space: nowrap;
 }
 
-/* Badge (DESIGN.md): mono pill, tone from the closed set. */
+/* Badge (DESIGN.md): pill, tone from the closed set. Thai text, so not mono (rule 4). */
 .chip {
   --tone: var(--ink-3);
   flex: none;
@@ -120,12 +123,6 @@
 }
 
 /* A long server list scrolls inside the dialog; the title and the close button stay put. */
-.dialog[open] {
-  display: flex;
-  flex-direction: column;
-  max-height: min(640px, calc(100dvh - 48px));
-}
-
 .list {
   overflow-y: auto;
   min-height: 0;

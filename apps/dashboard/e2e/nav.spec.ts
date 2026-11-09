@@ -2,18 +2,13 @@ import { setFakeDiscordUser } from "@narze/fake-discord";
 import { DEFAULT_REDIS_URL, RedisKeys } from "@narze/shared";
 import { expect, test } from "@playwright/test";
 import Redis from "ioredis";
-import { signInThroughPopup } from "./support";
+import { signInThroughPopup, stubDiscordCdn } from "./support";
 
 const G_ICON = "945000000000000001";
 const G_PLAIN = "945000000000000002";
 const G_BROKEN = "945000000000000003";
 const nina = { id: "495000000000000001", username: "nina", globalName: "Nina" };
 const redis = new Redis(process.env.REDIS_URL ?? DEFAULT_REDIS_URL);
-// A 1×1 PNG, so the test does not reach Discord's CDN.
-const PNG = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
-  "base64",
-);
 
 test.beforeAll(async () => {
   await redis.sadd(RedisKeys.botGuilds, G_ICON, G_PLAIN, G_BROKEN);
@@ -28,11 +23,7 @@ test("the sidebar shows each server's Discord icon in a rounded square; no icon,
   page,
 }) => {
   // One icon the CDN cannot serve: its row falls back to the monogram, not an empty gap.
-  await page.route("https://cdn.discordapp.com/**", (route) =>
-    route.request().url().includes(G_BROKEN)
-      ? route.fulfill({ status: 404 })
-      : route.fulfill({ contentType: "image/png", body: PNG }),
-  );
+  await stubDiscordCdn(page, [G_BROKEN]);
   await setFakeDiscordUser(nina, [
     { id: G_ICON, name: "Picture Club", icon: "a1b2c3", owner: false },
     { id: G_PLAIN, name: "Zen room", icon: null, owner: false },
@@ -60,7 +51,7 @@ test("the sidebar shows each server's Discord icon in a rounded square; no icon,
 });
 
 test("moving between pages keeps the document and the shell; only the content changes (#168)", async ({ page }) => {
-  await page.route("https://cdn.discordapp.com/**", (route) => route.fulfill({ contentType: "image/png", body: PNG }));
+  await stubDiscordCdn(page);
   await setFakeDiscordUser(nina, [{ id: G_ICON, name: "Picture Club", icon: "a1b2c3", owner: false }]);
   await signInThroughPopup(page, "Nina");
   await page.goto(`/guilds/${G_ICON}`);
@@ -104,7 +95,7 @@ test("moving between pages keeps the document and the shell; only the content ch
 test("the sidebar highlight follows the URL, Back included; on a phone a pick folds the menu (#168 review)", async ({
   page,
 }) => {
-  await page.route("https://cdn.discordapp.com/**", (route) => route.fulfill({ contentType: "image/png", body: PNG }));
+  await stubDiscordCdn(page);
   await setFakeDiscordUser(nina, [
     { id: G_ICON, name: "Picture Club", icon: "a1b2c3", owner: false },
     { id: G_PLAIN, name: "Zen room", icon: null, owner: false },

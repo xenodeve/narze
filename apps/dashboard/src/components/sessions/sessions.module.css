@@ -14,12 +14,12 @@
   overflow-wrap: anywhere;
 }
 
-.detailHead > :first-child {
-  grid-row: span 3;
+.headIcon {
+  grid-row: 1 / span 3;
   align-self: start;
 }
 
-.detailHead > :not(:first-child) {
+.detailHead > :not(.headIcon) {
   grid-column: 2;
 }
 

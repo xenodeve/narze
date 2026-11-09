@@ -2,18 +2,12 @@ import { setFakeDiscordUser } from "@narze/fake-discord";
 import { DEFAULT_REDIS_URL, RedisKeys } from "@narze/shared";
 import { expect, test } from "@playwright/test";
 import Redis from "ioredis";
-import { signInThroughPopup } from "./support";
+import { guildIconUrl as icon, signInThroughPopup, stubDiscordCdn } from "./support";
 
 const G_LOCKED = "946000000000000001";
 const G_OPEN = "946000000000000002";
 const omi = { id: "496000000000000001", username: "omi", globalName: "Omi" };
 const redis = new Redis(process.env.REDIS_URL ?? DEFAULT_REDIS_URL);
-// A 1×1 PNG, so the test does not reach Discord's CDN.
-const PNG = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
-  "base64",
-);
-const icon = (id: string, hash: string) => `https://cdn.discordapp.com/icons/${id}/${hash}.png?size=96`;
 
 test.beforeAll(async () => {
   await redis.sadd(RedisKeys.botGuilds, G_LOCKED, G_OPEN);
@@ -30,7 +24,7 @@ test.afterAll(async () => {
 test("the home list and the server picker show each guild's icon; the picker lists playable servers first (#170)", async ({
   page,
 }) => {
-  await page.route("https://cdn.discordapp.com/**", (route) => route.fulfill({ contentType: "image/png", body: PNG }));
+  await stubDiscordCdn(page);
   await setFakeDiscordUser(omi, [
     { id: G_LOCKED, name: "Locked Hall", icon: "aa11", owner: false },
     { id: G_OPEN, name: "Open Lounge", icon: "bb22", owner: false },

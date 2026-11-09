@@ -79,6 +79,8 @@ function start(store: Store): () => void {
 export function useGuilds(userId: string): GuildsView {
   const subscribe = useCallback(
     (listener: () => void) => {
+      // No user yet (a page that renders before the session is known): nothing to fetch.
+      if (!userId) return () => {};
       const store = storeOf(userId);
       store.listeners.add(listener);
       if (!store.stop) store.stop = start(store);
@@ -92,7 +94,7 @@ export function useGuilds(userId: string): GuildsView {
     },
     [userId],
   );
-  const snapshot = useCallback(() => storeOf(userId).view, [userId]);
+  const snapshot = useCallback(() => (userId ? storeOf(userId).view : LOADING), [userId]);
   return useSyncExternalStore(subscribe, snapshot, () => LOADING);
 }
 

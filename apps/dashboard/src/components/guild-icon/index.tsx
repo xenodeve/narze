@@ -23,9 +23,10 @@ export function GuildIcon({
   testId?: string;
   monogramTestId?: string;
 }) {
-  const [broken, setBroken] = useState(false);
+  // The URL that failed, not a flag: a server that changes its icon gets a fresh try.
+  const [failed, setFailed] = useState<string | null>(null);
   const box = { width: size, height: size, borderRadius: size / 4 };
-  if (iconUrl && !broken) {
+  if (iconUrl && iconUrl !== failed) {
     return (
       // biome-ignore lint/performance/noImgElement: a small guild icon from Discord's CDN; next/image would add remote-pattern config for no gain
       <img
@@ -37,7 +38,7 @@ export function GuildIcon({
         alt=""
         loading="lazy"
         decoding="async"
-        onError={() => setBroken(true)}
+        onError={() => setFailed(iconUrl)}
         data-testid={testId}
         data-guild-id={guildId}
       />

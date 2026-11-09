@@ -180,7 +180,9 @@ function SessionDetail({ id, play }: { id: string; play: (t: { title: string; qu
   return (
     <div className={styles.page}>
       <header className={styles.detailHead}>
-        <SessionGuild session={session} size={56} />
+        <span className={styles.headIcon}>
+          <SessionGuild session={session} size={56} />
+        </span>
         <h1 className={styles.title}>{nameOf(session)}</h1>
         <p className={`mono num ${styles.meta}`}>
           {when(session.startTime)} · {session.tracks.length} เพลง · {sessionLength(session)}
