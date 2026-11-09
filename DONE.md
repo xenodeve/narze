@@ -6,6 +6,28 @@
 
 ---
 
+## #157 Spotify and SoundCloud say "coming soon" (2026-11-09, branch `feat/157-coming-soon`)
+
+**Goal:** the developer asked that Spotify (no API credentials yet) and SoundCloud (#156) say they are coming soon instead of failing silently.
+
+**Shipped:**
+- `packages/shared/src/sources.ts`: `SourcesSchema` and `SOUNDCLOUD_PLAYABLE = false` (#156).
+- `GET /api/sources` reports `spotify` from whether the Spotify credentials are set. Adding them turns Spotify on with no code change.
+- **Bot:** a new reason `coming-soon`, used for SoundCloud links and for Spotify playlist, album and artist links while the node has no `spotify` source. The slash reply, the autocomplete and the console all say "จะรองรับเร็ว ๆ นี้". A Spotify track link keeps its oEmbed fallback (spec #70).
+- **Dashboard:**
+  - The Spotify tabs are disabled and labelled "เร็ว ๆ นี้", and search opens on YouTube Music.
+  - Pasted SoundCloud links and Spotify playlist links say they are coming soon.
+  - The import dialog says so and refuses a Spotify link.
+- `.env.example`: Spotify needs both the Backend credentials and `LAVASRC_SPOTIFY_*`.
+
+**Validated:**
+- Bot `query.test.ts` and `autocomplete.test.ts`, and the shared `sources.test.ts`, all written red first.
+- Backend `catalog.e2e.test.ts`: without credentials `spotify` is false; with fake credentials it is true.
+- Playwright: catalog and import with `/api/sources` answering "not ready". Both tabs are disabled, YouTube Music is the default, and links show the notes. These e2e tests were written before the code but not run red first.
+- `bun run verify` exit 0, and `bun run e2e` passed 51/51 before the review fixes.
+
+---
+
 ## #154 YouTube playback on a real Bot (2026-11-09, branch `fix/154-youtube-playback`)
 
 **Goal:** the first real playback test, with the Bot in a Discord voice channel (Bot Test → ทั่วไป).
