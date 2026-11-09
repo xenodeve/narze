@@ -2,7 +2,7 @@
 
 import type { GuildSummary, PermissionBadge } from "@narze/shared";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { GuildIcon } from "@/components/guild-icon";
 import { LoadError } from "@/components/load-error";
 import { SELECTED_GUILD_KEY } from "@/lib/last-guild";
@@ -53,14 +53,16 @@ function GuildRow({ guild }: { guild: GuildSummary }) {
 
 /** The way back to the server opened last (#176), when it is still one of the user's. */
 function LastServer({ guilds }: { guilds: GuildSummary[] }) {
-  const [lastId, setLastId] = useState<string | null>(null);
-  useEffect(() => {
+  // Read on first render: this list only renders on the client, once the guilds are known, so
+  // there is no server markup to mismatch and no extra render pushing the list down.
+  const [lastId] = useState<string | null>(() => {
     try {
-      setLastId(window.localStorage.getItem(SELECTED_GUILD_KEY));
+      return window.localStorage.getItem(SELECTED_GUILD_KEY);
     } catch {
       // Storage may be unavailable (private mode): no way back is offered, nothing breaks.
+      return null;
     }
-  }, []);
+  });
   const last = guilds.find((g) => g.id === lastId);
   if (!last) return null;
   return (

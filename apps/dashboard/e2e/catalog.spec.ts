@@ -56,6 +56,9 @@ test("search, open an artist, and play a track into the chosen server (#105)", a
   await expect(dialog.getByText("เข้าห้องเสียงก่อนถึงจะเริ่มเล่นได้")).toBeVisible();
   await dialog.getByRole("button", { name: /Play Club/ }).click();
   await expect(dialog.getByText("เพิ่ม Idol ใน Play Club แล้ว")).toBeVisible();
+  // The way to where it played (#176).
+  await dialog.getByRole("link", { name: "ไปที่เซิร์ฟเวอร์ →" }).click();
+  await expect(page).toHaveURL(`/guilds/${G_PLAY}`);
   expect(received).toContainEqual(
     expect.objectContaining({
       guildId: G_PLAY,
@@ -106,6 +109,9 @@ test("without Spotify the search says it is coming soon and opens on YouTube Mus
   await page.goto("/search");
   const spotify = page.getByRole("tab", { name: /^Spotify/ });
   await expect(spotify).toHaveCount(2);
+  // Plain words, no internal names (#176).
+  await expect(page.getByRole("tab", { name: /Lavalink/ })).toHaveCount(0);
+  await expect(page.getByRole("tab", { name: /Spotify ผ่านบอท/ })).toHaveAttribute("title", /ผ่านบอท/);
   for (const tab of await spotify.all()) {
     await expect(tab).toBeDisabled();
     await expect(tab).toContainText("เร็ว ๆ นี้");

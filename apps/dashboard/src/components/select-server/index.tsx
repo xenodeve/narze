@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Thinking } from "@/components/catalog/thinking";
 import { GuildIcon } from "@/components/guild-icon";
+import { LoadError } from "@/components/load-error";
 import { playPermissions } from "@/lib/catalog";
 import { playInGuild, REASON_TH } from "@/lib/control";
 import styles from "./select-server.module.css";
@@ -24,7 +25,10 @@ export function SelectServer({ target, onClose }: { target: PlayTarget | null; o
   const [guilds, setGuilds] = useState<PlayPermission[] | null | "failed">(null);
   const [status, setStatus] = useState<{ ok: boolean; text: string; guildId?: string } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  // Bumped by "ลองอีกครั้ง" (#176): asks for the list again without leaving the dialog.
+  const [attempt, setAttempt] = useState(0);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `attempt` exists only to run this again
   useEffect(() => {
     if (!target) {
       dialog.current?.close();
@@ -32,7 +36,8 @@ export function SelectServer({ target, onClose }: { target: PlayTarget | null; o
     }
     setStatus(null);
     setGuilds(null);
-    dialog.current?.showModal();
+    // A retry runs this again while the dialog is open; showModal() would throw on an open one.
+    if (!dialog.current?.open) dialog.current?.showModal();
     let live = true;
     void playPermissions().then((list) => {
       // Where you can play comes first; each group keeps Discord's order (a stable sort).
@@ -41,7 +46,7 @@ export function SelectServer({ target, onClose }: { target: PlayTarget | null; o
     return () => {
       live = false;
     };
-  }, [target]);
+  }, [target, attempt]);
 
   const play = async (guild: PlayPermission) => {
     if (!target) return;
@@ -64,9 +69,7 @@ export function SelectServer({ target, onClose }: { target: PlayTarget | null; o
       {guilds === null ? (
         <Thinking label="กำลังโหลดเซิร์ฟเวอร์" />
       ) : guilds === "failed" ? (
-        <p role="alert" className={styles.error}>
-          โหลดรายชื่อเซิร์ฟเวอร์ไม่ได้ ลองอีกครั้ง
-        </p>
+        <LoadError onRetry={() => setAttempt((n) => n + 1)}>โหลดรายชื่อเซิร์ฟเวอร์ไม่ได้</LoadError>
       ) : guilds.length === 0 ? (
         <p className={styles.note}>ยังไม่มีเซิร์ฟเวอร์ที่มีบอทอยู่</p>
       ) : (

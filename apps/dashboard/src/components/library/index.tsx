@@ -74,7 +74,14 @@ function LibraryGrid() {
       {playlists === null ? (
         <Thinking label="กำลังโหลดคลังเพลง" />
       ) : playlists === "failed" ? (
-        <LoadError onRetry={load}>โหลดคลังเพลงไม่ได้</LoadError>
+        <LoadError
+          onRetry={() => {
+            setPlaylists(null);
+            load();
+          }}
+        >
+          โหลดคลังเพลงไม่ได้
+        </LoadError>
       ) : (
         <ul className={styles.grid}>
           <li>
@@ -247,6 +254,11 @@ function ImportDialog({ open, onClose, onSaved }: { open: boolean; onClose: () =
           </label>
         </div>
       ) : null}
+      {preview ? null : (
+        <p id="import-wait" className={styles.hint}>
+          ดูตัวอย่างก่อน แล้วจึงบันทึกได้
+        </p>
+      )}
       <div className={styles.actions}>
         <button type="button" className={styles.ghost} onClick={onClose}>
           ยกเลิก
@@ -256,7 +268,7 @@ function ImportDialog({ open, onClose, onSaved }: { open: boolean; onClose: () =
           className={styles.primary}
           onClick={() => void save()}
           disabled={!preview}
-          title={preview ? undefined : "ดูตัวอย่างก่อน แล้วจึงบันทึกได้"}
+          aria-describedby={preview ? undefined : "import-wait"}
         >
           บันทึก
         </button>
@@ -361,7 +373,17 @@ function PlaylistBody({ id, play }: { id: string; play: Play }) {
   );
   if (playlist === null) return <Thinking label="กำลังโหลด Playlist" />;
   if (playlist === "missing") return <p role="alert">ไม่พบ Playlist นี้</p>;
-  if (playlist === "failed") return <LoadError onRetry={load}>โหลด Playlist ไม่สำเร็จ</LoadError>;
+  if (playlist === "failed")
+    return (
+      <LoadError
+        onRetry={() => {
+          setPlaylist(null);
+          load();
+        }}
+      >
+        โหลด Playlist ไม่สำเร็จ
+      </LoadError>
+    );
 
   const save = async (change: Parameters<typeof changePlaylist>[1], done: string) => {
     const updated = await changePlaylist(id, change);

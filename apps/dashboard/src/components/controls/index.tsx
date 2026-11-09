@@ -96,7 +96,7 @@ export function Controls({ guildId, state, permission }: ControlsProps) {
             type="button"
             className={styles.icon}
             onClick={() => void run({ action: "previous" })}
-            disabled={disabled || !playing}
+            disabled={disabled}
             aria-label="เริ่มเพลงนี้ใหม่"
             title="เริ่มเพลงนี้ใหม่"
           >
@@ -116,7 +116,7 @@ export function Controls({ guildId, state, permission }: ControlsProps) {
             type="button"
             className={styles.primary}
             onClick={togglePause}
-            disabled={disabled || !playing}
+            disabled={disabled}
             aria-label={paused ? "เล่นต่อ" : "พัก"}
             aria-pressed={!paused}
             data-testid="toggle-pause"
@@ -135,7 +135,7 @@ export function Controls({ guildId, state, permission }: ControlsProps) {
             type="button"
             className={styles.icon}
             onClick={() => void run({ action: "skip" })}
-            disabled={disabled || !playing}
+            disabled={disabled}
             aria-label="ข้าม"
             title="ข้าม"
           >
@@ -147,7 +147,7 @@ export function Controls({ guildId, state, permission }: ControlsProps) {
             type="button"
             className={styles.pill}
             onClick={() => void run({ action: "loop", mode: null })}
-            disabled={disabled || !playing}
+            disabled={disabled}
             aria-pressed={(state?.loop ?? "off") !== "off"}
           >
             {LOOP_LABEL[state?.loop ?? "off"]}
@@ -168,7 +168,7 @@ export function Controls({ guildId, state, permission }: ControlsProps) {
               min={0}
               max={100}
               value={volume}
-              disabled={disabled || !playing}
+              disabled={disabled}
               onPointerDown={() => {
                 dragStart.current = volume;
               }}

@@ -55,6 +55,8 @@ export function Account() {
     setBusy(true);
     try {
       await action();
+    } catch {
+      // A sign-out that fails leaves the session as it was; the button is ready to try again.
     } finally {
       setBusy(false);
     }

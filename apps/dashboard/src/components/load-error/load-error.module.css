@@ -11,9 +11,10 @@
   color: var(--ink-2);
 }
 
+/* A ghost button (DESIGN.md §Button), on the 44px hit target of the craft checklist. */
 .retry {
-  height: 36px;
-  padding: 0 16px;
+  min-height: 44px;
+  padding: 0 18px;
   border: 1px solid var(--line);
   border-radius: var(--r-pill);
   background: transparent;
@@ -21,6 +22,10 @@
   font: inherit;
   cursor: pointer;
   transition: border-color var(--t1) var(--ease);
+}
+
+.retry:active {
+  transform: translateY(1px);
 }
 
 @media (hover: hover) {
