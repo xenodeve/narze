@@ -4,7 +4,6 @@ import { isAtLeast } from "@narze/shared";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useState } from "react";
 import { Account } from "@/components/account";
-import { GuildAvatar } from "@/components/guild-avatar";
 import BranchedMenu from "@/components/vendor/branched-menu/BranchedMenu";
 import { VoiceControl } from "@/components/voice";
 import { useAdminRole } from "@/lib/admin";
@@ -45,11 +44,20 @@ function GuildNav({ userId, activeGuildId }: { userId: string; activeGuildId: st
       children: guilds.map((g) => ({
         value: g.id,
         label: g.name,
-        // The Guild's Bot Avatar in its outfit (#106); a monogram until the Bot has its settings.
-        icon: g.avatar ? (
-          <GuildAvatar outfit={g.avatar} size={20} testId="nav-avatar" guildId={g.id} />
+        // The server's own Discord icon (#166); a monogram for a server without one.
+        icon: g.iconUrl ? (
+          // biome-ignore lint/performance/noImgElement: a 20px guild icon from Discord's CDN; next/image would add remote-pattern config for no gain
+          <img
+            className={styles.guildIcon}
+            src={g.iconUrl}
+            width={20}
+            height={20}
+            alt=""
+            data-testid="nav-guild-icon"
+            data-guild-id={g.id}
+          />
         ) : (
-          <span className={styles.monogram} aria-hidden="true">
+          <span className={styles.monogram} aria-hidden="true" data-testid="nav-monogram" data-guild-id={g.id}>
             {Array.from(g.name)[0] ?? "?"}
           </span>
         ),

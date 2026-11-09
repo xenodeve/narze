@@ -50,11 +50,21 @@
   font-size: 0.9375rem;
 }
 
+/* The server's icon (#166): a square with slightly rounded corners; the monogram matches it. */
+.guildIcon {
+  display: block;
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
 .monogram {
   display: inline-grid;
   place-items: center;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: 5px;
   background: var(--fill);
   color: var(--ink-2);
