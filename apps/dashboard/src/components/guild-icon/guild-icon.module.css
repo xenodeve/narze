@@ -1,0 +1,22 @@
+/* A server's icon (#170): a rounded square, radius set inline at a quarter of the size. */
+.icon,
+.monogram {
+  display: block;
+  flex: none;
+  background: var(--fill);
+}
+
+.icon {
+  object-fit: cover;
+  /* A hairline keeps dark icons from melting into a dark surface (an inset shadow would sit behind the image). */
+  outline: 1px solid var(--line);
+  outline-offset: -1px;
+}
+
+.monogram {
+  display: grid;
+  place-items: center;
+  color: var(--ink-2);
+  font-weight: 600;
+  line-height: 1;
+}

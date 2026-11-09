@@ -28,7 +28,7 @@ The full `:root` block is in the appendix and lives in code at `apps/dashboard/s
 |---|---|
 | Light | bg `#f5f5f7` · surface `#ffffff` · ink `#131316` · accent `#0a62d6` · ok `#1a8a4a` · warn `#b26a00` · danger `#c4302b` |
 | Dark | bg `#0b0b0d` · surface `#151518` · ink `#f1f1f3` · accent `#5aa2ff` · ok `#4cc380` · warn `#f0a640` · danger `#ff6b62` |
-| Radius | r0 5 (20px icons) · r1 8 · r2 12 · r3 16 · window 20 · stage 28 · pill 999 |
+| Radius | r1 8 · r2 12 · r3 16 · window 20 · stage 28 · pill 999 |
 | Motion | t1 160 · t2 320 · t3 600 · glide 420 · stagger 38 (ms) |
 | Layout | gutter `clamp(16px,3vw,32px)` · nav 60px · sidebar 240px · max 1320px |
 | Breakpoints | 520 · 700 · 900 · 1020 |
@@ -68,7 +68,8 @@ Supplied components — `bot-avatars` and `thinking-orbs` are npm packages; the 
 
 | Component | Where it lives in Narze |
 |---|---|
-| `BotAvatar` (`bot-avatars`) | Bot identity everywhere: sidebar status, now-playing corner, empty/error/offline screens, login, admin node roster. State map: playing → `working`; paused/idle/24-7 hold → `default`; offline/disconnected → `sleeping`. Each guild can dress its avatar (type, hat, glasses, headphones, bow tie, accessory colour) in Guild Settings. |
+| `BotAvatar` (`bot-avatars`) | Bot identity (never a server's): now-playing corner, empty/error/offline screens, login, admin node roster. State map: playing → `working`; paused/idle/24-7 hold → `default`; offline/disconnected → `sleeping`. Each guild can dress its avatar (type, hat, glasses, headphones, bow tie, accessory colour) in Guild Settings. |
+| `GuildIcon` (app) | A server's identity in every list of servers (sidebar, home list, server picker, sessions, admin): the guild's Discord icon as a rounded square, radius ¼ of its size; its first letter when it has no icon or the CDN fails (#170). |
 | `ThinkingOrb` (`thinking-orbs`) | Replaces every spinner for an in-flight AI-ish/remote step: `searching` (search), `connecting` (joining voice / resolving a URL), `weaving` (importing a playlist), `listening` (voice command capture), `composing` (building autoplay suggestions). 20px inline, 64px in sheets. |
 | `LatticeLoader` | Timed operations with an outcome: playlist import, queue restore, reconnect — shows elapsed time then done/error mark. |
 | `BranchedMenu` | Sidebar navigation (Player · Library · History · Settings · Admin sections). |
@@ -149,7 +150,7 @@ Narze v7 ใช้ภาษาดีไซน์แบบ **Strata-xeno** (ต�
 |---|---|
 | สว่าง | bg `#f5f5f7` · surface `#ffffff` · ink `#131316` · accent `#0a62d6` · ok `#1a8a4a` · warn `#b26a00` · danger `#c4302b` |
 | มืด | bg `#0b0b0d` · surface `#151518` · ink `#f1f1f3` · accent `#5aa2ff` · ok `#4cc380` · warn `#f0a640` · danger `#ff6b62` |
-| รัศมี | r0 5 (ไอคอน 20px) · r1 8 · r2 12 · r3 16 · window 20 · stage 28 · pill 999 |
+| รัศมี | r1 8 · r2 12 · r3 16 · window 20 · stage 28 · pill 999 |
 | การเคลื่อนไหว | t1 160 · t2 320 · t3 600 · glide 420 · stagger 38 (ms) |
 | เลย์เอาต์ | gutter `clamp(16px,3vw,32px)` · nav 60px · sidebar 240px · max 1320px |
 | จุดเปลี่ยนจอ | 520 · 700 · 900 · 1020 |
@@ -189,7 +190,8 @@ component ที่รับมา (`bot-avatars` กับ `thinking-orbs` เ�
 
 | Component | ใช้ตรงไหนใน Narze |
 |---|---|
-| `BotAvatar` (`bot-avatars`) | ตัวตนของบอททุกที่ ทั้งสถานะใน sidebar, มุมของ Now Playing, หน้าว่าง/หน้าพัง/หน้าออฟไลน์, หน้า login และรายชื่อ node ในหน้า admin สถานะ: กำลังเล่น → `working`; หยุด/ว่าง/ค้างห้องแบบ 24/7 → `default`; ออฟไลน์/หลุด → `sleeping` แต่ละ guild แต่งตัว avatar ได้เอง (รูปทรง, หมวก, แว่น, หูฟัง, โบว์, สีเครื่องประดับ) ในหน้า Guild Settings |
+| `BotAvatar` (`bot-avatars`) | ตัวตนของบอท (ไม่ใช่ของเซิร์ฟเวอร์) ทั้งมุมของ Now Playing, หน้าว่าง/หน้าพัง/หน้าออฟไลน์, หน้า login และรายชื่อ node ในหน้า admin สถานะ: กำลังเล่น → `working`; หยุด/ว่าง/ค้างห้องแบบ 24/7 → `default`; ออฟไลน์/หลุด → `sleeping` แต่ละ guild แต่งตัว avatar ได้เอง (รูปทรง, หมวก, แว่น, หูฟัง, โบว์, สีเครื่องประดับ) ในหน้า Guild Settings |
+| `GuildIcon` (ของแอป) | ตัวตนของเซิร์ฟเวอร์ในทุกรายการเซิร์ฟเวอร์ (sidebar, รายการหน้าแรก, หน้าต่างเลือกเซิร์ฟเวอร์, เซสชัน, admin) ใช้รูป Discord ของ guild เป็นสี่เหลี่ยมมุมโค้ง รัศมี ¼ ของขนาด ถ้าไม่มีรูปหรือ CDN โหลดไม่ขึ้นใช้ตัวอักษรแรกแทน (#170) |
 | `ThinkingOrb` (`thinking-orbs`) | ใช้แทน spinner ทุกตัวตอนรอขั้นตอนที่ไปคุยกับข้างนอก `searching` (ค้นหา), `connecting` (เข้าห้องเสียง / แปลง URL), `weaving` (นำเข้า playlist), `listening` (กำลังฟังคำสั่งเสียง), `composing` (สร้างเพลงแนะนำ autoplay) ขนาด 20px ในบรรทัด และ 64px ใน sheet |
 | `LatticeLoader` | งานที่จับเวลาและมีผลลัพธ์ เช่น นำเข้า playlist, กู้คิว, ต่อใหม่ แสดงเวลาที่ผ่านไปแล้วจบด้วยเครื่องหมายสำเร็จหรือพลาด |
 | `BranchedMenu` | เมนูใน sidebar (Player · Library · History · Settings · หมวด Admin) |
@@ -256,7 +258,7 @@ LCP < 2.5 s · INP < 200 ms · CLS < 0.05 · JS เริ่มต้นขอ�
   --ease-soft: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-digit: cubic-bezier(0.34, 1.45, 0.64, 1);
   --t1: 160ms; --t2: 320ms; --t3: 600ms; --t-glide: 420ms; --stagger: 38ms;
-  --r0: 5px; --r1: 8px; --r2: 12px; --r3: 16px; --r-window: 20px; --r-stage: 28px; --r-pill: 999px;
+  --r1: 8px; --r2: 12px; --r3: 16px; --r-window: 20px; --r-stage: 28px; --r-pill: 999px;
   --gutter: clamp(16px, 3vw, 32px); --nav-h: 60px; --side-w: 240px; --max: 1320px;
   --shadow-menu: 0 18px 40px -16px rgb(0 0 0 / 0.3);
   --shadow-window: 0 50px 90px -50px rgb(0 0 0 / 0.45);

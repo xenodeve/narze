@@ -107,11 +107,6 @@ test("the Bot Owner changes the Music Channel and the outfit; other tabs and eve
   await page.goto(`/guilds/${G_SET}`);
   await expect(page.getByTestId("now-avatar")).toHaveAttribute("data-hat", "crown");
   await expect(page.getByTestId("now-avatar")).toHaveAttribute("data-type", "cat");
-  await page.goto("/");
-  await expect(page.locator(`[data-guild-id="${G_SET}"] [data-testid="guild-avatar"]`)).toHaveAttribute(
-    "data-hat",
-    "crown",
-  );
 });
 
 test("a member sees the settings but cannot change them, and is told why (#106, spec #92)", async ({ page }) => {

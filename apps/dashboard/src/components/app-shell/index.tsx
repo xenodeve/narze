@@ -1,10 +1,11 @@
 "use client";
 
-import { type GuildSummary, isAtLeast } from "@narze/shared";
+import { isAtLeast } from "@narze/shared";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useState } from "react";
 import { Account } from "@/components/account";
+import { GuildIcon } from "@/components/guild-icon";
 import BranchedMenu from "@/components/vendor/branched-menu/BranchedMenu";
 import { VoiceControl } from "@/components/voice";
 import { useAdminRole } from "@/lib/admin";
@@ -24,34 +25,6 @@ const ROUTES: Record<string, string> = {
   [LIBRARY]: "/library",
   [SESSIONS]: "/sessions",
 };
-
-/**
- * The server's own Discord icon in the sidebar (#166): a rounded square. A server without an icon,
- * or one the CDN cannot serve, shows its monogram instead of an empty gap.
- */
-function NavGuildIcon({ guild }: { guild: Pick<GuildSummary, "id" | "name" | "iconUrl"> }) {
-  const [broken, setBroken] = useState(false);
-  if (guild.iconUrl && !broken) {
-    return (
-      // biome-ignore lint/performance/noImgElement: a 20px guild icon from Discord's CDN; next/image would add remote-pattern config for no gain
-      <img
-        className={styles.guildIcon}
-        src={guild.iconUrl}
-        width={20}
-        height={20}
-        alt=""
-        onError={() => setBroken(true)}
-        data-testid="nav-guild-icon"
-        data-guild-id={guild.id}
-      />
-    );
-  }
-  return (
-    <span className={styles.monogram} aria-hidden="true" data-testid="nav-monogram" data-guild-id={guild.id}>
-      {Array.from(guild.name)[0] ?? "?"}
-    </span>
-  );
-}
 
 /** The sidebar row for a path: the Guild, or the top-level page the path is under. */
 function currentItem(pathname: string, guildId: string): string {
@@ -82,7 +55,16 @@ function GuildNav({ userId, activeGuildId }: { userId: string; activeGuildId: st
       children: guilds.map((g) => ({
         value: g.id,
         label: g.name,
-        icon: <NavGuildIcon guild={g} />,
+        icon: (
+          <GuildIcon
+            guildId={g.id}
+            name={g.name}
+            iconUrl={g.iconUrl}
+            size={20}
+            testId="nav-guild-icon"
+            monogramTestId="nav-monogram"
+          />
+        ),
       })),
     },
   ];

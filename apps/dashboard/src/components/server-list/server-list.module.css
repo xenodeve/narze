@@ -30,21 +30,6 @@
   border-bottom: 1px solid var(--line);
 }
 
-.icon,
-.monogram {
-  width: 40px;
-  height: 40px;
-  border-radius: var(--r2);
-}
-
-.monogram {
-  display: grid;
-  place-items: center;
-  background: var(--fill);
-  color: var(--ink-2);
-  font-weight: 600;
-}
-
 .body {
   display: grid;
   gap: 2px;

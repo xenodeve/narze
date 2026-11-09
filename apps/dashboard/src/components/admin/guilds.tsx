@@ -12,24 +12,14 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Thinking } from "@/components/catalog/thinking";
+import { GuildIcon } from "@/components/guild-icon";
 import { getAdminGuild, getAdminGuilds, getChannels, getGuildHistory, getGuildSessions, useLoad } from "@/lib/admin";
-import { initial, thaiDate, thaiDateTime } from "@/lib/format";
+import { thaiDate, thaiDateTime } from "@/lib/format";
 import { sessionLength } from "@/lib/history";
 import pill from "@/styles/pill-tabs.module.css";
 import styles from "./admin.module.css";
 import { ChannelViewer } from "./channel";
 import { AdminArea } from "./index";
-
-function GuildIcon({ guild, size }: { guild: Pick<AdminGuild, "name" | "iconUrl">; size: number }) {
-  return guild.iconUrl ? (
-    // biome-ignore lint/performance/noImgElement: Discord CDN icons
-    <img className={styles.icon} src={guild.iconUrl} alt="" width={size} height={size} />
-  ) : (
-    <span className={styles.icon} style={{ width: size, height: size }} aria-hidden="true">
-      {initial(guild.name)}
-    </span>
-  );
-}
 
 type Sort = "name" | "members" | "joined";
 const SORTS: Array<{ value: Sort; label: string }> = [
@@ -114,7 +104,7 @@ function GuildList() {
             <ul className={styles.rows}>
               {shown.map((g) => (
                 <li key={g.id} className={styles.row} data-testid="admin-guild">
-                  <GuildIcon guild={g} size={36} />
+                  <GuildIcon guildId={g.id} name={g.name} iconUrl={g.iconUrl} size={36} />
                   <span className={styles.rowMain}>
                     <Link href={`/admin/guilds/${g.id}`} className={styles.rowTitle}>
                       {g.name}
@@ -170,7 +160,7 @@ function GuildDetail({ id }: { id: string }) {
   return (
     <>
       <header className={styles.guildHead}>
-        <GuildIcon guild={known ?? { name: "?", iconUrl: null }} size={56} />
+        <GuildIcon guildId={id} name={known?.name ?? "?"} iconUrl={known?.iconUrl ?? null} size={56} />
         <div>
           <h1 className={styles.title}>{known?.name ?? `เซิร์ฟเวอร์ ${id}`}</h1>
           {known ? null : (

@@ -8,8 +8,11 @@
   box-shadow: var(--shadow-window);
 }
 
-/* Dialog (DESIGN.md): enter 200 ms, y 8 → 0, scale .98 → 1. */
+/* Dialog (DESIGN.md): enter 200 ms, y 8 → 0, scale .98 → 1. A long list scrolls inside (#170). */
 .dialog[open] {
+  display: flex;
+  flex-direction: column;
+  max-height: min(640px, calc(100dvh - 48px));
   animation: enter 200ms var(--ease) both;
 }
 
@@ -57,11 +60,12 @@
 .guild {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
   width: 100%;
-  min-height: 48px;
-  padding: 0 4px;
+  min-height: 56px;
+  padding: 10px 8px;
+  border-radius: var(--r1);
+  transition: background-color var(--t1) var(--ease);
   border: 0;
   background: transparent;
   color: var(--ink);
@@ -81,15 +85,24 @@
   }
 }
 
+/* Name over its reason; the chip keeps its width at the end of the row. */
+.text {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+}
+
 .name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* Badge (DESIGN.md): mono pill, tone from the closed set. */
+/* Badge (DESIGN.md): pill, tone from the closed set. Thai text, so not mono (rule 4). */
 .chip {
   --tone: var(--ink-3);
+  flex: none;
   padding: 2px 10px;
   border: 1px solid color-mix(in srgb, var(--tone) 55%, transparent);
   border-radius: var(--r-pill);
@@ -102,9 +115,18 @@
 }
 
 .reason {
-  margin: -6px 4px 10px;
+  overflow: hidden;
   color: var(--ink-2);
   font-size: 0.8125rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A long server list scrolls inside the dialog; the title and the close button stay put. */
+.list {
+  overflow-y: auto;
+  min-height: 0;
+  overscroll-behavior: contain;
 }
 
 .done {

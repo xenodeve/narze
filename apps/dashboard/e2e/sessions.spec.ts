@@ -13,7 +13,7 @@ import {
 import { expect, test } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 import Redis from "ioredis";
-import { signInThroughPopup } from "./support";
+import { guildIconUrl, signInThroughPopup, stubDiscordCdn } from "./support";
 
 const G = "940000000000000001";
 const nok = { id: "490000000000000208", username: "nok108", globalName: "Nok" };
@@ -80,11 +80,21 @@ const publish = (type: string, data: ListeningSession) =>
   );
 
 test("a session shows up live, and its detail replays a track into a server (#108, AC5)", async ({ page }) => {
-  await setFakeDiscordUser(nok, [{ id: G, name: "Session Club", icon: null, owner: false }]);
+  await stubDiscordCdn(page);
+  await setFakeDiscordUser(nok, [{ id: G, name: "Session Club", icon: "5e55", owner: false }]);
   await signInThroughPopup(page, "Nok");
+  let guildFetches = 0;
+  page.on("request", (r) => r.url().includes("/api/me/guilds") && r.method() === "GET" && guildFetches++);
   await page.goto("/sessions");
   await expect(page.getByRole("heading", { name: "ประวัติการฟัง", level: 1 })).toBeVisible();
   await expect(page.getByTestId("session-card")).toHaveCount(0);
+
+  // Settled: the sidebar has its list. A row that appears later reads it, and fetches nothing (#170).
+  await expect(
+    page.getByRole("navigation", { name: "เซิร์ฟเวอร์ของคุณ" }).getByRole("button", { name: /Session Club/ }),
+  ).toBeVisible();
+  await page.waitForTimeout(1500);
+  const settled = guildFetches;
 
   // The Bot saves a new session at once, then announces it to its participants.
   await admin.from("listening_sessions").insert({
@@ -103,6 +113,11 @@ test("a session shows up live, and its detail replays a track into a server (#10
   const card = page.getByTestId("session-card");
   await expect(card).toHaveCount(1, { timeout: 2000 });
   await expect(card).toContainText("Session Club");
+  // The server's own picture beside its name (#170).
+  const sessionIcon = guildIconUrl(G, "5e55");
+  await expect(card.getByTestId("guild-icon")).toHaveAttribute("src", sessionIcon);
+  await page.waitForTimeout(500);
+  expect(guildFetches).toBe(settled);
   await expect(card.getByText("Live")).toBeVisible();
   await expect(card).toContainText("1 เพลง");
 
@@ -114,6 +129,7 @@ test("a session shows up live, and its detail replays a track into a server (#10
 
   await card.getByRole("link").click();
   await expect(page.getByRole("heading", { name: "Session Club", level: 1 })).toBeVisible();
+  await expect(page.locator("header").getByTestId("guild-icon")).toHaveAttribute("src", sessionIcon);
   await expect(page.getByTestId("session-track")).toHaveText([/Idol.*Nok/]);
   await page.getByRole("button", { name: "เล่น Idol" }).click();
   await page

@@ -5,10 +5,13 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SignedIn } from "@/components/catalog/browse";
 import { Thinking } from "@/components/catalog/thinking";
+import { GuildIcon } from "@/components/guild-icon";
 import { formatTime } from "@/components/now-playing/progress";
 import { initial } from "@/lib/format";
 import { getSession, listSessions, sessionLength, useSessionEvents } from "@/lib/history";
+import { useSession } from "@/lib/session";
 import { onSocketEvents } from "@/lib/socket";
+import { useGuildIconUrl } from "@/lib/use-guilds";
 import styles from "./sessions.module.css";
 
 const SIGNED_OUT = "เข้าสู่ระบบด้วย Discord ก่อน แล้วจะเห็นประวัติการฟังของคุณ";
@@ -17,6 +20,13 @@ const nameOf = (s: Pick<SessionSummary, "guildName">) => s.guildName || "เซ�
 const when = (ms: number) =>
   new Date(ms).toLocaleString("th-TH", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 const summaryOf = ({ track: _, ...summary }: SessionEvent): SessionSummary => summary;
+
+/** The session's server, by its own icon (#170); the session keeps only the name it had then. */
+function SessionGuild({ session, size }: { session: Pick<SessionSummary, "guildId" | "guildName">; size: number }) {
+  const auth = useSession();
+  const iconUrl = useGuildIconUrl(auth.status === "signed-in" ? auth.userId : "", session.guildId);
+  return <GuildIcon guildId={session.guildId} name={nameOf(session)} iconUrl={iconUrl} size={size} />;
+}
 
 /** Badge (DESIGN.md): mono pill; live state is the accent. */
 const Live = () => (
@@ -118,6 +128,7 @@ function SessionList() {
           {sessions.map((s) => (
             <li key={s.id} className={styles.row} data-testid="session-card">
               <Link href={`/sessions/${encodeURIComponent(s.id)}`} className={styles.rowLink}>
+                <SessionGuild session={s} size={36} />
                 <span className={styles.text}>
                   <span className={styles.rowHead}>
                     <span className={styles.guild}>{nameOf(s)}</span>
@@ -169,6 +180,9 @@ function SessionDetail({ id, play }: { id: string; play: (t: { title: string; qu
   return (
     <div className={styles.page}>
       <header className={styles.detailHead}>
+        <span className={styles.headIcon}>
+          <SessionGuild session={session} size={56} />
+        </span>
         <h1 className={styles.title}>{nameOf(session)}</h1>
         <p className={`mono num ${styles.meta}`}>
           {when(session.startTime)} · {session.tracks.length} เพลง · {sessionLength(session)}
