@@ -214,6 +214,27 @@ describe("Control Permission on the server (#101)", () => {
     socket.close();
   });
 
+  test("with no Player, an owner who names no channel starts the Bot in the channel they are in (#159)", async () => {
+    await redis.del(RedisKeys.playerSummary(GUILD));
+    await redis.hset(RedisKeys.voiceStates(GUILD), owner.id, "83");
+    const socket = await signedIn(ownerSession);
+    try {
+      answer = { ok: true };
+      expect(await command(socket, { action: "play", query: "x", next: false, voiceChannelId: null })).toEqual({
+        ok: true,
+      });
+      expect(relayed.at(-1)?.command).toMatchObject({ action: "play", voiceChannelId: "83" });
+      // An owner may still send the Bot to a channel they are not in (spec #86).
+      expect(await command(socket, { action: "play", query: "x", next: false, voiceChannelId: "84" })).toEqual({
+        ok: true,
+      });
+      expect(relayed.at(-1)?.command).toMatchObject({ action: "play", voiceChannelId: "84" });
+    } finally {
+      await redis.hdel(RedisKeys.voiceStates(GUILD), owner.id);
+      socket.close();
+    }
+  });
+
   test("joining the Bot's channel turns the controls on within 2 s (permission:update)", async () => {
     await summary({ playing: true, queueLength: 0, voiceChannelId: "80" });
     await redis.hdel(RedisKeys.voiceStates(GUILD), member.id);
