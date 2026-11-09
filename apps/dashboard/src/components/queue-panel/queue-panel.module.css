@@ -64,10 +64,13 @@
    replayed on every row whenever the hidden Queue tab was shown again. */
 .item {
   position: relative;
-  /* Clips the row while it folds away; the 2px margin keeps the drop line (inset −1px) visible. */
-  overflow: clip;
-  overflow-clip-margin: 2px;
+  /* Clips the row only while it folds away (motion sets the height), so focus rings and the
+     drop line are never cut at rest (#174). */
   border-bottom: 1px solid var(--line);
+}
+
+.item[style*="height"] {
+  overflow: clip;
 }
 
 .item[data-dragging] {

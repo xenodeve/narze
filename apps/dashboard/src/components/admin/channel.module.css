@@ -302,6 +302,14 @@
   backdrop-filter: blur(4px);
 }
 
+/* Its darker backdrop fades in like the shared one (#174). */
+@starting-style {
+  .lightbox[open]::backdrop {
+    background: rgb(0 0 0 / 0);
+    backdrop-filter: blur(0);
+  }
+}
+
 .full {
   display: block;
   max-width: 100%;

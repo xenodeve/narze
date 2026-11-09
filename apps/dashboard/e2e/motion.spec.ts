@@ -67,10 +67,31 @@ test.afterAll(async () => {
   await redis.quit();
 });
 
+/**
+ * In the page: closes the dialog whose text includes `title` (its `button` if named, else
+ * `dialog.close()`), then reports whether, two frames later, it is still displayed with its
+ * opacity transition running (a loaded machine may not have advanced the value yet).
+ */
+const FADE_PROBE = `
+window.closesWithFade = async (title, button) => {
+  const d = [...document.querySelectorAll("dialog")].find((x) => x.textContent?.includes(title));
+  if (!d) return false;
+  const b = button && [...d.querySelectorAll("button")].find((x) => x.textContent?.trim() === button);
+  if (b) b.click(); else d.close();
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const live = [...document.querySelectorAll("dialog")].find((x) => x.textContent?.includes(title));
+  if (!live) return false;
+  const style = getComputedStyle(live);
+  const fades = live.getAnimations().map((a) => a.transitionProperty ?? a.animationName);
+  return style.display !== "none" && fades.includes("opacity");
+};`;
+declare function closesWithFade(title: string, button: string | null): Promise<boolean>;
+
 test.beforeEach(async ({ page }) => {
+  await page.addInitScript(FADE_PROBE);
   await setFakeDiscordUser(rae, [
     { id: G_PLAY, name: "Play Room", icon: null, owner: true },
-    { id: G_IDLE, name: "Idle Room", icon: null, owner: false },
+    { id: G_IDLE, name: "Idle Room", icon: null, owner: true },
   ]);
   await signInThroughPopup(page, "Rae");
 });
@@ -95,12 +116,9 @@ test("tabs keep the search and do not replay the queue's entrance; a dialog fade
   const confirm = page.getByRole("dialog", { name: "ล้างคิวทั้งหมด?" });
   await expect(confirm).toBeVisible();
   await page.waitForTimeout(300);
-  await confirm.getByRole("button", { name: "ยกเลิก" }).click();
-  // Still on screen, fading: the close is animated.
-  const leaving = await page.evaluate(() => {
-    const d = [...document.querySelectorAll("dialog")].find((x) => x.textContent?.includes("ล้างคิวทั้งหมด"));
-    return d ? getComputedStyle(d).display !== "none" && Number(getComputedStyle(d).opacity) < 1 : false;
-  });
+  // Still on screen a frame after its Cancel, fading: the close is animated. Measured in the page,
+  // so a loaded machine's round trip cannot outlast the 200 ms fade.
+  const leaving = await page.evaluate(() => closesWithFade("ล้างคิวทั้งหมด", "ยกเลิก"));
   expect(leaving).toBe(true);
   await expect(confirm).toBeHidden();
 });
@@ -111,6 +129,15 @@ test("an idle stage enters with the phase motion; a library toast floats and lea
   await page.goto(`/guilds/${G_IDLE}`);
   const idle = page.getByRole("heading", { name: "ยังไม่มีเพลงเล่นอยู่" }).locator("..");
   await expect(idle).toHaveCSS("animation-name", /phase/);
+
+  // A dialog that unmounts when closed (the voice-channel picker) still fades out first.
+  await page.getByRole("button", { name: "เลือกห้องเสียง" }).click();
+  const picker = page.getByRole("dialog", { name: "เลือกห้องเสียง" });
+  await expect(picker).toBeVisible();
+  await page.waitForTimeout(300);
+  const fading = await page.evaluate(() => closesWithFade("เลือกห้องเสียง", null));
+  expect(fading).toBe(true);
+  await expect(picker).toHaveCount(0);
 
   await page.goto("/library");
   await page.getByRole("button", { name: "สร้าง Playlist" }).click();
@@ -130,6 +157,14 @@ test("an idle stage enters with the phase motion; a library toast floats and lea
   // Floats above the page instead of pushing the tracks down.
   const position = await toast.evaluate((el) => getComputedStyle(el.closest("[aria-live]") ?? el).position);
   expect(position).toBe("fixed");
+  // The same message again re-enters and restarts its time: still up 1.5 s after the second save,
+  // past where the first one alone would have left (3.2 s).
+  await page.waitForTimeout(2500);
+  await page.getByRole("button", { name: "เปลี่ยนชื่อ" }).click();
+  await page.getByLabel("ชื่อ Playlist").fill(`Toast ${RUN} 3`);
+  await page.getByRole("button", { name: "บันทึกชื่อ" }).click();
+  await page.waitForTimeout(1500);
+  await expect(toast).toBeVisible();
   // And leaves by itself.
   await expect(toast).toBeHidden({ timeout: 5000 });
   await page.getByRole("button", { name: "ลบ Playlist" }).click();

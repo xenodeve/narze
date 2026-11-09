@@ -14,10 +14,13 @@ const AVATARS = 5;
  * A native <dialog>: focus trap, Escape and the backdrop come with it.
  */
 export function VoicePicker({
+  open = true,
   guildId,
   onPick,
   onClose,
 }: {
+  /** False closes it (with the shared fade) before the parent unmounts it (#174). */
+  open?: boolean;
   guildId: string;
   onPick: (channel: { id: string; name: string }) => void;
   onClose: () => void;
@@ -25,6 +28,10 @@ export function VoicePicker({
   const dialog = useRef<HTMLDialogElement>(null);
   const [channels, setChannels] = useState<VoiceChannelList | null>(null);
   const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    if (!open && dialog.current?.open) dialog.current.close();
+  }, [open]);
 
   useEffect(() => {
     dialog.current?.showModal();

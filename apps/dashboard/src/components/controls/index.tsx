@@ -4,6 +4,7 @@ import type { PlayerAction, PlayerState } from "@narze/shared";
 import { useEffect, useRef, useState } from "react";
 import { type ControlAck, explain, REASON_TH, sendCommand } from "@/lib/control";
 import type { Permission } from "@/lib/use-player";
+import { usePresence } from "@/lib/use-presence";
 import styles from "./controls.module.css";
 import { VoicePicker } from "./voice-picker";
 
@@ -198,6 +199,8 @@ function AddTrack({
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
   const [picking, setPicking] = useState<{ next: boolean } | null>(null);
+  // Stays mounted while it fades out (#174).
+  const picker = usePresence(picking);
   const [target, setTarget] = useState<{ id: string; name: string } | null>(null);
 
   const submit = async (next: boolean, voiceChannelId: string | null = target?.id ?? null) => {
@@ -248,15 +251,16 @@ function AddTrack({
           เพิ่มคิว
         </button>
       </form>
-      {picking ? (
+      {picker.value ? (
         <VoicePicker
+          open={picker.open}
           guildId={guildId}
           onClose={() => setPicking(null)}
           onPick={(channel) => {
             setPicking(null);
             setTarget(channel);
             // Picked after a failed add: retry it in the chosen channel. Picked up front: wait for a song.
-            if (query.trim()) void submit(picking.next, channel.id);
+            if (query.trim()) void submit(picking?.next ?? false, channel.id);
           }}
         />
       ) : null}

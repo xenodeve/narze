@@ -112,7 +112,11 @@ export function QueuePanel({ guildId, queue, revision, permission, jumping }: Qu
     if (!canEdit || e.button !== 0) return;
     e.preventDefault();
     const handle = e.currentTarget;
-    const rows = [...(list.current?.querySelectorAll<HTMLElement>("[data-row]") ?? [])];
+    // Only the rows in the queue now: a removed row is still in the DOM while it folds away (#174).
+    const live = new Set(keys);
+    const rows = [...(list.current?.querySelectorAll<HTMLElement>("[data-row]") ?? [])].filter((row) =>
+      live.has(row.dataset.key ?? ""),
+    );
     const targetAt = (y: number) => {
       const index = rows.findIndex((row) => {
         const box = row.getBoundingClientRect();
