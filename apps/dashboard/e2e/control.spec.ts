@@ -170,7 +170,6 @@ test("a command the server refuses reverts the optimistic change and says why", 
   await olive.getByTestId("toggle-pause").click();
   await expect(olive.getByTestId("control-message")).toHaveText("ทำไม่สำเร็จ ลองอีกครั้ง");
   await expect(olive.getByRole("button", { name: "พัก", exact: true })).toBeVisible();
-  answer = () => ({ ok: true });
 });
 
 test("with no Player, the owner picks a voice channel and playback starts there", async ({ browser }) => {

@@ -15,7 +15,7 @@
 - **#162:** in a full e2e run, `control.spec.ts` read `commands.at(-1)` as soon as the optimistic button flipped, before the command arrived. The late pause then broke the next test.
 
 **Shipped:**
-- `components/charts/index.tsx`: the fetch effect depends on `region` only, and reads the kept charts through a ref.
+- `components/charts/index.tsx`: the fetch effect depends on `region` only, with a reasoned `biome-ignore` like `controls/index.tsx`.
 - `control.spec.ts`: `expect.poll` for the command, and a `beforeEach` that resets `commands` and `answer`.
 
 **Validated:**
