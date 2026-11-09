@@ -999,6 +999,30 @@ describe("#104 review fixes on the engine", () => {
     expect(notices[0]?.notice.thumbnailUrl).toBe("https://art.test/maxres.jpg");
   });
 
+  test("a playlist track, whose picture is first looked up at its start, is announced with it (#178)", async () => {
+    const asked: string[] = [];
+    engineWith({
+      trackArt: async (t) => {
+        asked.push(t.info.title);
+        await Bun.sleep(100);
+        return `https://art.test/${t.info.title}.jpg`;
+      },
+      playlistArt: async () => null,
+      icon: async () => "https://icon.test/x",
+    });
+    await play("lemon");
+    await eventually(stored, (s) => s?.current?.title === "Lemon");
+    await play(PLAYLIST_URL);
+    const first = PLAYLISTS[0]?.tracks[0]?.title ?? "";
+    expect(asked).not.toContain(first);
+    fake.finishTrack(GUILD);
+    await eventually(
+      () => notices.length,
+      (n) => n > 0,
+    );
+    expect(notices[0]?.notice.thumbnailUrl).toBe(`https://art.test/${first}.jpg`);
+  });
+
   test("a picture slower than the budget does not hold back the notice (#178)", async () => {
     engineWith({
       trackArt: (t) => (t.info.title === "Idol" ? new Promise(() => {}) : Promise.resolve(null)),
