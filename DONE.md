@@ -6,6 +6,37 @@
 
 ---
 
+## #172 Page transitions, layout-true skeletons, home inside the shell (2026-11-09, branch `feat/172-transitions`)
+
+**Goal:** from the Dashboard UX scrutinize. Before this:
+- A route change showed nothing, then the page popped in.
+- The sidebar menu remounted mid-glide (regression from #169).
+- The guild page's skeleton shifted the layout.
+- Every load flashed the orb.
+- Home sat outside the shell.
+
+**Shipped:**
+- AppShell wraps the content in a `page` wrapper keyed by the pathname. Every page change, a new server included, enters with DESIGN.md `page` (fill `backwards`). A tab change (search param only) does not replay it. A `template.tsx` was tried first; review found it keys only the first segment.
+- `loading.tsx` shows a page skeleton. `components/skeleton` provides a shared shimmer, `SkeletonRows` and `PageSkeleton`.
+- The Now Playing skeleton is the real grid: a full-row link, a 7fr stage and a 5fr side.
+- The menu remounts only when the route changes from outside it. `defaultActive` is the menu's own last intent, so a guild list that arrives mid-pick keeps the pick.
+- The orb waits 300 ms, then enters with the `orb` recipe.
+- Home moved into `(app)`. Its brand bar went, and signed out it takes the full width.
+
+**Validated:** `transitions.spec` went red first on each of these:
+- home sidebar
+- `page` motion
+- menu kept after its own pick
+- two-column skeleton
+- server-to-server motion
+- signed-out width (240 vs > 600)
+
+Then green. nav, a11y, bot-status and sign-in pass. code-review findings applied.
+
+**Lesson:** a `template.tsx` in a route group remounts only when the first segment below it changes (Next 16 docs, `template.md`). For per-page motion, key a wrapper by `usePathname()`.
+
+---
+
 ## #170 Every server list shows the guild's icon (2026-11-09, branch `feat/170-guild-icons`)
 
 **Goal:** from the Dashboard UX scrutinize: the home list showed 13 identical Bot Avatars, and the server picker and sessions showed names only. The developer asked for the real guild picture everywhere, at production craft.

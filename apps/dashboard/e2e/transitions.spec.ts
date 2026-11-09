@@ -37,6 +37,37 @@ test("home sits in the shell; each page enters with DESIGN.md's page motion (#17
   await expect(page.getByTestId("page")).toHaveCSS("animation-name", /page/);
 });
 
+test("moving between two servers replays the page motion too, not only a new top-level section (#172 review)", async ({
+  page,
+}) => {
+  await page.goto(`/guilds/${G_ONE}`);
+  const sidebar = page.getByRole("navigation", { name: "เซิร์ฟเวอร์ของคุณ" });
+  await expect(page.getByTestId("page")).toBeVisible();
+  await page.evaluate(() => {
+    (document.querySelector('[data-testid="page"]') as unknown as { __old: number }).__old = 1;
+  });
+  await sidebar.getByRole("button", { name: /Second Floor/ }).click();
+  await expect(page).toHaveURL(`/guilds/${G_TWO}`);
+  // A fresh wrapper: its entrance animation runs again.
+  await expect
+    .poll(() =>
+      page.evaluate(() => (document.querySelector('[data-testid="page"]') as unknown as { __old?: number })?.__old),
+    )
+    .toBeUndefined();
+  await expect(page.getByTestId("page")).toHaveCSS("animation-name", /page/);
+});
+
+test("signed out, home uses the full width, not the sidebar's column (#172 review)", async ({ browser }) => {
+  const fresh = await (await browser.newContext()).newPage();
+  await fresh.goto("/");
+  const title = fresh.getByRole("heading", { level: 1 });
+  await expect(title).toBeVisible();
+  const box = await fresh.locator("main").boundingBox();
+  // Wider than the 240px sidebar column it used to fall into.
+  expect(box?.width ?? 0).toBeGreaterThan(600);
+  await fresh.context().close();
+});
+
 test("the menu stays mounted after its own pick, and still re-marks after Back (#172)", async ({ page }) => {
   await page.goto(`/guilds/${G_ONE}`);
   const sidebar = page.getByRole("navigation", { name: "เซิร์ฟเวอร์ของคุณ" });

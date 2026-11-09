@@ -1,12 +1,16 @@
-/* The orb waits 300 ms before it shows (#172): a fast load finishes before it would only flicker. */
+/*
+ * The orb waits 300 ms before it shows, so a fast load finishes before it would only flicker; then
+ * it enters with DESIGN.md's `orb` recipe: 450 ms, blur 3px, scale .82 → 1 (#172).
+ */
 .thinking {
   display: inline-grid;
-  animation: appear var(--t2) var(--ease) 300ms backwards;
+  animation: orb 450ms var(--ease) 300ms backwards;
 }
 
-@keyframes appear {
+@keyframes orb {
   from {
     opacity: 0;
+    filter: blur(3px);
     transform: scale(0.82);
   }
 }

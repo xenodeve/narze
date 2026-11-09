@@ -10,7 +10,7 @@ import { GuildAvatar } from "@/components/guild-avatar";
 import { LikeButton, libraryTrack } from "@/components/like-button";
 import { MoodAurora } from "@/components/mood-aurora";
 import { QueuePanel } from "@/components/queue-panel";
-import { Skeleton } from "@/components/skeleton";
+import { Skeleton, SkeletonRows } from "@/components/skeleton";
 import { TopPlayedPanel } from "@/components/top-played";
 import { explain, sendCommand } from "@/lib/control";
 import { moodFromArtwork, moodFromText } from "@/lib/mood";
@@ -209,15 +209,12 @@ function PlayerSkeleton() {
       <span className={styles.settingsLink} aria-hidden="true">
         &nbsp;
       </span>
-      <div className={`${styles.stage} ${styles.loading}`} data-testid="skeleton-stage" />
+      <div className={`${styles.stage} ${styles.loading}`} data-testid="skeleton-stage">
+        <Skeleton className={styles.stageFill} />
+      </div>
       <div className={styles.sideSkeleton} data-testid="skeleton-side">
         <Skeleton className={styles.tabsSkeleton} />
-        {[72, 58, 66].map((w) => (
-          <span key={w} className={styles.rowSkeleton}>
-            <Skeleton className={styles.thumbSkeleton} />
-            <Skeleton className={styles.lineSkeleton} style={{ width: `${w}%` }} />
-          </span>
-        ))}
+        <SkeletonRows rows={3} />
       </div>
     </div>
   );

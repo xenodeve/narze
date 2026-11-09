@@ -17,18 +17,23 @@ export function Skeleton({ className, style, testId }: { className?: string; sty
   );
 }
 
+/** Hairline rows of an icon and a line, arriving one by one after a short wait. */
+export function SkeletonRows({ rows }: { rows: number }) {
+  return Array.from({ length: rows }, (_, i) => (
+    // biome-ignore lint/suspicious/noArrayIndexKey: placeholder rows have no identity
+    <span key={i} className={styles.row} style={{ animationDelay: `calc(120ms + ${i} * var(--stagger))` }}>
+      <Skeleton className={styles.icon} />
+      <Skeleton className={styles.line} style={{ width: `${62 - ((i * 13) % 30)}%` }} />
+    </span>
+  ));
+}
+
 /** A page heading and a few hairline rows: the generic shape of a list page while it loads. */
 export function PageSkeleton({ rows = 6 }: { rows?: number }) {
   return (
     <div className={styles.page} role="status" aria-busy="true" aria-label="กำลังโหลด" data-testid="page-skeleton">
       <Skeleton className={styles.title} />
-      {Array.from({ length: rows }, (_, i) => (
-        // biome-ignore lint/suspicious/noArrayIndexKey: placeholder rows have no identity
-        <span key={i} className={styles.row} style={{ animationDelay: `calc(${i} * var(--stagger))` }}>
-          <Skeleton className={styles.icon} />
-          <Skeleton className={styles.line} style={{ width: `${62 - ((i * 13) % 30)}%` }} />
-        </span>
-      ))}
+      <SkeletonRows rows={rows} />
     </div>
   );
 }

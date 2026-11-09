@@ -17,8 +17,6 @@
 .page {
   display: grid;
   gap: 4px;
-  /* Waits a beat before showing: a fast load never flashes a skeleton. */
-  animation: appear var(--t2) var(--ease) 120ms backwards;
 }
 
 .title {
@@ -28,20 +26,21 @@
   border-radius: var(--r2);
 }
 
+/* Each row waits a beat (a fast load never flashes a skeleton), then they arrive one by one. */
 .row {
   display: flex;
   align-items: center;
   gap: 12px;
-  min-height: 56px;
+  min-height: 60px;
   border-bottom: 1px solid var(--line);
   animation: appear var(--t2) var(--ease) backwards;
 }
 
 .icon {
   flex: none;
-  width: 36px;
-  height: 36px;
-  border-radius: 9px;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r1);
 }
 
 .line {

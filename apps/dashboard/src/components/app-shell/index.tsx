@@ -82,7 +82,9 @@ function GuildNav({ userId, activeGuildId }: { userId: string; activeGuildId: st
       items={items}
       // The servers group, wherever the items above leave it.
       defaultOpen={items.findIndex((item) => "children" in item)}
-      defaultActive={current}
+      // What the menu last meant to show: a remount while its own pick is in flight (the guild
+      // list arriving) keeps that pick instead of snapping back to the page being left.
+      defaultActive={shown.current}
       onSelect={(value) => {
         shown.current = value;
         router.push(ROUTES[value] ?? `/guilds/${value}`);
@@ -121,7 +123,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           <Account />
         </span>
       </header>
-      <div className={styles.body}>
+      {/* Signed out there is no sidebar, so the content takes the whole width (#172). While the
+          session loads, the sidebar's column stays reserved so the content does not jump. */}
+      <div className={styles.body} data-sidebar={session.status === "signed-out" ? "none" : undefined}>
         {session.status === "signed-in" ? (
           <details className={styles.side} open={open} onToggle={(e) => setOpen(e.currentTarget.open)}>
             <summary className={styles.sideToggle}>เมนู</summary>
@@ -130,7 +134,13 @@ export function AppShell({ children }: { children: ReactNode }) {
             </nav>
           </details>
         ) : null}
-        <main className={styles.content}>{children}</main>
+        <main className={styles.content}>
+          {/* Keyed by the path, so every page change (a new server included) enters with DESIGN.md's
+              `page` motion; a search-param change (a tab) does not replay it (#172). */}
+          <div key={pathname} className={styles.page} data-testid="page">
+            {children}
+          </div>
+        </main>
       </div>
     </div>
   );

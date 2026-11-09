@@ -27,14 +27,12 @@
 /* The stage skeleton is as tall as an idle stage, so the page does not jump when it lands (#172). */
 .loading {
   min-height: min(640px, 78vh);
-  background: linear-gradient(90deg, var(--surface), var(--fill), var(--surface)) 0 0 / 200% 100%;
-  animation: shimmer 1.4s linear infinite;
 }
 
-@keyframes shimmer {
-  to {
-    background-position: -200% 0;
-  }
+.stageFill {
+  position: absolute;
+  inset: 0;
+  border-radius: 0;
 }
 
 .content {
@@ -294,22 +292,4 @@
   height: 32px;
   margin-bottom: 16px;
   border-radius: var(--r-pill);
-}
-
-.rowSkeleton {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 56px;
-  border-bottom: 1px solid var(--line);
-}
-
-.thumbSkeleton {
-  flex: none;
-  width: 40px;
-  height: 40px;
-}
-
-.lineSkeleton {
-  height: 14px;
 }
