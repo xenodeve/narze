@@ -6,6 +6,34 @@
 
 ---
 
+## #168 Page changes swap only the content (2026-11-09, branch `fix/168-client-nav`)
+
+**Goal:** the developer: "เวลาเปลี่ยนหน้ามันจะ reload ทั้งหน้าเลย ไม่ได้ reload เฉพาะส่วน แก้ไขด้วย".
+
+**Measured first:**
+- A sidebar click remounted the top bar and sidebar. `AppShell` sat inside each of 19 pages, so every page change refetched the guild list and flashed the sidebar closed and then open.
+- The settings, brand and server-list links were plain `<a href>`, so each one loaded a whole new document.
+
+**Shipped:**
+- The pages moved into an `(app)` route group whose layout renders `AppShell` once (URLs unchanged). AppShell reads the Guild from the path.
+- Internal links use `next/link`.
+- From review:
+  - The sidebar highlight follows the URL: it is part of the BranchedMenu key, because the vendored menu reads its active row once.
+  - On a narrow screen a pick folds the menu again.
+  - `VoiceControl` is keyed by Guild.
+
+**Validated:** `nav.spec.ts`:
+- Went red first: the sidebar node was remounted, and the highlight was stale after Back.
+- The narrow-screen fold went red with the fix removed.
+- Then green 3/3.
+- The full e2e passed except `bot-status`, which is timing-only and passes alone.
+
+**Lesson:**
+- A folded `<details>` takes its content out of the accessibility tree. A locator like `locator("details", { has: getByRole(...) })` then finds nothing, which looked like an app bug.
+- The developer's machine was running a game at high CPU, and timing-bound e2e tests (`voice.spec` mid-sentence, `bot-status` 5 s) time out on `v7` as well under that load.
+
+---
+
 ## #166 The sidebar shows each server's Discord icon (2026-11-09, branch `feat/166-nav-guild-icon`)
 
 **Goal:** the developer asked for the server's own picture beside its name in the sidebar, instead of the Bot Avatar, as a square with slightly rounded corners.

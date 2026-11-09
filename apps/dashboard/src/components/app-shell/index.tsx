@@ -53,6 +53,13 @@ function NavGuildIcon({ guild }: { guild: Pick<GuildSummary, "id" | "name" | "ic
   );
 }
 
+/** The sidebar row for a path: the Guild, or the top-level page the path is under. */
+function currentItem(pathname: string, guildId: string): string {
+  if (guildId) return guildId;
+  const top = Object.entries(ROUTES).find(([, path]) => path !== "/" && pathname.startsWith(path));
+  return top ? top[0] : HOME;
+}
+
 function GuildNav({ userId, activeGuildId }: { userId: string; activeGuildId: string }) {
   const router = useRouter();
   const view = useGuilds(userId);
@@ -60,8 +67,10 @@ function GuildNav({ userId, activeGuildId }: { userId: string; activeGuildId: st
   // The admin area is listed for Admins only (#110); the Backend refuses everyone else anyway.
   const role = useAdminRole();
   const isAdmin = role !== "loading" && isAtLeast(role, "admin");
-  // Remount when the list arrives: BranchedMenu reads its items and active row once.
-  const key = `${guilds.map((g) => g.id).join(",")}|${isAdmin}`;
+  // Remount when the list arrives or the page changes: BranchedMenu reads its items and active row
+  // once, and the shell now outlives the page (#168), so Back or a content link must re-mark it.
+  const current = currentItem(usePathname(), activeGuildId);
+  const key = `${guilds.map((g) => g.id).join(",")}|${isAdmin}|${current}`;
   const items = [
     { label: "หน้าแรก", value: HOME },
     { label: "ค้นหา", value: SEARCH },
@@ -83,7 +92,7 @@ function GuildNav({ userId, activeGuildId }: { userId: string; activeGuildId: st
       items={items}
       // The servers group, wherever the items above leave it.
       defaultOpen={items.findIndex((item) => "children" in item)}
-      defaultActive={activeGuildId}
+      defaultActive={current}
       onSelect={(value) => router.push(ROUTES[value] ?? `/guilds/${value}`)}
       color="var(--ink-2)"
       accentColor="var(--ink)"
@@ -101,10 +110,13 @@ function GuildNav({ userId, activeGuildId }: { userId: string; activeGuildId: st
 export function AppShell({ children }: { children: ReactNode }) {
   const session = useSession();
   // Rendered once by the (app) layout (#168), so the Guild comes from the path, not from a page.
-  const guildId = /^\/guilds\/([^/]+)/.exec(usePathname() ?? "")?.[1] ?? "";
-  // Open beside the content on wide screens; folded on narrow ones so the player comes first.
+  const pathname = usePathname();
+  const guildId = /^\/guilds\/([^/]+)/.exec(pathname)?.[1] ?? "";
+  // Open beside the content on wide screens; folded on narrow ones so the player comes first. The
+  // shell outlives the page (#168), so on a narrow screen a pick folds the menu again.
   const [open, setOpen] = useState(false);
-  useEffect(() => setOpen(window.matchMedia("(min-width: 901px)").matches), []);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-evaluated on every page change, by design
+  useEffect(() => setOpen(window.matchMedia("(min-width: 901px)").matches), [pathname]);
   return (
     <div className={styles.shell}>
       <header className={styles.bar}>
@@ -112,7 +124,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           NARZE · V7
         </Link>
         <span className={styles.barEnd}>
-          {guildId && session.status === "signed-in" ? <VoiceControl guildId={guildId} /> : null}
+          {guildId && session.status === "signed-in" ? <VoiceControl key={guildId} guildId={guildId} /> : null}
           <Account />
         </span>
       </header>
