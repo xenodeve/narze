@@ -6,6 +6,27 @@
 
 ---
 
+## #159 An owner's Dashboard play uses their voice channel (2026-11-09, branch `fix/159-owner-voice`)
+
+**Goal:** the developer's first real use failed. As the owner of "Space", in a voice channel there, with no Player in the guild, pressing play from the Dashboard showed "ทำไม่สำเร็จ ลองอีกครั้ง".
+
+**Found on the command bus:**
+- Each play reached the Bot with `voiceChannelId: null`, and the Bot answered `voice-channel-required`.
+- `user.gateway.ts` kept an owner's own `voiceChannelId` (spec #86), but sent null when the owner named none.
+- `ERROR_TH` had no text for `voice-channel-required`.
+
+**Shipped:**
+- An owner who names no channel now starts the Bot in the channel they are in (`command.voiceChannelId ?? permission.userVoice`).
+- A Thai text for `voice-channel-required`.
+
+**Validated:**
+- `control.e2e.test.ts`: the owner in voice, no Player, and the relayed play names the owner's channel. Picking another channel still works.
+- The test was confirmed red with the source fix stashed, and green with it.
+
+**Lesson:** Redis pub/sub is shared across DB numbers. A live Bot on the same Redis answers the backend tests' commands, so moving the tests to DB 3 does not isolate them. Stop the live Bot before running `verify`.
+
+---
+
 ## #157 Spotify and SoundCloud say "coming soon" (2026-11-09, branch `feat/157-coming-soon`)
 
 **Goal:** the developer asked that Spotify (no API credentials yet) and SoundCloud (#156) say they are coming soon instead of failing silently.

@@ -348,7 +348,11 @@ export class UserGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
         return { ok: false, reason: "own-voice-only" };
       }
       // A non-owner's play always names their channel, so the Bot can refuse it if a Player appeared elsewhere.
-      command = { ...command, voiceChannelId: owner ? command.voiceChannelId : permission.userVoice };
+      // An owner who picks no channel starts where they are, like anyone else (#159).
+      command = {
+        ...command,
+        voiceChannelId: owner ? (command.voiceChannelId ?? permission.userVoice) : permission.userVoice,
+      };
     } else if (permission.reason === "in-voice") {
       // "No Player, member in voice" allows starting playback, not controlling a Player that is not there.
       return { ok: false, error: "no-player" };
