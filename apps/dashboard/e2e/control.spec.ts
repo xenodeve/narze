@@ -152,9 +152,7 @@ test("two users: the owner pauses; a member outside voice is refused, then allow
   await olive.getByTestId("toggle-pause").click();
   await expect(olive.getByRole("button", { name: "เล่นต่อ", exact: true })).toBeVisible();
   // The button flips optimistically on click, before the command reaches the Bot: wait for it (#162).
-  await expect
-    .poll(() => commands.at(-1))
-    .toMatchObject({ actor: { id: owner.id }, command: { action: "pause" } });
+  await expect.poll(() => commands.at(-1)).toMatchObject({ actor: { id: owner.id }, command: { action: "pause" } });
 
   // The member joins the Bot's channel: their controls turn on within 2 s.
   await voiceUpdate([{ id: member.id, name: "Milo" }]);
