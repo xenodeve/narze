@@ -19,6 +19,8 @@ import { captureConsole, createRingSink } from "./admin/logs";
 import { startAdminQueries } from "./admin/queries";
 import { createCpuMeter } from "./admin/stats";
 import { startCommandBus } from "./command-bus";
+import { commands } from "./commands";
+import { registerCommands } from "./commands/register";
 import { createConsole } from "./console/console";
 import { startRepl } from "./console/repl";
 import type { ConsoleChannel, ConsoleGuild } from "./console/resolve";
@@ -267,6 +269,8 @@ const voiceSnapshotOf = (guild: Guild): GuildVoiceSnapshot => ({
 
 client.once("clientReady", async (ready) => {
   console.log(`[bot] logged in as ${ready.user.tag}`);
+  // #147: Discord shows only the commands registered here (global; may take a moment to appear).
+  void registerCommands(ready.application, commands).catch(logFailure("register slash commands"));
   await lavalink.init({ id: ready.user.id, username: ready.user.username });
   await registry?.replace(ready.guilds.cache.map(voiceSnapshotOf)).catch(logFailure("guild registry"));
   if (publisher) await publisher.sweep().catch(logFailure("sweep stale Player States"));
