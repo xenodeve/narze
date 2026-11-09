@@ -1,10 +1,9 @@
 "use client";
 
-import { isAtLeast } from "@narze/shared";
+import { type GuildSummary, isAtLeast } from "@narze/shared";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useState } from "react";
 import { Account } from "@/components/account";
-import { GuildAvatar } from "@/components/guild-avatar";
 import BranchedMenu from "@/components/vendor/branched-menu/BranchedMenu";
 import { VoiceControl } from "@/components/voice";
 import { useAdminRole } from "@/lib/admin";
@@ -24,6 +23,34 @@ const ROUTES: Record<string, string> = {
   [LIBRARY]: "/library",
   [SESSIONS]: "/sessions",
 };
+
+/**
+ * The server's own Discord icon in the sidebar (#166): a rounded square. A server without an icon,
+ * or one the CDN cannot serve, shows its monogram instead of an empty gap.
+ */
+function NavGuildIcon({ guild }: { guild: Pick<GuildSummary, "id" | "name" | "iconUrl"> }) {
+  const [broken, setBroken] = useState(false);
+  if (guild.iconUrl && !broken) {
+    return (
+      // biome-ignore lint/performance/noImgElement: a 20px guild icon from Discord's CDN; next/image would add remote-pattern config for no gain
+      <img
+        className={styles.guildIcon}
+        src={guild.iconUrl}
+        width={20}
+        height={20}
+        alt=""
+        onError={() => setBroken(true)}
+        data-testid="nav-guild-icon"
+        data-guild-id={guild.id}
+      />
+    );
+  }
+  return (
+    <span className={styles.monogram} aria-hidden="true" data-testid="nav-monogram" data-guild-id={guild.id}>
+      {Array.from(guild.name)[0] ?? "?"}
+    </span>
+  );
+}
 
 function GuildNav({ userId, activeGuildId }: { userId: string; activeGuildId: string }) {
   const router = useRouter();
@@ -45,14 +72,7 @@ function GuildNav({ userId, activeGuildId }: { userId: string; activeGuildId: st
       children: guilds.map((g) => ({
         value: g.id,
         label: g.name,
-        // The Guild's Bot Avatar in its outfit (#106); a monogram until the Bot has its settings.
-        icon: g.avatar ? (
-          <GuildAvatar outfit={g.avatar} size={20} testId="nav-avatar" guildId={g.id} />
-        ) : (
-          <span className={styles.monogram} aria-hidden="true">
-            {Array.from(g.name)[0] ?? "?"}
-          </span>
-        ),
+        icon: <NavGuildIcon guild={g} />,
       })),
     },
   ];

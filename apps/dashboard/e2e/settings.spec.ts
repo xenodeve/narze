@@ -107,10 +107,6 @@ test("the Bot Owner changes the Music Channel and the outfit; other tabs and eve
   await page.goto(`/guilds/${G_SET}`);
   await expect(page.getByTestId("now-avatar")).toHaveAttribute("data-hat", "crown");
   await expect(page.getByTestId("now-avatar")).toHaveAttribute("data-type", "cat");
-  await expect(page.locator(`[data-testid="nav-avatar"][data-guild-id="${G_SET}"]`)).toHaveAttribute(
-    "data-hat",
-    "crown",
-  );
   await page.goto("/");
   await expect(page.locator(`[data-guild-id="${G_SET}"] [data-testid="guild-avatar"]`)).toHaveAttribute(
     "data-hat",
