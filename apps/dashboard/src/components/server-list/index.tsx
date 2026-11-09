@@ -1,6 +1,7 @@
 "use client";
 
 import type { GuildSummary, PermissionBadge } from "@narze/shared";
+import Link from "next/link";
 import { GuildAvatar } from "@/components/guild-avatar";
 import { useGuilds } from "@/lib/use-guilds";
 import styles from "./server-list.module.css";
@@ -28,9 +29,9 @@ function GuildRow({ guild }: { guild: GuildSummary }) {
         </span>
       )}
       <div className={styles.body}>
-        <a className={styles.name} href={`/guilds/${guild.id}`}>
+        <Link className={styles.name} href={`/guilds/${guild.id}`}>
           {guild.name}
-        </a>
+        </Link>
         <p className={styles.meta} data-testid="guild-player">
           {guild.playing ? (
             <>

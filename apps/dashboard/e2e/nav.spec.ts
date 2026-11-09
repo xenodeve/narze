@@ -58,3 +58,80 @@ test("the sidebar shows each server's Discord icon in a rounded square; no icon,
   // The Bot Avatar no longer stands in for the server here.
   await expect(page.getByTestId("nav-avatar")).toHaveCount(0);
 });
+
+test("moving between pages keeps the document and the shell; only the content changes (#168)", async ({ page }) => {
+  await page.route("https://cdn.discordapp.com/**", (route) => route.fulfill({ contentType: "image/png", body: PNG }));
+  await setFakeDiscordUser(nina, [{ id: G_ICON, name: "Picture Club", icon: "a1b2c3", owner: false }]);
+  await signInThroughPopup(page, "Nina");
+  await page.goto(`/guilds/${G_ICON}`);
+  const sidebar = page.getByRole("navigation", { name: "เซิร์ฟเวอร์ของคุณ" });
+  await expect(sidebar.getByRole("button", { name: /Picture Club/ })).toBeVisible();
+
+  // Marks a full document load would wipe, and a remounted sidebar would not carry.
+  await page.evaluate(() => {
+    (window as unknown as { __kept: number }).__kept = 1;
+    (document.querySelector('nav[aria-label="เซิร์ฟเวอร์ของคุณ"]') as unknown as { __kept: number }).__kept = 1;
+  });
+  let guildFetches = 0;
+  page.on("request", (r) => r.url().includes("/api/me/guilds") && r.method() === "GET" && guildFetches++);
+  const kept = () =>
+    page.evaluate(() => ({
+      document: (window as unknown as { __kept?: number }).__kept === 1,
+      sidebar:
+        (document.querySelector('nav[aria-label="เซิร์ฟเวอร์ของคุณ"]') as unknown as { __kept?: number } | null)?.__kept ===
+        1,
+    }));
+
+  await sidebar.getByRole("button", { name: "ค้นหา" }).click();
+  await expect(page).toHaveURL("/search");
+  expect(await kept()).toEqual({ document: true, sidebar: true });
+
+  await sidebar.getByRole("button", { name: /Picture Club/ }).click();
+  await expect(page).toHaveURL(`/guilds/${G_ICON}`);
+  await page.getByRole("link", { name: "ตั้งค่าเซิร์ฟเวอร์" }).click();
+  await expect(page).toHaveURL(`/guilds/${G_ICON}/settings`);
+  expect(await kept()).toEqual({ document: true, sidebar: true });
+  expect(guildFetches).toBe(0);
+
+  // The brand and the home server list are links too, not document loads.
+  await page.getByRole("link", { name: "NARZE · V7" }).click();
+  await expect(page).toHaveURL("/");
+  await page.getByRole("link", { name: "Picture Club" }).click();
+  await expect(page).toHaveURL(`/guilds/${G_ICON}`);
+  expect((await kept()).document).toBe(true);
+});
+
+test("the sidebar highlight follows the URL, Back included; on a phone a pick folds the menu (#168 review)", async ({
+  page,
+}) => {
+  await page.route("https://cdn.discordapp.com/**", (route) => route.fulfill({ contentType: "image/png", body: PNG }));
+  await setFakeDiscordUser(nina, [
+    { id: G_ICON, name: "Picture Club", icon: "a1b2c3", owner: false },
+    { id: G_PLAIN, name: "Zen room", icon: null, owner: false },
+  ]);
+  await signInThroughPopup(page, "Nina");
+  await page.goto(`/guilds/${G_PLAIN}`);
+  const sidebar = page.getByRole("navigation", { name: "เซิร์ฟเวอร์ของคุณ" });
+  const zen = sidebar.getByRole("button", { name: /Zen room/ });
+  await expect(zen).toHaveAttribute("aria-current", "true");
+
+  await sidebar.getByRole("button", { name: "ค้นหา" }).click();
+  await expect(page).toHaveURL("/search");
+  await page.goBack();
+  await expect(page).toHaveURL(`/guilds/${G_PLAIN}`);
+  // The shell stayed mounted, and still shows where you are.
+  await expect(zen).toHaveAttribute("aria-current", "true");
+  await expect(sidebar.getByRole("button", { name: "ค้นหา" })).not.toHaveAttribute("data-active", "");
+
+  // On a phone the menu starts folded; open it, pick a server, and it folds again.
+  await page.setViewportSize({ width: 390, height: 800 });
+  await page.goto(`/guilds/${G_PLAIN}`);
+  // A folded <details> hides its nav from the accessibility tree, so find it by markup.
+  const menu = page.locator('details:has(nav[aria-label="เซิร์ฟเวอร์ของคุณ"])');
+  await expect(menu).not.toHaveAttribute("open", "");
+  await menu.locator("summary").click();
+  await expect(menu).toHaveAttribute("open", "");
+  await sidebar.getByRole("button", { name: /Picture Club/ }).click();
+  await expect(page).toHaveURL(`/guilds/${G_ICON}`);
+  await expect(menu).not.toHaveAttribute("open", "");
+});
