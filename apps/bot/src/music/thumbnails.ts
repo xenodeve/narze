@@ -59,26 +59,35 @@ async function isImage(url: string, head: Head): Promise<boolean> {
 
 const YOUTUBE_THUMB = /^https:\/\/(?:i\.ytimg\.com|img\.youtube\.com)\/vi\/([\w-]+)\/([a-z]+)\.jpg(?:\?.*)?$/;
 
-/** maxresdefault, else hqdefault — both asked at once; null when neither is a real image. */
-async function bestOf(url: string, id: string, head: Head): Promise<string | null> {
+/** The larger pictures to try for a variant, largest first; every one keeps the variant's shape. */
+const LARGER: Record<string, readonly string[]> = {
+  // 16:9 video thumbnail.
+  mqdefault: ["maxresdefault", "hqdefault"],
+  // 4:3 music thumbnail (spec #62): sddefault is missing on old uploads, which still have hqdefault (#178).
+  sddefault: ["sddefault", "hqdefault"],
+};
+
+/** The first of `variants` that is a real image — all asked at once; null when none is. */
+async function bestOf(url: string, id: string, head: Head, variants = LARGER.mqdefault ?? []): Promise<string | null> {
   const base = url.replace(/\/vi\/[\w-]+\/.*$/, `/vi/${id}`);
-  const candidates = [`${base}/maxresdefault.jpg`, `${base}/hqdefault.jpg`];
+  const candidates = variants.map((v) => `${base}/${v}.jpg`);
   const checks = await Promise.all(candidates.map((c) => isImage(c, head)));
   return candidates[checks.indexOf(true)] ?? null;
 }
 
 /**
  * Spec #63: a YouTube video thumbnail (mqdefault) becomes maxresdefault when that is a real
- * image, else hqdefault, else stays. A music thumbnail keeps its shape. Any other picture is kept
- * only if it checks out.
+ * image, else hqdefault, else stays. A music thumbnail (sddefault) is checked and falls back to
+ * hqdefault, the same 4:3 shape (#178). Any other picture is kept only if it checks out.
  */
 export async function upgrade(url: string | null, head: Head): Promise<string | null> {
   if (!url) return null;
   const youtube = YOUTUBE_THUMB.exec(url);
   if (!youtube) return (await isImage(url, head)) ? url : null;
   const [, id, variant] = youtube;
-  if (variant !== "mqdefault") return url;
-  return (await bestOf(url, id ?? "", head)) ?? url;
+  const variants = LARGER[variant ?? ""];
+  if (!variants) return url;
+  return (await bestOf(url, id ?? "", head, variants)) ?? url;
 }
 
 /** Spec #64: the playlist's own picture (Spotify image, YouTube page image), then the first track's. */
