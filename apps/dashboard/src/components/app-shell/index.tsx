@@ -3,7 +3,7 @@
 import { isAtLeast } from "@narze/shared";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Account } from "@/components/account";
 import { GuildIcon } from "@/components/guild-icon";
 import BranchedMenu from "@/components/vendor/branched-menu/BranchedMenu";
@@ -40,10 +40,18 @@ function GuildNav({ userId, activeGuildId }: { userId: string; activeGuildId: st
   // The admin area is listed for Admins only (#110); the Backend refuses everyone else anyway.
   const role = useAdminRole();
   const isAdmin = role !== "loading" && isAtLeast(role, "admin");
-  // Remount when the list arrives or the page changes: BranchedMenu reads its items and active row
-  // once, and the shell now outlives the page (#168), so Back or a content link must re-mark it.
+  // BranchedMenu reads its items and active row once. It marks its own picks (and glides there),
+  // so it is remounted only when the page changes some other way: Back, Forward, or a link in the
+  // content (#168, #172). A remount after its own pick would cut the glide short.
   const current = currentItem(usePathname(), activeGuildId);
-  const key = `${guilds.map((g) => g.id).join(",")}|${isAdmin}|${current}`;
+  const shown = useRef(current);
+  const [moves, setMoves] = useState(0);
+  useEffect(() => {
+    if (current === shown.current) return;
+    shown.current = current;
+    setMoves((n) => n + 1);
+  }, [current]);
+  const key = `${guilds.map((g) => g.id).join(",")}|${isAdmin}|${moves}`;
   const items = [
     { label: "หน้าแรก", value: HOME },
     { label: "ค้นหา", value: SEARCH },
@@ -75,7 +83,10 @@ function GuildNav({ userId, activeGuildId }: { userId: string; activeGuildId: st
       // The servers group, wherever the items above leave it.
       defaultOpen={items.findIndex((item) => "children" in item)}
       defaultActive={current}
-      onSelect={(value) => router.push(ROUTES[value] ?? `/guilds/${value}`)}
+      onSelect={(value) => {
+        shown.current = value;
+        router.push(ROUTES[value] ?? `/guilds/${value}`);
+      }}
       color="var(--ink-2)"
       accentColor="var(--ink)"
       lineColor="var(--line)"

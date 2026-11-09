@@ -10,6 +10,7 @@ import { GuildAvatar } from "@/components/guild-avatar";
 import { LikeButton, libraryTrack } from "@/components/like-button";
 import { MoodAurora } from "@/components/mood-aurora";
 import { QueuePanel } from "@/components/queue-panel";
+import { Skeleton } from "@/components/skeleton";
 import { TopPlayedPanel } from "@/components/top-played";
 import { explain, sendCommand } from "@/lib/control";
 import { moodFromArtwork, moodFromText } from "@/lib/mood";
@@ -192,12 +193,42 @@ function Stage({
   );
 }
 
+/**
+ * The guild page while its Player loads (#172): the real page grid, a stage and a side column, so
+ * nothing moves when the content lands.
+ */
+function PlayerSkeleton() {
+  return (
+    <div
+      className={styles.page}
+      role="status"
+      aria-busy="true"
+      aria-label="กำลังโหลดสถานะเพลง"
+      data-testid="player-skeleton"
+    >
+      <span className={styles.settingsLink} aria-hidden="true">
+        &nbsp;
+      </span>
+      <div className={`${styles.stage} ${styles.loading}`} data-testid="skeleton-stage" />
+      <div className={styles.sideSkeleton} data-testid="skeleton-side">
+        <Skeleton className={styles.tabsSkeleton} />
+        {[72, 58, 66].map((w) => (
+          <span key={w} className={styles.rowSkeleton}>
+            <Skeleton className={styles.thumbSkeleton} />
+            <Skeleton className={styles.lineSkeleton} style={{ width: `${w}%` }} />
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** Now Playing for one Guild: the stage with controls (#100, #101) and the queue (#102). */
 export function NowPlaying({ guildId, userId }: { guildId: string; userId: string }) {
   const view = usePlayer(guildId, userId);
   const [settings] = useGuildSettings(guildId);
   const outfit = settings.status === "ready" ? settings.view.settings.avatar : undefined;
-  if (view.status === "loading") return <div className={`${styles.stage} ${styles.loading}`} aria-busy="true" />;
+  if (view.status === "loading") return <PlayerSkeleton />;
   if (view.status === "forbidden") {
     return (
       <p role="alert" className={styles.notice}>

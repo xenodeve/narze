@@ -1,0 +1,12 @@
+/* The orb waits 300 ms before it shows (#172): a fast load finishes before it would only flicker. */
+.thinking {
+  display: inline-grid;
+  animation: appear var(--t2) var(--ease) 300ms backwards;
+}
+
+@keyframes appear {
+  from {
+    opacity: 0;
+    transform: scale(0.82);
+  }
+}

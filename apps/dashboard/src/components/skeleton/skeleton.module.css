@@ -1,0 +1,55 @@
+/* Skeleton (#172): one shimmer, on --fill over the surface, used wherever content is on its way. */
+.block {
+  display: block;
+  border-radius: var(--r1);
+  background:
+    linear-gradient(90deg, var(--fill) 0%, color-mix(in srgb, var(--ink) 10%, transparent) 50%, var(--fill) 100%) 0 0 /
+    200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.page {
+  display: grid;
+  gap: 4px;
+  /* Waits a beat before showing: a fast load never flashes a skeleton. */
+  animation: appear var(--t2) var(--ease) 120ms backwards;
+}
+
+.title {
+  width: min(280px, 60%);
+  height: 40px;
+  margin-bottom: 20px;
+  border-radius: var(--r2);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  border-bottom: 1px solid var(--line);
+  animation: appear var(--t2) var(--ease) backwards;
+}
+
+.icon {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+}
+
+.line {
+  height: 14px;
+}
+
+@keyframes appear {
+  from {
+    opacity: 0;
+  }
+}

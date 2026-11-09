@@ -1,17 +1,8 @@
+/* Inside the App shell (#172): the shell's content area sets the gutters. */
 .main {
-  max-width: var(--max);
-  margin-inline: auto;
-  padding: clamp(40px, 6vw, 88px) var(--gutter);
   display: grid;
-  gap: clamp(32px, 5vw, 64px);
-}
-
-.bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  min-height: 44px;
+  gap: clamp(32px, 5vw, 56px);
+  padding-top: clamp(8px, 2vw, 24px);
 }
 
 .grid {
@@ -31,13 +22,6 @@
   display: grid;
   gap: 16px;
   max-width: 44em;
-}
-
-.kicker {
-  margin: 0;
-  color: var(--ink-2);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
 }
 
 .title {
