@@ -6,6 +6,27 @@
 
 ---
 
+## #166 The sidebar shows each server's Discord icon (2026-11-09, branch `feat/166-nav-guild-icon`)
+
+**Goal:** the developer asked for the server's own picture beside its name in the sidebar, instead of the Bot Avatar, as a square with slightly rounded corners.
+
+**Shipped:**
+- `NavGuildIcon` in `app-shell/index.tsx` shows `GuildSummary.iconUrl`: 20 × 20 px, radius `--r0` (5 px, new token in DESIGN.md and `tokens.css`).
+- A server with no icon, or an icon the CDN cannot serve (`onError`), shows the monogram at the same size.
+- The home list and Now Playing keep the Bot Avatar.
+
+**Validated:**
+- `nav.spec.ts`:
+  - Went red first: no icon, then no fallback for a 404 icon.
+  - Then green: icon src, 20 × 20, 5 px radius, monogram, the 404 fallback, and no `nav-avatar`.
+- `settings.spec` 3/3, after dropping the sidebar outfit assertion.
+- `a11y.spec` 8/8 (with the live Bot stopped).
+- Checked in the developer's browser against the real guilds.
+
+**Lesson:** the live Bot also answers the e2e admin queries (`a11y.spec` reads Discord messages through it). Every e2e run needs the live Bot stopped, not just runs of the command tests.
+
+---
+
 ## #164 The search's match percentage is measured (2026-11-09, branch `fix/164-real-score`)
 
 **Goal:** the developer: "อยากให้คำนวนใกล้เคียงจริง ไม่เอา mockup". The full-system test showed a nonsense YouTube query's top result as "ตรง 90%".

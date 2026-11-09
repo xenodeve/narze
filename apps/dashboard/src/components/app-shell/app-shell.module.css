@@ -55,7 +55,7 @@
   display: block;
   width: 20px;
   height: 20px;
-  border-radius: 5px;
+  border-radius: var(--r0);
   object-fit: cover;
   flex-shrink: 0;
 }
@@ -65,7 +65,7 @@
   place-items: center;
   width: 20px;
   height: 20px;
-  border-radius: 5px;
+  border-radius: var(--r0);
   background: var(--fill);
   color: var(--ink-2);
   font-size: 0.6875rem;

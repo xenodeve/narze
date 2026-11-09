@@ -6,8 +6,8 @@ import dynamic from "next/dynamic";
 const BotAvatar = dynamic(() => import("bot-avatars").then((m) => m.BotAvatar), { ssr: false });
 
 /**
- * A Guild's Bot Avatar in its outfit (#106) — one component for every place it appears (sidebar,
- * Now Playing, server list, the settings preview). The outfit is also on data attributes: the
+ * A Guild's Bot Avatar in its outfit (#106) — one component for every place it appears (Now
+ * Playing, server list, the settings preview; the sidebar shows the server's own icon, #166). The outfit is also on data attributes: the
  * avatar is a canvas, and tests and tools read what it wears from there.
  */
 export function GuildAvatar({

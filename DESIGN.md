@@ -28,7 +28,7 @@ The full `:root` block is in the appendix and lives in code at `apps/dashboard/s
 |---|---|
 | Light | bg `#f5f5f7` · surface `#ffffff` · ink `#131316` · accent `#0a62d6` · ok `#1a8a4a` · warn `#b26a00` · danger `#c4302b` |
 | Dark | bg `#0b0b0d` · surface `#151518` · ink `#f1f1f3` · accent `#5aa2ff` · ok `#4cc380` · warn `#f0a640` · danger `#ff6b62` |
-| Radius | r1 8 · r2 12 · r3 16 · window 20 · stage 28 · pill 999 |
+| Radius | r0 5 (20px icons) · r1 8 · r2 12 · r3 16 · window 20 · stage 28 · pill 999 |
 | Motion | t1 160 · t2 320 · t3 600 · glide 420 · stagger 38 (ms) |
 | Layout | gutter `clamp(16px,3vw,32px)` · nav 60px · sidebar 240px · max 1320px |
 | Breakpoints | 520 · 700 · 900 · 1020 |
@@ -149,7 +149,7 @@ Narze v7 ใช้ภาษาดีไซน์แบบ **Strata-xeno** (ต�
 |---|---|
 | สว่าง | bg `#f5f5f7` · surface `#ffffff` · ink `#131316` · accent `#0a62d6` · ok `#1a8a4a` · warn `#b26a00` · danger `#c4302b` |
 | มืด | bg `#0b0b0d` · surface `#151518` · ink `#f1f1f3` · accent `#5aa2ff` · ok `#4cc380` · warn `#f0a640` · danger `#ff6b62` |
-| รัศมี | r1 8 · r2 12 · r3 16 · window 20 · stage 28 · pill 999 |
+| รัศมี | r0 5 (ไอคอน 20px) · r1 8 · r2 12 · r3 16 · window 20 · stage 28 · pill 999 |
 | การเคลื่อนไหว | t1 160 · t2 320 · t3 600 · glide 420 · stagger 38 (ms) |
 | เลย์เอาต์ | gutter `clamp(16px,3vw,32px)` · nav 60px · sidebar 240px · max 1320px |
 | จุดเปลี่ยนจอ | 520 · 700 · 900 · 1020 |
@@ -256,7 +256,7 @@ LCP < 2.5 s · INP < 200 ms · CLS < 0.05 · JS เริ่มต้นขอ�
   --ease-soft: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-digit: cubic-bezier(0.34, 1.45, 0.64, 1);
   --t1: 160ms; --t2: 320ms; --t3: 600ms; --t-glide: 420ms; --stagger: 38ms;
-  --r1: 8px; --r2: 12px; --r3: 16px; --r-window: 20px; --r-stage: 28px; --r-pill: 999px;
+  --r0: 5px; --r1: 8px; --r2: 12px; --r3: 16px; --r-window: 20px; --r-stage: 28px; --r-pill: 999px;
   --gutter: clamp(16px, 3vw, 32px); --nav-h: 60px; --side-w: 240px; --max: 1320px;
   --shadow-menu: 0 18px 40px -16px rgb(0 0 0 / 0.3);
   --shadow-window: 0 50px 90px -50px rgb(0 0 0 / 0.45);
