@@ -93,10 +93,11 @@ export const powerBot = async (action: BotPowerAction) =>
 
 export const getWhitelist = async () =>
   parsed<WhitelistEntry[]>(await answer(apiGet("/api/admin/whitelist")), WhitelistEntrySchema.array());
+/** A whitelist change's HTTP status; 0 when the request did not get an answer. */
 export const setWhitelist = async (discordId: string, role: AdminRole) =>
-  (await answer(apiSend("PUT", "/api/admin/whitelist", { discordId, role })))?.ok ?? false;
+  (await answer(apiSend("PUT", "/api/admin/whitelist", { discordId, role })))?.status ?? 0;
 export const removeWhitelist = async (discordId: string) =>
-  (await answer(apiSend("DELETE", `/api/admin/whitelist/${encodeURIComponent(discordId)}`)))?.ok ?? false;
+  (await answer(apiSend("DELETE", `/api/admin/whitelist/${encodeURIComponent(discordId)}`)))?.status ?? 0;
 
 /**
  * The admin rooms (#110): stats samples, and — when `onLine` is given — the last console lines on

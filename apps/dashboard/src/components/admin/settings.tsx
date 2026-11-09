@@ -11,6 +11,9 @@ export function AdminSettings() {
   return <AdminArea needs="developer">{() => <Whitelist />}</AdminArea>;
 }
 
+/** The Backend's 409: an environment Developer, or the last Developer (#133). */
+const REFUSED = "เปลี่ยนไม่ได้: Developer ที่ตั้งไว้ใน env แก้จากหน้านี้ไม่ได้ และต้องเหลือ Developer อย่างน้อยหนึ่งคน";
+
 function Whitelist() {
   const [entries, setEntries] = useState<WhitelistEntry[] | null>(null);
   const [discordId, setDiscordId] = useState("");
@@ -22,15 +25,17 @@ function Whitelist() {
   useEffect(load, [load]);
   const add = async () => {
     setMessage(null);
-    if (await setWhitelist(discordId.trim(), role)) {
+    const status = await setWhitelist(discordId.trim(), role);
+    if (status === 204) {
       setDiscordId("");
       load();
-    } else setMessage("บันทึกไม่สำเร็จ ตรวจ Discord ID อีกครั้ง");
+    } else setMessage(status === 409 ? REFUSED : "บันทึกไม่สำเร็จ ตรวจ Discord ID อีกครั้ง");
   };
   const remove = async (id: string) => {
     setMessage(null);
-    if (await removeWhitelist(id)) load();
-    else setMessage("ลบไม่สำเร็จ");
+    const status = await removeWhitelist(id);
+    if (status === 204) load();
+    else setMessage(status === 409 ? REFUSED : "ลบไม่สำเร็จ");
   };
   return (
     <>

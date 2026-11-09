@@ -36,7 +36,7 @@ import { createPlayerPublisher, type PlayerPublisher } from "./music/player-stat
 import { createSnapshotStore } from "./music/queue-snapshot";
 import { createSpotify } from "./music/spotify";
 import { createYouTube } from "./music/youtube";
-import { detectRuntimeMode } from "./runtime-mode";
+import { detectRuntimeMode, subscriberOf } from "./runtime-mode";
 import { createGuildSettings, createSupabaseSettingsStore, inviterOf, WELCOME } from "./settings/guild-settings";
 import {
   firstSendableTextChannel,
@@ -225,7 +225,7 @@ const textChannelFor = (guildId: string): string | null => {
 };
 // Connected Mode: a settings change made on the Dashboard reaches the Bot's copy (#106).
 if (redis && settings) {
-  const listener = redis.duplicate();
+  const listener = subscriberOf(redis);
   listener.on("message", (_channel, raw) => {
     const event = parseJson(GuildEventSchema, raw);
     if (event?.type !== GuildEventTypes.settingsUpdate) return;
@@ -242,13 +242,16 @@ if (redis && settings) {
  */
 let shutdown = async (code = 0): Promise<void> => process.exit(code);
 if (redis) {
-  await startCommandBus({ subscriber: redis.duplicate(), redis, music, textChannelFor }).catch((error: Error) =>
+  await startCommandBus({ subscriber: subscriberOf(redis), redis, music, textChannelFor }).catch((error: Error) =>
     console.warn(`[bot] command bus: ${error.message}`),
   );
   // Admin reads of Discord and restart/shutdown from the Dashboard (#111).
-  await startAdminQueries({ subscriber: redis.duplicate(), redis, client, exit: (code) => void shutdown(code) }).catch(
-    (error: Error) => console.warn(`[bot] admin queries: ${error.message}`),
-  );
+  await startAdminQueries({
+    subscriber: subscriberOf(redis),
+    redis,
+    client,
+    exit: (code) => void shutdown(code),
+  }).catch((error: Error) => console.warn(`[bot] admin queries: ${error.message}`));
 }
 
 const voiceLists = perGuildDebounce(async (guildId) => {

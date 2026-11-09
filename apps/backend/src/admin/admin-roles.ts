@@ -61,6 +61,7 @@ export class AdminRoles {
 
   async set(discordId: string, role: AdminRole, by: string): Promise<void> {
     this.refuseFixed(discordId);
+    if (role !== "developer") await this.refuseLastDeveloper(discordId);
     const { error } = await this.db
       .from("admin_whitelist")
       .upsert({ discord_id: discordId, role, added_by: by, added_at: new Date().toISOString() });
@@ -69,8 +70,24 @@ export class AdminRoles {
 
   async remove(discordId: string): Promise<void> {
     this.refuseFixed(discordId);
+    await this.refuseLastDeveloper(discordId);
     const { error } = await this.db.from("admin_whitelist").delete().eq("discord_id", discordId);
     check("delete whitelist", error);
+  }
+
+  /**
+   * #133: with NARZE_DEVELOPER_IDS empty, demoting or removing the last whitelisted Developer would
+   * lock everyone out of Settings. (Two Developers demoting each other at the same moment can still
+   * both pass; the environment list is the way back in.)
+   */
+  private async refuseLastDeveloper(discordId: string): Promise<void> {
+    if (this.developers.length > 0) return;
+    const { data, error } = await this.db.from("admin_whitelist").select("discord_id").eq("role", "developer");
+    check("count developers", error);
+    const developers = ((data ?? []) as Array<{ discord_id: string }>).map((r) => r.discord_id);
+    if (developers.includes(discordId) && developers.length === 1) {
+      throw new ConflictException("the last Developer cannot be demoted or removed");
+    }
   }
 
   private refuseFixed(discordId: string): void {

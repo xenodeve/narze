@@ -6,6 +6,29 @@
 
 ---
 
+## #133 Admin follow-ups (2026-11-09, branch `fix/133-admin-followups`)
+
+**Goal:** the agent-fixable items from the #110 reviews (#133).
+
+**Shipped:**
+- **Item 2: the Bot reconnects to Redis.**
+  - **Before:** after Runtime Mode detection the client kept `retryStrategy: () => null`, so a Redis restart stopped the log ring, stats, heartbeat and Player State until the Bot restarted.
+  - **Now:** it backs off from 200 ms to 5 s and keeps trying. Every subscriber connection (`subscriberOf`) inherits that and resubscribes.
+  - **Found by scrutinize:** an uncaught heartbeat publish would have crashed the Bot on a real outage (an unhandled rejection exits Bun). Each beat now catches its own failure.
+- **Item 4:** with `NARZE_DEVELOPER_IDS` empty, demoting or removing the last whitelisted Developer is refused (409). The page says why.
+- **Item 5:** a Playwright test that an Admin who is not a Developer is sent away from `/admin/settings`. The behaviour already existed, so this test went green on its first run rather than red first.
+- **Item 1:** no change. The overview already labels its caches "Cache ของบอท".
+- **Item 3:** covered by #145 (sockets renew their token at `exp`).
+- **Item 6:** fixed earlier, in #111.
+
+**Not done (noted):**
+- Pub/sub events sent while Redis is down are lost, so the Bot's settings copy can stay stale until the next change.
+- Item 7: multi-instance revoke. ADR-0005 assumes one Backend.
+
+**Validated:** `runtime-mode.test.ts` (a dropped client and subscriber come back and hear a publish), `heartbeat.contract.test.ts` (a failed publish leaves no unhandled rejection), the `admin.e2e.test.ts` last-Developer test, and the `admin.spec.ts` redirect and 409 message. The unit and contract tests were written red first. verify and e2e are run by the merge gate.
+
+---
+
 ## #147 Register slash commands (2026-11-09, branch `fix/register-slash-commands`)
 
 **Goal:** the Bot handled slash commands but never registered them with Discord, so no `/play` appeared on a real application. Every test so far ran against the fake Discord. Found while preparing the first real run (#121).
