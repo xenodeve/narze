@@ -6,6 +6,30 @@
 
 ---
 
+## #150 Real Lavalink: empty password (2026-11-09, branch `fix/150-lavalink-password`)
+
+**Goal:** the first run against the real Lavalink (4.2.2, compose `--profile audio`).
+
+**Found:**
+- The Bot read `env.LAVALINK_PASSWORD ?? "youshallnotpass"`. The `LAVALINK_PASSWORD=` that `.env.example` ships therefore reached Lavalink as an empty password, and `new LavalinkManager` threw `SyntaxError` on start (measured).
+- The Backend switched search off whenever the variable was empty.
+- Compose uses `${LAVALINK_PASSWORD:-youshallnotpass}`, so Lavalink itself ran fine with the default.
+
+**Shipped:**
+- `packages/shared/src/lavalink-node.ts` `lavalinkNode(env)` takes compose's defaults for unset or empty values. The Bot and the Backend both read the node through it.
+- `.env.example` now says that an empty `LAVALINK_PASSWORD` means the compose default.
+
+**Validated:**
+- `lavalink-node.test.ts`, written red first.
+- `apps/bot/test/lavalink.real.test.ts` (opt-in, `LAVALINK_REAL=1`), run with an empty password:
+  - the Bot's own manager connects and gets a session;
+  - `ytsearch` and `ytmsearch` find tracks;
+  - a YouTube URL loads a single track.
+- `bun run verify` exit 0.
+- `spsearch` returns nothing while LavaSrc Spotify is off, as expected.
+
+---
+
 ## #133 Admin follow-ups (2026-11-09, branch `fix/133-admin-followups`)
 
 **Goal:** the agent-fixable items from the #110 reviews (#133).

@@ -1,4 +1,4 @@
-import { DEFAULT_REDIS_URL, DiscordIdSchema } from "@narze/shared";
+import { DEFAULT_REDIS_URL, DiscordIdSchema, lavalinkNode } from "@narze/shared";
 import { createApp } from "./app";
 import { DEFAULT_RATE_LIMITS } from "./rate-limit";
 
@@ -9,18 +9,15 @@ const required = (name: string) => {
   return value;
 };
 
+const lavalink = lavalinkNode(env);
 const app = await createApp({
   redisUrl: env.REDIS_URL ?? DEFAULT_REDIS_URL,
   dashboardOrigin: env.DASHBOARD_ORIGIN ?? "http://localhost:3000",
   supabase: { url: required("SUPABASE_URL"), secretKey: required("SUPABASE_SECRET_KEY") },
   discordApiUrl: env.DISCORD_API_URL ?? "https://discord.com/api/v10",
   // Catalog search (#105, ADR-0009); credentials only from the environment.
-  lavalink: env.LAVALINK_PASSWORD
-    ? {
-        url: `http://${env.LAVALINK_HOST ?? "127.0.0.1"}:${env.LAVALINK_PORT ?? 2333}`,
-        password: env.LAVALINK_PASSWORD,
-      }
-    : undefined,
+  // The same node the Bot plays on, with compose's defaults (#150): search works out of the box.
+  lavalink: { url: `http://${lavalink.host}:${lavalink.port}`, password: lavalink.password },
   spotify: {
     clientId: env.SPOTIFY_CLIENT_ID,
     clientSecret: env.SPOTIFY_CLIENT_SECRET,
