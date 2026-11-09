@@ -6,6 +6,28 @@
 
 ---
 
+## #170 Every server list shows the guild's icon (2026-11-09, branch `feat/170-guild-icons`)
+
+**Goal:** from the Dashboard UX scrutinize: the home list showed 13 identical Bot Avatars, and the server picker and sessions showed names only. The developer asked for the real guild picture everywhere, at production craft.
+
+**Shipped:**
+- `components/guild-icon`: one `GuildIcon`, a rounded square with radius ¼ of its size, a hairline outline, lazy loading, and a first-letter fallback on a missing or failed icon.
+- `GuildIcon` is used in the sidebar, home list, server picker, sessions list and detail, and admin. It replaces three near-duplicates.
+- The picker:
+  - Shows icons, with servers you can play in listed first.
+  - Chips read เล่นได้ / ล็อก.
+  - Each row's reason sits under its name.
+  - The list scrolls inside the dialog.
+- `useGuilds` is one store per user. Every caller shares one fetch and one socket subscription, and the last list is kept for the tab.
+- DESIGN.md has a `GuildIcon` row (EN/TH). BotAvatar is the Bot's identity only. `--r0` was removed.
+
+**Validated:**
+- `guild-icons.spec` (new) and the `sessions.spec` icon checks went red first, then green.
+- nav, settings, admin-ii, catalog, sign-in, a11y and charts e2e pass.
+- `library.spec` "rename (another tab follows)" fails on `v7` too while the machine is at 87% CPU, because of its 2 s cross-tab budget.
+
+---
+
 ## #168 Page changes swap only the content (2026-11-09, branch `fix/168-client-nav`)
 
 **Goal:** the developer: "เวลาเปลี่ยนหน้ามันจะ reload ทั้งหน้าเลย ไม่ได้ reload เฉพาะส่วน แก้ไขด้วย".

@@ -80,7 +80,16 @@ const publish = (type: string, data: ListeningSession) =>
   );
 
 test("a session shows up live, and its detail replays a track into a server (#108, AC5)", async ({ page }) => {
-  await setFakeDiscordUser(nok, [{ id: G, name: "Session Club", icon: null, owner: false }]);
+  await page.route("https://cdn.discordapp.com/**", (route) =>
+    route.fulfill({
+      contentType: "image/png",
+      body: Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
+        "base64",
+      ),
+    }),
+  );
+  await setFakeDiscordUser(nok, [{ id: G, name: "Session Club", icon: "5e55", owner: false }]);
   await signInThroughPopup(page, "Nok");
   await page.goto("/sessions");
   await expect(page.getByRole("heading", { name: "ประวัติการฟัง", level: 1 })).toBeVisible();
@@ -103,6 +112,9 @@ test("a session shows up live, and its detail replays a track into a server (#10
   const card = page.getByTestId("session-card");
   await expect(card).toHaveCount(1, { timeout: 2000 });
   await expect(card).toContainText("Session Club");
+  // The server's own picture beside its name (#170).
+  const sessionIcon = `https://cdn.discordapp.com/icons/${G}/5e55.png?size=96`;
+  await expect(card.getByTestId("guild-icon")).toHaveAttribute("src", sessionIcon);
   await expect(card.getByText("Live")).toBeVisible();
   await expect(card).toContainText("1 เพลง");
 
@@ -114,6 +126,7 @@ test("a session shows up live, and its detail replays a track into a server (#10
 
   await card.getByRole("link").click();
   await expect(page.getByRole("heading", { name: "Session Club", level: 1 })).toBeVisible();
+  await expect(page.locator("header").getByTestId("guild-icon")).toHaveAttribute("src", sessionIcon);
   await expect(page.getByTestId("session-track")).toHaveText([/Idol.*Nok/]);
   await page.getByRole("button", { name: "เล่น Idol" }).click();
   await page

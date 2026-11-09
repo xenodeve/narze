@@ -3,6 +3,7 @@
 import type { PlayPermission } from "@narze/shared";
 import { useEffect, useRef, useState } from "react";
 import { Thinking } from "@/components/catalog/thinking";
+import { GuildIcon } from "@/components/guild-icon";
 import { playPermissions } from "@/lib/catalog";
 import { playInGuild, REASON_TH } from "@/lib/control";
 import styles from "./select-server.module.css";
@@ -33,7 +34,8 @@ export function SelectServer({ target, onClose }: { target: PlayTarget | null; o
     dialog.current?.showModal();
     let live = true;
     void playPermissions().then((list) => {
-      if (live) setGuilds(list ?? "failed");
+      // Where you can play comes first; each group keeps Discord's order (a stable sort).
+      if (live) setGuilds(list ? [...list].sort((a, b) => Number(b.canPlay) - Number(a.canPlay)) : "failed");
     });
     return () => {
       live = false;
@@ -77,16 +79,19 @@ export function SelectServer({ target, onClose }: { target: PlayTarget | null; o
                 onClick={() => void play(g)}
                 aria-describedby={g.canPlay ? undefined : `why-${g.guildId}`}
               >
-                <span className={styles.name}>{g.name}</span>
-                <span className={`mono ${styles.chip}`} data-tone={g.canPlay ? "ok" : "offline"}>
-                  {busy === g.guildId ? "…" : g.canPlay ? "play" : "locked"}
+                <GuildIcon guildId={g.guildId} name={g.name} iconUrl={g.iconUrl} size={32} />
+                <span className={styles.text}>
+                  <span className={styles.name}>{g.name}</span>
+                  {g.canPlay ? null : (
+                    <span id={`why-${g.guildId}`} className={styles.reason}>
+                      {REASON_TH[g.reason]}
+                    </span>
+                  )}
+                </span>
+                <span className={styles.chip} data-tone={g.canPlay ? "ok" : "offline"}>
+                  {busy === g.guildId ? "กำลังเพิ่ม…" : g.canPlay ? "เล่นได้" : "ล็อก"}
                 </span>
               </button>
-              {g.canPlay ? null : (
-                <p id={`why-${g.guildId}`} className={styles.reason}>
-                  {REASON_TH[g.reason]}
-                </p>
-              )}
             </li>
           ))}
         </ul>
