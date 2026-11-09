@@ -1288,11 +1288,13 @@ Modes:
   - `searchSpotifyTracks(q,10)` and `searchSpotify(q,['artist','album'],5)` run in parallel.
   - Tracks map as: `{ id, title=name, artist=artists[0].name, artistId, album=album.name, albumId=album.id, duration=duration_ms, thumbnail=album.images[0], uri=external_urls.spotify || open.spotify.com/track/{id}, spotifyUrl }`.
   - topResult: exact artist name match (score 1.1) → exact track title match (1.1) → first track (0.9) → first artist (0.8).
+  - **v7 differs (#164):** every mode, this one included, measures its top result with the §7.2 fuzzy match. The developer chose this on 2026-11-09: no fixed scores.
   - The response `query` field is the **cache key** (`spotify-api:...`), not the user query. This quirk is visible to clients.
 - **`youtube` / `youtubemusic`:**
   - Lavalink tracks (`ytsearch:`/`ytmsearch:`) and `searchYouTubeChannels(q, source, 5)` run in parallel.
   - Artists = channels: `{ id, name, imageUrl=thumbnailUrl, followers=subscriberCount, genres:[], youtubeUrl:'https://www.youtube.com/channel/{id}' }`. `albums: []`.
   - topResult: if the first channel's name includes the query (case-insensitive) → artist (score 1). Else the first track (0.9). Else `null`.
+  - **v7 differs (#164):** measured with the §7.2 fuzzy match, the same as every mode.
   - `fromCache` is always false, and the tracks are **not cached** (only channels are).
   - Any other unknown `source` string also takes this branch.
 
@@ -1301,6 +1303,7 @@ Modes:
 - **Exact match:** case-insensitive and trimmed. The winner is chosen by type priority track 10 > artist 2 > album 1, with `score 1.1`.
 - **Otherwise:** `findBestMatch(queryLower, names)`. Keep every candidate within 0.1 of the best rating, then sort by type priority only.
 - **Minimum score:** artist 0.6, others 0.2. Below the minimum, return the first track with score 0, or `undefined` if there are no tracks.
+- **v7 differs (#164):** below the minimum, the first track keeps its own measured rating instead of 0.
 
 #### 7.3 `GET /api/artist/:id` (Spotify artist page, `search.routes.ts:201-325`)
 - **Cache hit** (artist detail, §10.2): the cached data is rebuilt into Spotify-like objects.

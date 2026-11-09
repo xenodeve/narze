@@ -197,7 +197,6 @@ export class SearchService {
     if (cached) return { ...cached, fromCache: true };
 
     let found: { tracks: SearchTrack[]; artists: SearchArtist[]; albums: SearchAlbum[] };
-    let top: SearchResponse["topResult"];
     if (source === "youtube" || source === "youtubemusic") {
       const [tracks, channels] = await Promise.all([
         this.searchLavalink(query, source),
@@ -215,16 +214,14 @@ export class SearchService {
         this.spotifyArtistsAndAlbums(query),
       ]);
       found = { tracks: (trackBody?.tracks?.items ?? []).map(fromSpotifyTrack), ...rest };
-      top = topResult(query, found);
     } else {
       const [tracks, rest] = await Promise.all([
         this.searchLavalink(query, "spotify"),
         this.spotifyArtistsAndAlbums(query),
       ]);
       found = { tracks, ...rest };
-      top = topResult(query, found);
     }
-    const response = { query, source, topResult: top, ...found };
+    const response = { query, source, topResult: topResult(query, found), ...found };
     // Spec #59: an empty result is retried next time, not remembered.
     if (found.tracks.length > 0) this.searches.set(key, response);
     return { ...response, fromCache: false };

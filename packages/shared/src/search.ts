@@ -147,6 +147,6 @@ export function topResult(
   if (winner && winner.rating >= MINIMUM[winner.c.type]) return result(winner.c, winner.rating);
   const first = found.tracks[0];
   if (!first) return null;
-  const own = Math.max(0, ...rated.filter((r) => r.c.data === first).map((r) => r.rating));
-  return { type: "track", data: first, score: own };
+  const firstRating = Math.max(0, ...rated.filter((r) => r.c.data === first).map((r) => r.rating));
+  return { type: "track", data: first, score: firstRating };
 }

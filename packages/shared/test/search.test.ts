@@ -56,7 +56,12 @@ describe("top result (#105, spec #58, v5 §7.2)", () => {
     const result = topResult("lisa", { tracks: [weak], artists: [artist("Elisabeth")], albums: [] });
     expect(result?.data).toEqual(weak);
     expect(result?.score).toBeGreaterThan(0);
-    expect(result?.score).toBeCloseTo(diceSimilarity("lisa", "isolation sessions extended mix"));
+    // Its best candidate: the title alone or `title artist`, whichever is closer.
+    const best = Math.max(
+      diceSimilarity("lisa", "isolation sessions extended mix"),
+      diceSimilarity("lisa", "isolation sessions extended mix q"),
+    );
+    expect(result?.score).toBe(best);
   });
 });
 
