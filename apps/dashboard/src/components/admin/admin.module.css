@@ -464,11 +464,6 @@ a.ghost {
   box-shadow: var(--shadow-window);
 }
 
-.dialog::backdrop {
-  background: rgb(0 0 0 / 0.35);
-  backdrop-filter: blur(4px);
-}
-
 .dialog p {
   margin: 8px 0 16px;
 }

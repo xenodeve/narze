@@ -2,6 +2,7 @@
 
 import type { PlayerAction, Track } from "@narze/shared";
 import { moveTrack } from "@narze/shared/queue";
+import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { LikeButton, libraryTrack } from "@/components/like-button";
@@ -10,6 +11,12 @@ import { explain, sendCommand } from "@/lib/control";
 import { useTokenHex } from "@/lib/tokens";
 import type { Permission } from "@/lib/use-player";
 import styles from "./queue-panel.module.css";
+
+/** DESIGN.md §7: `row` 360 ms in from −6px, a reorder glides 320 ms, both on `--ease`. */
+const EASE = [0.23, 1, 0.32, 1] as const;
+const ROW = { duration: 0.36, ease: EASE, layout: { duration: 0.32, ease: EASE } };
+/** A removed row fades and folds its height, so the rows below close up instead of snapping. */
+const EXIT = { duration: 0.24, ease: EASE };
 
 // Touch: swipe a row to remove it (the supplied SwipeRow); client-only, like every supplied canvas/gesture.
 const SwipeRow = dynamic(() => import("@/components/vendor/swipe-row/SwipeRow"), { ssr: false });
@@ -182,117 +189,133 @@ export function QueuePanel({ guildId, queue, revision, permission, jumping }: Qu
         <p className={styles.empty}>คิวว่าง</p>
       ) : (
         <ol ref={list} className={styles.list} data-testid="queue">
-          {shown.map((track, i) => {
-            const key = keys[i] ?? String(i);
-            const row = (
-              <div className={styles.row}>
-                {canEdit ? (
-                  <button
-                    type="button"
-                    className={styles.handle}
-                    data-handle
-                    aria-label={`ย้าย ${track.title} (ลำดับที่ ${i + 1}) ใช้ลูกศรขึ้นลง`}
-                    onPointerDown={startDrag(i)}
-                    onKeyDown={(e) => {
-                      focusKey.current = key;
-                      onHandleKey(i)(e);
-                    }}
+          {/* DESIGN.md §7 (#174): a new track drops in (`row`), a removed one folds away, a reorder
+              glides (`layout`, 320 ms). initial={false}: rows already there do not replay on mount. */}
+          <MotionConfig reducedMotion="user">
+            <AnimatePresence initial={false}>
+              {shown.map((track, i) => {
+                const key = keys[i] ?? String(i);
+                const row = (
+                  <div className={styles.row}>
+                    {canEdit ? (
+                      <button
+                        type="button"
+                        className={styles.handle}
+                        data-handle
+                        aria-label={`ย้าย ${track.title} (ลำดับที่ ${i + 1}) ใช้ลูกศรขึ้นลง`}
+                        onPointerDown={startDrag(i)}
+                        onKeyDown={(e) => {
+                          focusKey.current = key;
+                          onHandleKey(i)(e);
+                        }}
+                      >
+                        <svg aria-hidden="true" viewBox="0 0 16 16" width="14" height="14">
+                          <path d="M5 4h6M5 8h6M5 12h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                        </svg>
+                      </button>
+                    ) : null}
+                    {/* biome-ignore lint/suspicious/noArrayIndexKey: re-mounting on a new position replays the digit pop */}
+                    <span key={`${key}-${i}`} className={`num ${styles.index}`}>
+                      {i + 1}
+                    </span>
+                    <span className={styles.art} aria-hidden="true">
+                      {track.artworkUrl ? (
+                        // biome-ignore lint/performance/noImgElement: 40px cover from YouTube/Spotify CDNs
+                        <img src={track.artworkUrl} alt="" width={40} height={40} loading="lazy" />
+                      ) : (
+                        <span className={styles.artEmpty}>{Array.from(track.title)[0] ?? "♪"}</span>
+                      )}
+                      {track.requester.avatarUrl ? (
+                        // biome-ignore lint/performance/noImgElement: 16px Discord avatar badge
+                        <img className={styles.badge} src={track.requester.avatarUrl} alt="" width={16} height={16} />
+                      ) : (
+                        <span className={styles.badge}>{Array.from(track.requester.name)[0] ?? "?"}</span>
+                      )}
+                    </span>
+                    <span className={styles.text}>
+                      <span className={styles.trackTitle}>{track.title}</span>
+                      <span className={styles.trackAuthor}>
+                        {track.author} · ขอโดย {track.requester.name}
+                      </span>
+                    </span>
+                    <span className={`num ${styles.time}`}>{formatTime(track.durationMs)}</span>
+                    <span onPointerDown={keepFromSwipe}>
+                      <LikeButton track={libraryTrack(track)} size={28} />
+                    </span>
+                    {canEdit ? (
+                      <span className={styles.actions}>
+                        <button
+                          type="button"
+                          className={styles.action}
+                          onPointerDown={keepFromSwipe}
+                          aria-label={`เล่น ${track.title} ตอนนี้`}
+                          title="เล่นตอนนี้"
+                          onClick={() => void edit({ action: "playNow", index: i, uri: track.uri }, null)}
+                        >
+                          <svg aria-hidden="true" viewBox="0 0 16 16" width="14" height="14">
+                            <path d="M5 3l8 5-8 5z" fill="currentColor" />
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.action}
+                          onPointerDown={keepFromSwipe}
+                          aria-label={`ลบ ${track.title} ออกจากคิว`}
+                          title="ลบออกจากคิว"
+                          onClick={() => removeTrack(i)}
+                        >
+                          <svg aria-hidden="true" viewBox="0 0 16 16" width="14" height="14">
+                            <path
+                              d="M4 4l8 8M12 4l-8 8"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                            />
+                          </svg>
+                        </button>
+                      </span>
+                    ) : null}
+                  </div>
+                );
+                return (
+                  <motion.li
+                    key={key}
+                    layout="position"
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, height: 0, transition: EXIT }}
+                    transition={ROW}
+                    data-row
+                    data-key={key}
+                    data-testid="queue-row"
+                    data-jumping={jumping === i ? "" : undefined}
+                    data-dragging={drag?.from === i ? "" : undefined}
+                    data-drop-before={drag && drag.to === i && drag.to !== drag.from ? "" : undefined}
+                    className={styles.item}
                   >
-                    <svg aria-hidden="true" viewBox="0 0 16 16" width="14" height="14">
-                      <path d="M5 4h6M5 8h6M5 12h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                    </svg>
-                  </button>
-                ) : null}
-                {/* biome-ignore lint/suspicious/noArrayIndexKey: re-mounting on a new position replays the digit pop */}
-                <span key={`${key}-${i}`} className={`num ${styles.index}`}>
-                  {i + 1}
-                </span>
-                <span className={styles.art} aria-hidden="true">
-                  {track.artworkUrl ? (
-                    // biome-ignore lint/performance/noImgElement: 40px cover from YouTube/Spotify CDNs
-                    <img src={track.artworkUrl} alt="" width={40} height={40} loading="lazy" />
-                  ) : (
-                    <span className={styles.artEmpty}>{Array.from(track.title)[0] ?? "♪"}</span>
-                  )}
-                  {track.requester.avatarUrl ? (
-                    // biome-ignore lint/performance/noImgElement: 16px Discord avatar badge
-                    <img className={styles.badge} src={track.requester.avatarUrl} alt="" width={16} height={16} />
-                  ) : (
-                    <span className={styles.badge}>{Array.from(track.requester.name)[0] ?? "?"}</span>
-                  )}
-                </span>
-                <span className={styles.text}>
-                  <span className={styles.trackTitle}>{track.title}</span>
-                  <span className={styles.trackAuthor}>
-                    {track.author} · ขอโดย {track.requester.name}
-                  </span>
-                </span>
-                <span className={`num ${styles.time}`}>{formatTime(track.durationMs)}</span>
-                <span onPointerDown={keepFromSwipe}>
-                  <LikeButton track={libraryTrack(track)} size={28} />
-                </span>
-                {canEdit ? (
-                  <span className={styles.actions}>
-                    <button
-                      type="button"
-                      className={styles.action}
-                      onPointerDown={keepFromSwipe}
-                      aria-label={`เล่น ${track.title} ตอนนี้`}
-                      title="เล่นตอนนี้"
-                      onClick={() => void edit({ action: "playNow", index: i, uri: track.uri }, null)}
-                    >
-                      <svg aria-hidden="true" viewBox="0 0 16 16" width="14" height="14">
-                        <path d="M5 3l8 5-8 5z" fill="currentColor" />
-                      </svg>
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.action}
-                      onPointerDown={keepFromSwipe}
-                      aria-label={`ลบ ${track.title} ออกจากคิว`}
-                      title="ลบออกจากคิว"
-                      onClick={() => removeTrack(i)}
-                    >
-                      <svg aria-hidden="true" viewBox="0 0 16 16" width="14" height="14">
-                        <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                      </svg>
-                    </button>
-                  </span>
-                ) : null}
-              </div>
-            );
-            return (
-              <li
-                key={key}
-                data-row
-                data-key={key}
-                data-testid="queue-row"
-                data-jumping={jumping === i ? "" : undefined}
-                data-dragging={drag?.from === i ? "" : undefined}
-                data-drop-before={drag && drag.to === i && drag.to !== drag.from ? "" : undefined}
-                className={styles.item}
-              >
-                {canEdit ? (
-                  <SwipeRow
-                    direction="left"
-                    height={60}
-                    radius={0}
-                    rowColor="var(--bg)"
-                    drawerColor={danger}
-                    actionColor={danger}
-                    textColor="var(--ink)"
-                    label={track.title}
-                    actions={[{ id: "remove", label: "ลบ" }]}
-                    onCommit={() => removeTrack(i)}
-                  >
-                    {row}
-                  </SwipeRow>
-                ) : (
-                  row
-                )}
-              </li>
-            );
-          })}
+                    {canEdit ? (
+                      <SwipeRow
+                        direction="left"
+                        height={60}
+                        radius={0}
+                        rowColor="var(--bg)"
+                        drawerColor={danger}
+                        actionColor={danger}
+                        textColor="var(--ink)"
+                        label={track.title}
+                        actions={[{ id: "remove", label: "ลบ" }]}
+                        onCommit={() => removeTrack(i)}
+                      >
+                        {row}
+                      </SwipeRow>
+                    ) : (
+                      row
+                    )}
+                  </motion.li>
+                );
+              })}
+            </AnimatePresence>
+          </MotionConfig>
           {drag && drag.to === shown.length ? <li className={styles.dropEnd} aria-hidden="true" /> : null}
         </ol>
       )}

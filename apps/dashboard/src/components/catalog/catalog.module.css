@@ -71,6 +71,9 @@
   color: var(--bg);
   font: inherit;
   cursor: pointer;
+  transition:
+    transform var(--t1) var(--ease),
+    opacity var(--t1) var(--ease);
 }
 
 .primary:active:not(:disabled) {

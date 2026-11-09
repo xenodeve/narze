@@ -8,29 +8,11 @@
   box-shadow: var(--shadow-window);
 }
 
-/* Dialog (DESIGN.md): enter 200 ms, y 8 → 0, scale .98 → 1. A long list scrolls inside (#170). */
+/* A long list scrolls inside the dialog (#170); its motion is the shared dialog rule (base.css). */
 .dialog[open] {
   display: flex;
   flex-direction: column;
   max-height: min(640px, calc(100dvh - 48px));
-  animation: enter 200ms var(--ease) both;
-}
-
-@keyframes enter {
-  from {
-    opacity: 0;
-    transform: translateY(8px) scale(0.98);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .dialog[open] {
-    animation: none;
-  }
-}
-
-.dialog::backdrop {
-  background: rgb(0 0 0 / 0.45);
 }
 
 .title {

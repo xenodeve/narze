@@ -54,7 +54,7 @@ function Artwork({ track }: { track: Track }) {
   }, [track.artworkUrl]);
 
   return (
-    <div className={styles.art}>
+    <div className={`${styles.art} ${styles.phase}`}>
       {layers.length === 0 ? <span className={styles.artEmpty} aria-hidden="true" /> : null}
       {layers.map((src, i) => (
         // biome-ignore lint/performance/noImgElement: cover art from YouTube/Spotify CDNs, crossfaded by hand
@@ -118,7 +118,7 @@ function Stage({
         {track ? (
           <>
             <Artwork track={track} />
-            <div className={styles.meta}>
+            <div className={`${styles.meta} ${styles.phase}`}>
               <p className={styles.label}>{state.paused ? "พักไว้" : "กำลังเล่น"}</p>
               <VoiceLine voice={voice} />
               {/* Sibling keys must differ: the title and the progress bar both re-mount per track. */}
@@ -148,7 +148,7 @@ function Stage({
             </div>
           </>
         ) : (
-          <div className={styles.idle}>
+          <div className={`${styles.idle} ${styles.phase}`}>
             {state.recovering ? (
               <p className={styles.label} data-testid="recovering" role="status">
                 กำลังกู้คิวหลังบอทรีสตาร์ท…

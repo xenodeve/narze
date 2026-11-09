@@ -17,3 +17,15 @@
   margin: 0 0 12px;
   color: var(--danger);
 }
+
+/* A tab's pane fades in when shown (#174). */
+.pane:not([hidden]) {
+  animation: pane var(--t1) var(--ease) backwards;
+}
+
+@keyframes pane {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}

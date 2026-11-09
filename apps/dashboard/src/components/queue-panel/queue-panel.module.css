@@ -32,6 +32,10 @@
   font: inherit;
   font-size: 0.8125rem;
   cursor: pointer;
+  transition:
+    background-color var(--t1) var(--ease),
+    border-color var(--t1) var(--ease),
+    color var(--t1) var(--ease);
 }
 
 .danger {
@@ -56,18 +60,14 @@
   border-top: 1px solid var(--line);
 }
 
+/* Enter, exit and reorder motion is in the component (motion/react, #174): a CSS entrance here
+   replayed on every row whenever the hidden Queue tab was shown again. */
 .item {
   position: relative;
+  /* Clips the row while it folds away; the 2px margin keeps the drop line (inset −1px) visible. */
+  overflow: clip;
+  overflow-clip-margin: 2px;
   border-bottom: 1px solid var(--line);
-  /* Track added to queue: `row`, 360 ms from −6px (DESIGN.md §7). */
-  animation: row 360ms var(--ease) both;
-}
-
-@keyframes row {
-  from {
-    opacity: 0;
-    transform: translateY(-6px);
-  }
 }
 
 .item[data-dragging] {
@@ -90,7 +90,7 @@
 }
 
 .item[data-jumping] {
-  animation: jump 400ms var(--ease) forwards;
+  animation: jump var(--t2) var(--ease) forwards;
 }
 
 @keyframes jump {
@@ -222,6 +222,10 @@
   background: transparent;
   color: var(--ink-2);
   cursor: pointer;
+  transition:
+    opacity var(--t1) var(--ease),
+    background-color var(--t1) var(--ease),
+    color var(--t1) var(--ease);
 }
 
 .action::after {
@@ -230,13 +234,14 @@
   inset: -6px;
 }
 
+/* Always findable (#174): quiet at rest, full on the row's hover or keyboard focus. */
 @media (hover: hover) {
   .action {
-    opacity: 0;
+    opacity: 0.45;
   }
 
   .item:hover .action,
-  .action:focus-visible {
+  .item:focus-within .action {
     opacity: 1;
   }
 
@@ -277,6 +282,13 @@
   padding: 20px 0;
   border-top: 1px solid var(--line);
   color: var(--ink-2);
+  animation: fade var(--t2) var(--ease) backwards;
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
 }
 
 .dialog {
@@ -287,11 +299,6 @@
   background: var(--surface);
   color: var(--ink);
   box-shadow: var(--shadow-window);
-}
-
-.dialog::backdrop {
-  background: rgb(0 0 0 / 0.35);
-  backdrop-filter: blur(4px);
 }
 
 .dialogTitle {

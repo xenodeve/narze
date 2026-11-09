@@ -16,6 +16,10 @@
   font: inherit;
   font-size: 0.8125rem;
   cursor: pointer;
+  transition:
+    background-color var(--t1) var(--ease),
+    border-color var(--t1) var(--ease),
+    color var(--t1) var(--ease);
 }
 
 .tab[aria-selected="true"],

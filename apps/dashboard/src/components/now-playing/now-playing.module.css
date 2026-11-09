@@ -293,3 +293,24 @@
   margin-bottom: 16px;
   border-radius: var(--r-pill);
 }
+
+/*
+ * Idle ↔ playing (#174): the stage's content is replaced, not cut. Each side enters on DESIGN.md's
+ * expand timing (420 ms, --ease-soft), the meta a beat after the artwork. It mounts once per phase,
+ * so a new track does not replay it (the title and artwork have their own swap and crossfade).
+ */
+.phase {
+  animation: phase var(--t-glide) var(--ease-soft) backwards;
+}
+
+.meta.phase {
+  animation-delay: 60ms;
+}
+
+@keyframes phase {
+  from {
+    opacity: 0;
+    filter: blur(4px);
+    transform: translateY(8px);
+  }
+}

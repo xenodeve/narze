@@ -297,7 +297,7 @@
   box-shadow: var(--shadow-window);
 }
 
-.lightbox::backdrop {
+.lightbox[open]::backdrop {
   background: rgb(0 0 0 / 0.6);
   backdrop-filter: blur(4px);
 }

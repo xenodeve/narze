@@ -16,6 +16,7 @@ import { SignedIn } from "@/components/catalog/browse";
 import { Thinking } from "@/components/catalog/thinking";
 import { LikeButton } from "@/components/like-button";
 import { formatTime } from "@/components/now-playing/progress";
+import { Toast } from "@/components/toast";
 import { isSpotifyLink, useSources } from "@/lib/catalog";
 import {
   changePlaylist,
@@ -333,6 +334,7 @@ function PlaylistBody({ id, play }: { id: string; play: Play }) {
   const [name, setName] = useState("");
   const [confirming, setConfirming] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const clearToast = useCallback(() => setToast(null), []);
   const load = useCallback(() => {
     void getPlaylist(id).then((found) => setPlaylist(found ?? "failed"));
   }, [id]);
@@ -410,11 +412,7 @@ function PlaylistBody({ id, play }: { id: string; play: Play }) {
           </button>
         </div>
       </header>
-      {toast ? (
-        <p role="status" aria-live="polite" className={styles.toast}>
-          {toast}
-        </p>
-      ) : null}
+      <Toast message={toast} onDone={clearToast} />
       <TrackRows
         tracks={playlist.tracks}
         onPlay={(t) => play({ title: t.title, query: t.uri })}

@@ -6,6 +6,27 @@
 
 ---
 
+## #174 Exits and moves animate (2026-11-09, branch `feat/174-motion`)
+
+**Goal:** from the Dashboard UX scrutinize. Only enter motion existed. Dialogs, queue removals and reorders, tab switches, the toast, the idle ↔ playing stage and the voice sheet all snapped, and queue row actions were invisible until hover.
+
+**Shipped:**
+- One dialog rule in `base.css` that enters and leaves with its backdrop (`@starting-style`, `overlay`/`display` allow-discrete). The per-module dialog keyframes and backdrops were removed.
+- Queue rows on `motion/react`: drop in, fold out, glide on reorder, with `initial={false}` and reduced motion honoured. Row actions are always visible at 45 %.
+- Search keeps its query across tabs, and panes fade in.
+- A shared fixed `Toast` that leaves on its own after 3.2 s.
+- A stage `phase` entrance for idle ↔ playing.
+- The voice sheet enters and leaves.
+- Hover and selected states transition on `--t1`.
+
+**Validated:**
+- `motion.spec`: red on `v7` (rows replayed 2 animations on tab return; idle had no `phase`), green on the branch.
+- queue, control, voice, library, catalog, admin, admin-ii, now-playing and settings e2e: 33/33.
+
+**Process note:** this batch's code came before its test. The test was then proven red by running it against `v7` with the change stashed.
+
+---
+
 ## #172 Page transitions, layout-true skeletons, home inside the shell (2026-11-09, branch `feat/172-transitions`)
 
 **Goal:** from the Dashboard UX scrutinize. Before this:
