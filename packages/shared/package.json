@@ -11,6 +11,7 @@
     "./queue": "./src/queue.ts",
     "./ttl-cache": "./src/ttl-cache.ts",
     "./search": "./src/search.ts",
+    "./sources": "./src/sources.ts",
     "./spotify-api": "./src/spotify-api.ts"
   },
   "scripts": {

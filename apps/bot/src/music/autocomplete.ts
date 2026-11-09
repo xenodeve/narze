@@ -37,7 +37,11 @@ export function createSuggester({
   const sourceList = () => (typeof sources === "function" ? sources() : sources);
 
   async function compute(resolved: ResolvedQuery): Promise<{ choices: Choice[]; ok: boolean }> {
-    if (!resolved.ok) return { choices: ERROR("ไม่รองรับ Platform นี้"), ok: false };
+    if (!resolved.ok) {
+      // #157: the same words the reply uses after submit.
+      const text = resolved.reason === "coming-soon" ? "ยังไม่รองรับแหล่งเพลงนี้ จะรองรับเร็ว ๆ นี้" : "ไม่รองรับ Platform นี้";
+      return { choices: ERROR(text), ok: false };
+    }
     const found = await load(resolved.query, resolved.source);
     const isUrl = !resolved.source;
     if (found.tracks.length === 0 || found.loadType === "error" || found.loadType === "empty") {

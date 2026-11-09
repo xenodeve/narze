@@ -1,6 +1,7 @@
-import { type SearchResponse, SearchSourceSchema } from "@narze/shared";
+import { type SearchResponse, SearchSourceSchema, type Sources } from "@narze/shared";
 import { BadRequestException, Controller, Get, Headers, Inject, NotFoundException, Param, Query } from "@nestjs/common";
 import { Authenticator } from "../auth/authenticator";
+import { SOURCES } from "../tokens";
 import { type AlbumPage, type ArtistPage, type ChannelPage, SearchService } from "./search-service";
 
 /** The Catalog over REST (#105): search and the artist, album and channel pages, signed-in only. */
@@ -9,7 +10,14 @@ export class SearchController {
   constructor(
     @Inject(Authenticator) private readonly auth: Authenticator,
     @Inject(SearchService) private readonly catalog: SearchService,
+    @Inject(SOURCES) private readonly ready: Sources,
   ) {}
+
+  /** #157: which sources can play, so the Dashboard shows the others as coming soon. Not secret: public. */
+  @Get("sources")
+  sources(): Sources {
+    return this.ready;
+  }
 
   @Get("search")
   async search(

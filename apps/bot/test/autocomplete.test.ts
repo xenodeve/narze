@@ -39,6 +39,10 @@ describe("play autocomplete (#104, spec #2, #69)", () => {
     const s = suggester(async () => ({ loadType: "empty", tracks: [] }));
     expect(await s.suggest("https://www.deezer.com/track/1")).toEqual([{ name: "ไม่รองรับ Platform นี้", value: "error" }]);
     expect(await s.suggest("https://music.apple.com/x")).toEqual([{ name: "ไม่รองรับ Platform นี้", value: "error" }]);
+    // #157: a source that is not ready says it is coming soon, as the reply after submit does.
+    expect(await s.suggest("https://soundcloud.com/yoasobi/idol")).toEqual([
+      { name: "ยังไม่รองรับแหล่งเพลงนี้ จะรองรับเร็ว ๆ นี้", value: "error" },
+    ]);
     expect(await s.suggest("  ")).toEqual([{ name: "กรุณาระบุเพลง", value: "no_song" }]);
     expect(await s.suggest("nothing")).toEqual([{ name: "ไม่พบเพลงที่ค้นหา", value: "error" }]);
     expect(await s.suggest("https://www.youtube.com/watch?v=zz")).toEqual([

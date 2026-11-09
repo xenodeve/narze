@@ -56,3 +56,31 @@ test("a YouTube Music album playlist (list=RDCLAK…) is not a Mix (#104 review)
     query: "https://music.youtube.com/playlist?list=RDCLAK5uy_x",
   });
 });
+
+describe("sources that are not ready say so (#157)", () => {
+  test("a SoundCloud link is coming soon while SoundCloud cannot play (#156)", () => {
+    for (const url of [
+      "https://soundcloud.com/yoasobi/idol",
+      "https://on.soundcloud.com/abc",
+      "https://m.soundcloud.com/x/y",
+    ]) {
+      expect(resolveQuery(url, ["soundcloud", "youtube"])).toEqual({ ok: false, reason: "coming-soon" });
+    }
+  });
+
+  test("a Spotify playlist, album or artist link is coming soon until the node has Spotify", () => {
+    for (const url of [
+      "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M",
+      "https://open.spotify.com/album/abc",
+      "https://open.spotify.com/intl-th/artist/abc",
+    ]) {
+      expect(resolveQuery(url, ["youtube"])).toEqual({ ok: false, reason: "coming-soon" });
+      expect(resolveQuery(url, ["spotify", "youtube"])).toEqual({ ok: true, query: url });
+    }
+  });
+
+  test("a Spotify track link still plays without Spotify: the oEmbed title is searched (spec #70)", () => {
+    const url = "https://open.spotify.com/track/abc";
+    expect(resolveQuery(url, ["youtube"])).toEqual({ ok: true, query: url });
+  });
+});

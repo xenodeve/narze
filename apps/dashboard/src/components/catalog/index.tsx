@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { LikeButton } from "@/components/like-button";
 import { formatTime } from "@/components/now-playing/progress";
-import { searchCatalog, sourceBadge } from "@/lib/catalog";
+import { isSoundCloudLink, isSpotifyCollectionLink, searchCatalog, sourceBadge, useSources } from "@/lib/catalog";
 import pill from "@/styles/pill-tabs.module.css";
 import styles from "./catalog.module.css";
 import { Thinking } from "./thinking";
@@ -88,7 +88,12 @@ function TopResult({
  * result with its match, then songs, artists and albums. A pasted link plays as one item.
  */
 export function CatalogSearch({ onPlay }: { onPlay: (item: { title: string; query: string }) => void }) {
-  const [source, setSource] = useState<SearchSource>("spotify-api");
+  const sources = useSources();
+  // #157: without Spotify the Spotify tabs say "coming soon" and search opens on YouTube Music.
+  const spotifyOff = sources?.spotify === false;
+  const [picked, setPicked] = useState<SearchSource | null>(null);
+  const source: SearchSource = picked ?? (spotifyOff ? "youtubemusic" : "spotify-api");
+  const soon = (s: SearchSource) => spotifyOff && (s === "spotify" || s === "spotify-api");
   const [query, setQuery] = useState("");
   const [result, setResult] = useState<SearchResponse | null | "failed">(null);
   const [searching, setSearching] = useState(false);
@@ -143,14 +148,24 @@ export function CatalogSearch({ onPlay }: { onPlay: (item: { title: string; quer
             role="tab"
             aria-selected={source === s.value}
             className={pill.tab}
-            onClick={() => setSource(s.value)}
+            disabled={soon(s.value)}
+            onClick={() => setPicked(s.value)}
           >
             {s.label}
+            {soon(s.value) ? <span className={styles.soon}> · เร็ว ๆ นี้</span> : null}
           </button>
         ))}
       </div>
 
-      {isLink(text) ? (
+      {isLink(text) && isSoundCloudLink(text) && sources?.soundcloud !== true ? (
+        <p role="status" className={styles.note}>
+          SoundCloud รองรับเร็ว ๆ นี้
+        </p>
+      ) : isLink(text) && spotifyOff && isSpotifyCollectionLink(text) ? (
+        <p role="status" className={styles.note}>
+          Spotify รองรับเร็ว ๆ นี้ ตอนนี้วางลิงก์เพลงเดี่ยวของ Spotify ได้
+        </p>
+      ) : isLink(text) ? (
         <button type="button" className={styles.primary} onClick={() => onPlay({ title: text, query: text })}>
           {isPlaylistLink(text) ? "เล่น Playlist นี้" : "เล่นลิงก์นี้"}
         </button>

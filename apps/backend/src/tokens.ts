@@ -12,3 +12,5 @@ export const DISCORD_API_URL = Symbol("DISCORD_API_URL");
 export const ADMIN_QUERY_TIMEOUT_MS = Symbol("ADMIN_QUERY_TIMEOUT_MS");
 /** Injection token for the Backend's rate limits (#142). */
 export const RATE_LIMITS = Symbol("RATE_LIMITS");
+/** Injection token for which sources can play (#157): `Sources`. */
+export const SOURCES = Symbol("SOURCES");

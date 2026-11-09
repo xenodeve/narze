@@ -56,7 +56,7 @@ export type PlayResult =
   | { kind: "started"; track: Track }
   | { kind: "queued"; track: Track; position: number }
   | { kind: "playlist"; playlist: AddedPlaylist; started: boolean; firstPosition: number }
-  | { kind: "error"; reason: "empty" | "unsupported" | "not-found" | "failed" };
+  | { kind: "error"; reason: "empty" | "unsupported" | "coming-soon" | "not-found" | "failed" };
 
 export interface MusicOptions {
   lavalink: LavalinkManager;

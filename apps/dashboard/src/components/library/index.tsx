@@ -16,6 +16,7 @@ import { SignedIn } from "@/components/catalog/browse";
 import { Thinking } from "@/components/catalog/thinking";
 import { LikeButton } from "@/components/like-button";
 import { formatTime } from "@/components/now-playing/progress";
+import { isSpotifyLink, useSources } from "@/lib/catalog";
 import {
   changePlaylist,
   createPlaylist,
@@ -129,6 +130,7 @@ function ImportDialog({ open, onClose, onSaved }: { open: boolean; onClose: () =
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const spotifyOff = useSources()?.spotify === false;
   useEffect(() => {
     if (open) {
       setLink("");
@@ -140,6 +142,13 @@ function ImportDialog({ open, onClose, onSaved }: { open: boolean; onClose: () =
   }, [open]);
 
   const load = async () => {
+    // #157: a Spotify playlist needs Spotify, which is not set up yet.
+    if (spotifyOff && isSpotifyLink(link)) {
+      setPreview(null);
+      setStatus("error");
+      setError("Spotify รองรับเร็ว ๆ นี้ ตอนนี้ใช้ได้เฉพาะ Playlist ของ YouTube");
+      return;
+    }
     setStatus("working");
     setError(null);
     const result = await previewImport(link.trim());
@@ -172,12 +181,12 @@ function ImportDialog({ open, onClose, onSaved }: { open: boolean; onClose: () =
         นำเข้า Playlist
       </h2>
       <label className={styles.field}>
-        ลิงก์ Playlist ของ Spotify หรือ YouTube
+        {spotifyOff ? "ลิงก์ Playlist ของ YouTube (Spotify รองรับเร็ว ๆ นี้)" : "ลิงก์ Playlist ของ Spotify หรือ YouTube"}
         <input
           className={styles.input}
           value={link}
           onChange={(e) => setLink(e.target.value)}
-          placeholder="https://open.spotify.com/playlist/…"
+          placeholder={spotifyOff ? "https://www.youtube.com/playlist?list=…" : "https://open.spotify.com/playlist/…"}
         />
       </label>
       <div className={styles.row}>

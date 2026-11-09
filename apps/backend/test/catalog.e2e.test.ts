@@ -96,3 +96,28 @@ describe("where may I play? (#105, spec #91)", () => {
     expect(after[0]).toMatchObject({ canPlay: true, reason: "in-voice" });
   });
 });
+
+describe("which sources can play (#157)", () => {
+  test("without Spotify credentials Spotify is coming soon; SoundCloud waits on #156", async () => {
+    const res = await fetch(`${url}/api/sources`);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ spotify: false, soundcloud: false });
+  });
+
+  test("with Spotify credentials Spotify is on, with no code change", async () => {
+    const withSpotify = await createApp({
+      redisUrl: REDIS_URL,
+      dashboardOrigin: "http://localhost:3000",
+      supabase: localSupabase(),
+      discordApiUrl: `http://127.0.0.1:${FAKE_DISCORD_PORT}/api/v10`,
+      spotify: { clientId: "id", clientSecret: "secret" },
+    });
+    try {
+      await withSpotify.listen(0);
+      const res = await fetch(`${await withSpotify.getUrl()}/api/sources`);
+      expect(await res.json()).toEqual({ spotify: true, soundcloud: false });
+    } finally {
+      await withSpotify.close();
+    }
+  });
+});

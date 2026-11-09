@@ -1,10 +1,14 @@
+import { SOUNDCLOUD_PLAYABLE } from "@narze/shared/sources";
 import { isInternalUrl } from "./url-safety";
 
 export type ResolvedQuery =
   | { ok: true; query: string; source?: "spsearch" | "ytmsearch" }
-  | { ok: false; reason: "empty" | "unsupported" };
+  | { ok: false; reason: "empty" | "unsupported" | "coming-soon" };
 
 const UNSUPPORTED = /^https?:\/\/([a-z0-9-]+\.)*(deezer\.com|music\.apple\.com)\//i;
+const SOUNDCLOUD = /^https?:\/\/([a-z0-9-]+\.)*soundcloud\.com\//i;
+/** A Spotify link that needs the Spotify source to load; a track link has the oEmbed fallback (spec #70). */
+const SPOTIFY_COLLECTION = /^https?:\/\/open\.spotify\.com\/(intl-[a-z-]+\/)?(playlist|album|artist)\//i;
 
 /** A YouTube Mix (radio) playlist id starts with RD; RDCLAK… is a YouTube Music album, not a Mix. */
 export const isMixList = (list: string) => list.startsWith("RD") && !list.startsWith("RDCLAK");
@@ -21,6 +25,9 @@ export function resolveQuery(input: string, sourceManagers: readonly string[]): 
   const text = input.trim();
   if (!text) return { ok: false, reason: "empty" };
   if (UNSUPPORTED.test(text)) return { ok: false, reason: "unsupported" };
+  // #157: sources that are not ready say so instead of "not found".
+  if (!SOUNDCLOUD_PLAYABLE && SOUNDCLOUD.test(text)) return { ok: false, reason: "coming-soon" };
+  if (SPOTIFY_COLLECTION.test(text) && !sourceManagers.includes("spotify")) return { ok: false, reason: "coming-soon" };
   if (/^https?:\/\//i.test(text)) {
     let url: URL;
     try {

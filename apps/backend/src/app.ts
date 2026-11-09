@@ -1,5 +1,6 @@
 import "reflect-metadata";
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { SOUNDCLOUD_PLAYABLE, type Sources } from "@narze/shared/sources";
 import { createSpotifyApi } from "@narze/shared/spotify-api";
 import { type DynamicModule, type INestApplication, Inject, Module, type OnApplicationShutdown } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
@@ -44,6 +45,7 @@ import {
   RATE_LIMITS,
   REDIS,
   REDIS_SUBSCRIBER,
+  SOURCES,
   SUPABASE,
 } from "./tokens";
 import { UserStore } from "./users/user-store";
@@ -143,6 +145,14 @@ class AppModule implements OnApplicationShutdown {
         { provide: DEVELOPER_IDS, useValue: options.developerIds ?? [] },
         { provide: ADMIN_QUERY_TIMEOUT_MS, useValue: options.adminQueryTimeoutMs ?? 5000 },
         { provide: RATE_LIMITS, useValue: options.rateLimits ?? DEFAULT_RATE_LIMITS },
+        {
+          // #157: Spotify turns on with its credentials; SoundCloud with the Lavalink fix (#156).
+          provide: SOURCES,
+          useValue: {
+            spotify: Boolean(options.spotify?.clientId && options.spotify?.clientSecret),
+            soundcloud: SOUNDCLOUD_PLAYABLE,
+          } satisfies Sources,
+        },
         AdminQueries,
         AdminRoles,
         AdminGuard,
