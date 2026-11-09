@@ -6,6 +6,31 @@
 
 ---
 
+## #154 YouTube playback on a real Bot (2026-11-09, branch `fix/154-youtube-playback`)
+
+**Goal:** the first real playback test, with the Bot in a Discord voice channel (Bot Test → ทั่วไป).
+
+**Found:** the voice path works: a direct mp3 played. YouTube did not play at all. Every youtube-plugin client was refused on 1.18.1 and 1.18.2 (the latest release), with and without OAuth or a remote cipher. The issue body has the full table.
+
+**Shipped:**
+- youtube-plugin pinned to snapshot `2be8e542d3f6f178e048dca565892684c2e40177`. It includes commit `b33460b`, the TV client User-Agent fix for "The page needs to be reloaded" (youtube-source #226), which no release has yet.
+- A `yt-cipher` service: third-party, pinned by digest, bound to 127.0.0.1, sharing `YT_CIPHER_TOKEN` with Lavalink. Lavalink's `remoteCipher` points at it.
+- Clients: `MUSIC`, `TV`, `WEB` and `ANDROID_VR`.
+
+**Measured:**
+- Snapshot + cipher plays.
+- The snapshot without the cipher fails with "Must find sig function".
+- OAuth is not needed. It was tried with a spare account and then removed.
+
+**Validated on the real Bot (Narze#5748):**
+- "YOASOBI Idol" plays from YouTube. The position advanced 72.5 → 77.6 s over 5 s, and the player was connected to voice (ping 35 ms).
+- A YouTube URL was queued.
+- The opt-in real-Lavalink search test passes 2/2.
+
+**Follow-up:** move back to a released youtube-plugin once one includes `b33460b`. SoundCloud in Lavalink 4.2.2 also fails, even to search (not addressed).
+
+---
+
 ## #152 Dashboard reads the root .env (2026-11-09, branch `fix/152-dashboard-root-env`)
 
 **Goal:** `bun run build` works from any folder. Before this, `next build` read env files only from `apps/dashboard`, so it inlined an empty Supabase URL and key, and sign-in broke. Found while testing every system before the first real use.
