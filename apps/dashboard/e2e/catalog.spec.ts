@@ -105,8 +105,11 @@ test("without Spotify the search says it is coming soon and opens on YouTube Mus
   await signInThroughPopup(page, "Hana");
   await page.goto("/search");
   const spotify = page.getByRole("tab", { name: /^Spotify/ });
-  await expect(spotify.first()).toBeDisabled();
-  await expect(spotify.first()).toContainText("เร็ว ๆ นี้");
+  await expect(spotify).toHaveCount(2);
+  for (const tab of await spotify.all()) {
+    await expect(tab).toBeDisabled();
+    await expect(tab).toContainText("เร็ว ๆ นี้");
+  }
   await expect(page.getByRole("tab", { name: "YouTube Music" })).toHaveAttribute("aria-selected", "true");
   // A search goes to YouTube Music, and finds something.
   await page.getByRole("searchbox", { name: "ค้นหาเพลง ศิลปิน หรืออัลบั้ม" }).fill("lemon");
@@ -115,4 +118,11 @@ test("without Spotify the search says it is coming soon and opens on YouTube Mus
   await page.getByRole("searchbox", { name: "ค้นหาเพลง ศิลปิน หรืออัลบั้ม" }).fill("https://soundcloud.com/yoasobi/idol");
   await expect(page.getByText("SoundCloud รองรับเร็ว ๆ นี้")).toBeVisible();
   await expect(page.getByRole("button", { name: "เล่นลิงก์นี้" })).toHaveCount(0);
+  // A Spotify playlist link says the same; a track link still plays (by its title, spec #70).
+  const box = page.getByRole("searchbox", { name: "ค้นหาเพลง ศิลปิน หรืออัลบั้ม" });
+  await box.fill("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M");
+  await expect(page.getByText("Spotify รองรับเร็ว ๆ นี้")).toBeVisible();
+  await expect(page.getByRole("button", { name: "เล่น Playlist นี้" })).toHaveCount(0);
+  await box.fill("https://open.spotify.com/track/abc");
+  await expect(page.getByRole("button", { name: "เล่นลิงก์นี้" })).toBeVisible();
 });

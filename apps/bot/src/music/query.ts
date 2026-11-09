@@ -8,7 +8,7 @@ export type ResolvedQuery =
 const UNSUPPORTED = /^https?:\/\/([a-z0-9-]+\.)*(deezer\.com|music\.apple\.com)\//i;
 const SOUNDCLOUD = /^https?:\/\/([a-z0-9-]+\.)*soundcloud\.com\//i;
 /** A Spotify link that needs the Spotify source to load; a track link has the oEmbed fallback (spec #70). */
-const SPOTIFY_COLLECTION = /^https?:\/\/open\.spotify\.com\/(intl-[a-z]+\/)?(playlist|album|artist)\//i;
+const SPOTIFY_COLLECTION = /^https?:\/\/open\.spotify\.com\/(intl-[a-z-]+\/)?(playlist|album|artist)\//i;
 
 /** A YouTube Mix (radio) playlist id starts with RD; RDCLAK… is a YouTube Music album, not a Mix. */
 export const isMixList = (list: string) => list.startsWith("RD") && !list.startsWith("RDCLAK");

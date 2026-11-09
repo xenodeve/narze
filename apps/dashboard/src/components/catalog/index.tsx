@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { LikeButton } from "@/components/like-button";
 import { formatTime } from "@/components/now-playing/progress";
-import { isSoundCloudLink, searchCatalog, sourceBadge, useSources } from "@/lib/catalog";
+import { isSoundCloudLink, isSpotifyCollectionLink, searchCatalog, sourceBadge, useSources } from "@/lib/catalog";
 import pill from "@/styles/pill-tabs.module.css";
 import styles from "./catalog.module.css";
 import { Thinking } from "./thinking";
@@ -160,6 +160,10 @@ export function CatalogSearch({ onPlay }: { onPlay: (item: { title: string; quer
       {isLink(text) && isSoundCloudLink(text) && sources?.soundcloud !== true ? (
         <p role="status" className={styles.note}>
           SoundCloud รองรับเร็ว ๆ นี้
+        </p>
+      ) : isLink(text) && spotifyOff && isSpotifyCollectionLink(text) ? (
+        <p role="status" className={styles.note}>
+          Spotify รองรับเร็ว ๆ นี้ ตอนนี้วางลิงก์เพลงเดี่ยวของ Spotify ได้
         </p>
       ) : isLink(text) ? (
         <button type="button" className={styles.primary} onClick={() => onPlay({ title: text, query: text })}>

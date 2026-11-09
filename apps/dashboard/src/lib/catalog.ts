@@ -22,11 +22,17 @@ import { BACKEND_URL } from "./config";
 
 // #157: which sources can play is fixed while the Backend runs; one read per page load.
 let sourcesLoad: Promise<Sources | null> | null = null;
-const loadSources = () => {
-  sourcesLoad ??= fetch(`${BACKEND_URL}/api/sources`)
+const loadSources = (): Promise<Sources | null> => {
+  if (sourcesLoad) return sourcesLoad;
+  const load = fetch(`${BACKEND_URL}/api/sources`)
     .then(async (res) => (res.ok ? SourcesSchema.parse(await res.json()) : null))
     .catch(() => null);
-  return sourcesLoad;
+  sourcesLoad = load;
+  // A failed read is not remembered: the next page or component asks again.
+  void load.then((s) => {
+    if (!s && sourcesLoad === load) sourcesLoad = null;
+  });
+  return load;
 };
 
 /** Which sources can play; null until known (and if the Backend did not say). */
@@ -43,6 +49,9 @@ export function useSources(): Sources | null {
 }
 
 export const isSpotifyLink = (text: string) => /^https?:\/\/open\.spotify\.com\//i.test(text.trim());
+/** A Spotify link that needs Spotify to load; a track link plays by its title (spec #70). */
+export const isSpotifyCollectionLink = (text: string) =>
+  /^https?:\/\/open\.spotify\.com\/(intl-[a-z-]+\/)?(playlist|album|artist)\//i.test(text.trim());
 export const isSoundCloudLink = (text: string) => /^https?:\/\/([a-z0-9-]+\.)*soundcloud\.com\//i.test(text.trim());
 
 /** Catalog search over the Backend (#105); null when the request failed. */

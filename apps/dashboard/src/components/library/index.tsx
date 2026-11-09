@@ -144,6 +144,7 @@ function ImportDialog({ open, onClose, onSaved }: { open: boolean; onClose: () =
   const load = async () => {
     // #157: a Spotify playlist needs Spotify, which is not set up yet.
     if (spotifyOff && isSpotifyLink(link)) {
+      setPreview(null);
       setStatus("error");
       setError("Spotify รองรับเร็ว ๆ นี้ ตอนนี้ใช้ได้เฉพาะ Playlist ของ YouTube");
       return;
