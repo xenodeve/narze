@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { BACKEND_URL } from "@/lib/config";
 import { SIGNED_IN_MESSAGE } from "@/lib/session";
@@ -71,9 +72,9 @@ export default function AuthCallback() {
           <div role="alert" className={styles.box}>
             <h1 className={styles.title}>เข้าสู่ระบบไม่สำเร็จ</h1>
             <p className={styles.text}>ลิงก์นี้ใช้ไม่ได้หรือหมดอายุแล้ว ลองกดเข้าสู่ระบบใหม่จากหน้าแรก</p>
-            <a className={styles.link} href="/">
+            <Link className={styles.link} href="/">
               กลับหน้าแรก
-            </a>
+            </Link>
           </div>
         )}
       </div>

@@ -1,7 +1,8 @@
 "use client";
 
 import { type GuildSummary, isAtLeast } from "@narze/shared";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useState } from "react";
 import { Account } from "@/components/account";
 import BranchedMenu from "@/components/vendor/branched-menu/BranchedMenu";
@@ -94,19 +95,22 @@ function GuildNav({ userId, activeGuildId }: { userId: string; activeGuildId: st
 
 /**
  * App shell (#76, DESIGN.md §5): a sticky glass top bar and a 240px sticky sidebar with the supplied
- * BranchedMenu listing the user's servers. At ≤ 900px the sidebar folds into a <details>.
+ * BranchedMenu listing the user's servers. At ≤ 900px the sidebar folds into a <details>. The
+ * (app) layout renders it once, so it lives across page changes (#168).
  */
-export function AppShell({ guildId = "", children }: { guildId?: string; children: ReactNode }) {
+export function AppShell({ children }: { children: ReactNode }) {
   const session = useSession();
+  // Rendered once by the (app) layout (#168), so the Guild comes from the path, not from a page.
+  const guildId = /^\/guilds\/([^/]+)/.exec(usePathname() ?? "")?.[1] ?? "";
   // Open beside the content on wide screens; folded on narrow ones so the player comes first.
   const [open, setOpen] = useState(false);
   useEffect(() => setOpen(window.matchMedia("(min-width: 901px)").matches), []);
   return (
     <div className={styles.shell}>
       <header className={styles.bar}>
-        <a className={`mono ${styles.brand}`} href="/">
+        <Link className={`mono ${styles.brand}`} href="/">
           NARZE · V7
-        </a>
+        </Link>
         <span className={styles.barEnd}>
           {guildId && session.status === "signed-in" ? <VoiceControl guildId={guildId} /> : null}
           <Account />

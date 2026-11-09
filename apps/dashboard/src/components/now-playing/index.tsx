@@ -2,6 +2,7 @@
 
 import type { AvatarOutfit, PlayerState, Track } from "@narze/shared";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { type CSSProperties, useEffect, useState } from "react";
 import { ChartPanel } from "@/components/charts";
 import { Controls } from "@/components/controls";
@@ -213,9 +214,9 @@ export function NowPlaying({ guildId, userId }: { guildId: string; userId: strin
   const state = view.state ?? null;
   return (
     <div className={styles.page}>
-      <a className={styles.settingsLink} href={`/guilds/${guildId}/settings`}>
+      <Link className={styles.settingsLink} href={`/guilds/${guildId}/settings`}>
         ตั้งค่าเซิร์ฟเวอร์
-      </a>
+      </Link>
       <Stage
         guildId={guildId}
         permission={view.permission}
