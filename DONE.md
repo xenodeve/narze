@@ -6,6 +6,28 @@
 
 ---
 
+## #152 Dashboard reads the root .env (2026-11-09, branch `fix/152-dashboard-root-env`)
+
+**Goal:** `bun run build` works from any folder. Before this, `next build` read env files only from `apps/dashboard`, so it inlined an empty Supabase URL and key, and sign-in broke. Found while testing every system before the first real use.
+
+**Shipped:** `apps/dashboard/next.config.ts` loads the root `.env` with `process.loadEnvFile`. That call never overrides a variable already set (measured), and it is skipped when the file does not exist. `@next/env` `loadEnvConfig` could not do this: it returns its first, cached result, and Next has already called it for `apps/dashboard`.
+
+**Validated:**
+- The configured Supabase host appears in the built chunks: 3 after a root `bun run build`, and 3 after `bun run build` in `apps/dashboard`. It was 0 before the fix.
+- `bun run e2e` passes 49/49. e2e's build baked the local URL (3 chunks) and no cloud URL, so the caller's values still win.
+- `bun run verify` exit 0.
+
+**Also this session:** every system was checked against the real config:
+- Lavalink: connect and search.
+- Supabase cloud: tables, RLS and the Discord provider.
+- Backend: auth, charts and CORS.
+- The Bot as Narze#5748: Redis, Lavalink, 18 commands registered, 13 guilds.
+- Dashboard sign-in: reaches Discord's authorize page with the cloud redirect.
+
+Left for the developer: completing the Discord login, and playing in a voice channel (#121).
+
+---
+
 ## #150 Real Lavalink: empty password (2026-11-09, branch `fix/150-lavalink-password`)
 
 **Goal:** the first run against the real Lavalink (4.2.2, compose `--profile audio`).
