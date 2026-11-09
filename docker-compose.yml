@@ -33,11 +33,11 @@ services:
     depends_on: [yt-cipher]
 
   # Solves YouTube's player-script signatures for Lavalink's youtube-plugin (remoteCipher). Third-party
-  # (github.com/kikkia/yt-cipher), so pinned by digest; reachable only from this machine and the compose
-  # network, and it takes the same token Lavalink sends.
+  # (github.com/kikkia/yt-cipher), so pinned by digest; reachable only on the compose network, and it
+  # takes the same token Lavalink sends.
   yt-cipher:
     image: ghcr.io/kikkia/yt-cipher@sha256:4c5ec381ff57336cfc24822d2b526a5ad7cd0171f61065a1bbc87bb736842449
     profiles: ["audio"]
-    ports: ["127.0.0.1:8001:8001"]
+    # No host port: only Lavalink calls it, over the compose network.
     environment:
       API_TOKEN: ${YT_CIPHER_TOKEN:-narze-local-cipher}
