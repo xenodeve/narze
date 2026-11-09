@@ -264,3 +264,8 @@
     display: none;
   }
 }
+
+/* The import's link and its preview button, one form (#176). */
+.previewForm {
+  display: contents;
+}

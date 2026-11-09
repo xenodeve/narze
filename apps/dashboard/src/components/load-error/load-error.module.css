@@ -1,0 +1,30 @@
+.error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding-block: 12px;
+}
+
+.error > p {
+  margin: 0;
+  color: var(--ink-2);
+}
+
+.retry {
+  height: 36px;
+  padding: 0 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+  transition: border-color var(--t1) var(--ease);
+}
+
+@media (hover: hover) {
+  .retry:hover {
+    border-color: var(--ink-3);
+  }
+}

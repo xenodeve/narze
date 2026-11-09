@@ -1,6 +1,7 @@
 "use client";
 
 import type { PlayPermission } from "@narze/shared";
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Thinking } from "@/components/catalog/thinking";
 import { GuildIcon } from "@/components/guild-icon";
@@ -21,7 +22,7 @@ export interface PlayTarget {
 export function SelectServer({ target, onClose }: { target: PlayTarget | null; onClose: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [guilds, setGuilds] = useState<PlayPermission[] | null | "failed">(null);
-  const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
+  const [status, setStatus] = useState<{ ok: boolean; text: string; guildId?: string } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
   useEffect(() => {
@@ -49,7 +50,7 @@ export function SelectServer({ target, onClose }: { target: PlayTarget | null; o
     setBusy(null);
     setStatus(
       result.ok
-        ? { ok: true, text: `เพิ่ม ${target.title} ใน ${guild.name} แล้ว` }
+        ? { ok: true, text: `เพิ่ม ${target.title} ใน ${guild.name} แล้ว`, guildId: guild.guildId }
         : { ok: false, text: result.text ?? "เล่นไม่สำเร็จ" },
     );
   };
@@ -99,6 +100,15 @@ export function SelectServer({ target, onClose }: { target: PlayTarget | null; o
       {status ? (
         <p role="status" className={status.ok ? styles.done : styles.error}>
           {status.text}
+          {status.guildId ? (
+            <>
+              {" "}
+              {/* The way to where it went (#176). */}
+              <Link href={`/guilds/${status.guildId}`} className={styles.go} onClick={onClose}>
+                ไปที่เซิร์ฟเวอร์ →
+              </Link>
+            </>
+          ) : null}
         </p>
       ) : null}
       <div className={styles.actions}>

@@ -87,7 +87,7 @@ test("moving between pages keeps the document and the shell; only the content ch
   // The brand and the home server list are links too, not document loads.
   await page.getByRole("link", { name: "NARZE · V7" }).click();
   await expect(page).toHaveURL("/");
-  await page.getByRole("link", { name: "Picture Club" }).click();
+  await page.getByRole("link", { name: "Picture Club", exact: true }).click();
   await expect(page).toHaveURL(`/guilds/${G_ICON}`);
   expect((await kept()).document).toBe(true);
 });

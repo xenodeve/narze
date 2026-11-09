@@ -131,7 +131,7 @@ test("another user signing in on the same tab never sees the last user's likes (
   await page.getByRole("button", { name: "ออกจากระบบ" }).click();
   await setFakeDiscordUser(wen, []);
   const popup = page.waitForEvent("popup");
-  await page.getByRole("button", { name: "เข้าสู่ระบบด้วย Discord" }).click();
+  await page.getByRole("banner").getByRole("button", { name: "เข้าสู่ระบบด้วย Discord" }).click();
   await (await popup).waitForEvent("close");
   await expect(page.getByTestId("account-name")).toHaveText("Wen");
   await expect(await search()).toHaveAttribute("aria-pressed", "false");

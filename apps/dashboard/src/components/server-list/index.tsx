@@ -2,8 +2,11 @@
 
 import type { GuildSummary, PermissionBadge } from "@narze/shared";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { GuildIcon } from "@/components/guild-icon";
-import { useGuilds } from "@/lib/use-guilds";
+import { LoadError } from "@/components/load-error";
+import { SELECTED_GUILD_KEY } from "@/lib/last-guild";
+import { retryGuilds, useGuilds } from "@/lib/use-guilds";
 import styles from "./server-list.module.css";
 
 /** Latin badge text is set in mono (DESIGN.md Badge); the Thai meaning is the accessible name. */
@@ -48,6 +51,29 @@ function GuildRow({ guild }: { guild: GuildSummary }) {
   );
 }
 
+/** The way back to the server opened last (#176), when it is still one of the user's. */
+function LastServer({ guilds }: { guilds: GuildSummary[] }) {
+  const [lastId, setLastId] = useState<string | null>(null);
+  useEffect(() => {
+    try {
+      setLastId(window.localStorage.getItem(SELECTED_GUILD_KEY));
+    } catch {
+      // Storage may be unavailable (private mode): no way back is offered, nothing breaks.
+    }
+  }, []);
+  const last = guilds.find((g) => g.id === lastId);
+  if (!last) return null;
+  return (
+    <Link className={styles.last} href={`/guilds/${last.id}`} data-testid="last-server">
+      <GuildIcon guildId={last.id} name={last.name} iconUrl={last.iconUrl} size={28} />
+      <span>
+        กลับไปที่ <strong>{last.name}</strong>
+      </span>
+      <span aria-hidden="true">→</span>
+    </Link>
+  );
+}
+
 /** The signed-in user's Mutual Guilds with live Player badges (#99). */
 export function ServerList({ userId }: { userId: string }) {
   const view = useGuilds(userId);
@@ -64,17 +90,18 @@ export function ServerList({ userId }: { userId: string }) {
           ))}
         </ul>
       ) : view.status === "failed" ? (
-        <p role="alert" className={styles.empty}>
-          โหลดรายชื่อเซิร์ฟเวอร์ไม่ได้ ลองรีเฟรชหน้านี้อีกครั้ง
-        </p>
+        <LoadError onRetry={() => retryGuilds(userId)}>โหลดรายชื่อเซิร์ฟเวอร์ไม่ได้</LoadError>
       ) : view.guilds.length === 0 ? (
         <p className={styles.empty}>ยังไม่มีเซิร์ฟเวอร์ที่คุณกับบอทอยู่ด้วยกัน ชวนบอทเข้าเซิร์ฟเวอร์ก่อนแล้วกลับมาดูอีกที</p>
       ) : (
-        <ul className={styles.list}>
-          {view.guilds.map((guild) => (
-            <GuildRow key={guild.id} guild={guild} />
-          ))}
-        </ul>
+        <>
+          <LastServer guilds={view.guilds} />
+          <ul className={styles.list}>
+            {view.guilds.map((guild) => (
+              <GuildRow key={guild.id} guild={guild} />
+            ))}
+          </ul>
+        </>
       )}
     </section>
   );

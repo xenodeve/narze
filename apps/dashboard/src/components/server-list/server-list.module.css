@@ -158,3 +158,34 @@
   line-height: 1.7;
   max-width: 36em;
 }
+
+/* The way back to the last server (#176): one quiet row above the list. */
+.last {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r2);
+  color: var(--ink);
+  text-decoration: none;
+  transition:
+    border-color var(--t1) var(--ease),
+    background-color var(--t1) var(--ease);
+}
+
+.last > span:nth-child(2) {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (hover: hover) {
+  .last:hover {
+    border-color: var(--ink-3);
+    background: var(--fill);
+  }
+}

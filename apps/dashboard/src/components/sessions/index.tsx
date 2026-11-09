@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { SignedIn } from "@/components/catalog/browse";
 import { Thinking } from "@/components/catalog/thinking";
 import { GuildIcon } from "@/components/guild-icon";
+import { LoadError } from "@/components/load-error";
 import { formatTime } from "@/components/now-playing/progress";
 import { initial } from "@/lib/format";
 import { getSession, listSessions, sessionLength, useSessionEvents } from "@/lib/history";
@@ -117,7 +118,7 @@ function SessionList() {
       {sessions === null ? (
         <Thinking label="กำลังโหลดประวัติการฟัง" />
       ) : sessions === "failed" ? (
-        <p role="alert">โหลดประวัติไม่ได้ ลองรีเฟรช</p>
+        <LoadError>โหลดประวัติไม่ได้</LoadError>
       ) : sessions.length === 0 ? (
         <p className={styles.meta}>
           {query.trim() ? "ไม่มีเซสชันที่ตรงกับคำค้นนี้" : "ยังไม่มีเซสชัน พอได้ฟังเพลงกับบอทในห้องเสียง ประวัติจะขึ้นที่นี่"}
@@ -176,7 +177,7 @@ function SessionDetail({ id, play }: { id: string; play: (t: { title: string; qu
   );
   if (session === null) return <Thinking label="กำลังโหลดเซสชัน" />;
   if (session === "missing") return <p role="alert">ไม่พบเซสชันนี้ หรือคุณไม่ได้อยู่ในเซสชันนี้</p>;
-  if (session === "failed") return <p role="alert">โหลดไม่สำเร็จ ลองรีเฟรช</p>;
+  if (session === "failed") return <LoadError>โหลดเซสชันไม่สำเร็จ</LoadError>;
   return (
     <div className={styles.page}>
       <header className={styles.detailHead}>

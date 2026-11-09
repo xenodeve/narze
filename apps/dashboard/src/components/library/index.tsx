@@ -15,6 +15,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { SignedIn } from "@/components/catalog/browse";
 import { Thinking } from "@/components/catalog/thinking";
 import { LikeButton } from "@/components/like-button";
+import { LoadError } from "@/components/load-error";
 import { formatTime } from "@/components/now-playing/progress";
 import { Toast, type ToastMessage, toastOf } from "@/components/toast";
 import { isSpotifyLink, useSources } from "@/lib/catalog";
@@ -73,7 +74,7 @@ function LibraryGrid() {
       {playlists === null ? (
         <Thinking label="กำลังโหลดคลังเพลง" />
       ) : playlists === "failed" ? (
-        <p role="alert">โหลดคลังเพลงไม่ได้ ลองรีเฟรช</p>
+        <LoadError onRetry={load}>โหลดคลังเพลงไม่ได้</LoadError>
       ) : (
         <ul className={styles.grid}>
           <li>
@@ -181,34 +182,38 @@ function ImportDialog({ open, onClose, onSaved }: { open: boolean; onClose: () =
       <h2 id="import-title" className={styles.dialogTitle}>
         นำเข้า Playlist
       </h2>
-      <label className={styles.field}>
-        {spotifyOff ? "ลิงก์ Playlist ของ YouTube (Spotify รองรับเร็ว ๆ นี้)" : "ลิงก์ Playlist ของ Spotify หรือ YouTube"}
-        <input
-          className={styles.input}
-          value={link}
-          onChange={(e) => setLink(e.target.value)}
-          placeholder={spotifyOff ? "https://www.youtube.com/playlist?list=…" : "https://open.spotify.com/playlist/…"}
-        />
-      </label>
-      <div className={styles.row}>
-        <button
-          type="button"
-          className={styles.ghost}
-          onClick={() => void load()}
-          disabled={!link.trim() || status === "working"}
-        >
-          ดูตัวอย่าง
-        </button>
-        {status === "idle" ? null : (
-          <LatticeLoader
-            label="กำลังโหลด Playlist"
-            doneLabel="โหลดเสร็จใน"
-            errorLabel="ไม่สำเร็จหลัง"
-            status={status}
-            color="var(--ink-2)"
+      {/* A form, so Enter in the link previews it (#176). */}
+      <form
+        className={styles.previewForm}
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (link.trim() && status !== "working") void load();
+        }}
+      >
+        <label className={styles.field}>
+          {spotifyOff ? "ลิงก์ Playlist ของ YouTube (Spotify รองรับเร็ว ๆ นี้)" : "ลิงก์ Playlist ของ Spotify หรือ YouTube"}
+          <input
+            className={styles.input}
+            value={link}
+            onChange={(e) => setLink(e.target.value)}
+            placeholder={spotifyOff ? "https://www.youtube.com/playlist?list=…" : "https://open.spotify.com/playlist/…"}
           />
-        )}
-      </div>
+        </label>
+        <div className={styles.row}>
+          <button type="submit" className={styles.ghost} disabled={!link.trim() || status === "working"}>
+            ดูตัวอย่าง
+          </button>
+          {status === "idle" ? null : (
+            <LatticeLoader
+              label="กำลังโหลด Playlist"
+              doneLabel="โหลดเสร็จใน"
+              errorLabel="ไม่สำเร็จหลัง"
+              status={status}
+              color="var(--ink-2)"
+            />
+          )}
+        </div>
+      </form>
       {error ? (
         <p role="alert" className={styles.error}>
           {error}
@@ -246,7 +251,13 @@ function ImportDialog({ open, onClose, onSaved }: { open: boolean; onClose: () =
         <button type="button" className={styles.ghost} onClick={onClose}>
           ยกเลิก
         </button>
-        <button type="button" className={styles.primary} onClick={() => void save()} disabled={!preview}>
+        <button
+          type="button"
+          className={styles.primary}
+          onClick={() => void save()}
+          disabled={!preview}
+          title={preview ? undefined : "ดูตัวอย่างก่อน แล้วจึงบันทึกได้"}
+        >
           บันทึก
         </button>
       </div>
@@ -350,7 +361,7 @@ function PlaylistBody({ id, play }: { id: string; play: Play }) {
   );
   if (playlist === null) return <Thinking label="กำลังโหลด Playlist" />;
   if (playlist === "missing") return <p role="alert">ไม่พบ Playlist นี้</p>;
-  if (playlist === "failed") return <p role="alert">โหลดไม่สำเร็จ ลองรีเฟรช</p>;
+  if (playlist === "failed") return <LoadError onRetry={load}>โหลด Playlist ไม่สำเร็จ</LoadError>;
 
   const save = async (change: Parameters<typeof changePlaylist>[1], done: string) => {
     const updated = await changePlaylist(id, change);

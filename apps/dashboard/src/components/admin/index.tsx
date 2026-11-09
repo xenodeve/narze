@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import { SignInPrompt } from "@/components/account";
 import { Thinking } from "@/components/catalog/thinking";
 import { getStats, powerBot, useAdminRole, useAdminRoom } from "@/lib/admin";
 import { kb } from "@/lib/format";
@@ -36,7 +37,7 @@ export function AdminArea({
   useEffect(() => {
     if (session.status === "signed-in" && role !== "loading" && !allowed) router.replace("/");
   }, [session.status, role, allowed, router]);
-  if (session.status === "signed-out") return <p role="status">เข้าสู่ระบบด้วย Discord ก่อน</p>;
+  if (session.status === "signed-out") return <SignInPrompt>เข้าสู่ระบบด้วย Discord ก่อน แล้วจะเข้าหน้าแอดมินได้</SignInPrompt>;
   if (role === "loading" || !allowed) return null;
   return (
     <div className={styles.page}>

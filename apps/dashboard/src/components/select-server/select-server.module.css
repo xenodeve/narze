@@ -137,3 +137,9 @@
   font: inherit;
   cursor: pointer;
 }
+
+.go {
+  color: var(--ink);
+  font-weight: 500;
+  text-underline-offset: 3px;
+}

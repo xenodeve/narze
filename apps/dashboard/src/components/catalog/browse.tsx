@@ -2,6 +2,8 @@
 
 import type { SearchTrack } from "@narze/shared";
 import { type ReactNode, useEffect, useState } from "react";
+import { SignInPrompt } from "@/components/account";
+import { LoadError } from "@/components/load-error";
 import { type PlayTarget, SelectServer } from "@/components/select-server";
 import { type AlbumPage, type ArtistPage, type ChannelPage, catalogPage } from "@/lib/catalog";
 import { useSession } from "@/lib/session";
@@ -23,7 +25,7 @@ export function SignedIn({
   const session = useSession();
   const [target, setTarget] = useState<PlayTarget | null>(null);
   if (session.status === "loading") return null;
-  if (session.status === "signed-out") return <p role="status">{signedOut}</p>;
+  if (session.status === "signed-out") return <SignInPrompt>{signedOut}</SignInPrompt>;
   return (
     <>
       {children(setTarget)}
@@ -64,9 +66,10 @@ function useCatalog<K extends keyof Pages>(kind: K, id: string) {
 function Pending({ page }: { page: "missing" | "failed" | null }) {
   // DESIGN.md: an in-flight remote step shows the ThinkingOrb, never a spinner or a bare shimmer.
   if (page === null) return <Thinking label="กำลังโหลด" />;
+  if (page === "failed") return <LoadError>โหลดไม่สำเร็จ</LoadError>;
   return (
     <p role="alert" className={styles.note}>
-      {page === "missing" ? "ไม่พบหน้านี้" : "โหลดไม่สำเร็จ ลองรีเฟรช"}
+      ไม่พบหน้านี้
     </p>
   );
 }
