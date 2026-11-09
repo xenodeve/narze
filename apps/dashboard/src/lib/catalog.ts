@@ -13,8 +13,37 @@ import {
   SearchResponseSchema,
   type SearchSource,
   type SearchTrack,
+  type Sources,
+  SourcesSchema,
 } from "@narze/shared";
+import { useEffect, useState } from "react";
 import { apiGet } from "./api";
+import { BACKEND_URL } from "./config";
+
+// #157: which sources can play is fixed while the Backend runs; one read per page load.
+let sourcesLoad: Promise<Sources | null> | null = null;
+const loadSources = () => {
+  sourcesLoad ??= fetch(`${BACKEND_URL}/api/sources`)
+    .then(async (res) => (res.ok ? SourcesSchema.parse(await res.json()) : null))
+    .catch(() => null);
+  return sourcesLoad;
+};
+
+/** Which sources can play; null until known (and if the Backend did not say). */
+export function useSources(): Sources | null {
+  const [sources, setSources] = useState<Sources | null>(null);
+  useEffect(() => {
+    let live = true;
+    void loadSources().then((s) => live && setSources(s));
+    return () => {
+      live = false;
+    };
+  }, []);
+  return sources;
+}
+
+export const isSpotifyLink = (text: string) => /^https?:\/\/open\.spotify\.com\//i.test(text.trim());
+export const isSoundCloudLink = (text: string) => /^https?:\/\/([a-z0-9-]+\.)*soundcloud\.com\//i.test(text.trim());
 
 /** Catalog search over the Backend (#105); null when the request failed. */
 export async function searchCatalog(

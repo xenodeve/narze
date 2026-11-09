@@ -136,3 +136,19 @@ test("another user signing in on the same tab never sees the last user's likes (
   await expect(page.getByTestId("account-name")).toHaveText("Wen");
   await expect(await search()).toHaveAttribute("aria-pressed", "false");
 });
+
+test("without Spotify the import says Spotify is coming soon and refuses a Spotify link (#157)", async ({ page }) => {
+  await page.route("**/api/sources", (route) => route.fulfill({ json: { spotify: false, soundcloud: false } }));
+  await setFakeDiscordUser({ id: "460000000000000157", username: "soon157", globalName: "Soon" }, []);
+  await signInThroughPopup(page, "Soon");
+  await page.goto("/library");
+  await page.getByRole("button", { name: "นำเข้า Playlist" }).click();
+  const dialog = page.getByRole("dialog", { name: "นำเข้า Playlist" });
+  await expect(dialog).toContainText("Spotify รองรับเร็ว ๆ นี้");
+  await dialog.getByRole("textbox").first().fill("https://open.spotify.com/playlist/PLX");
+  await dialog
+    .getByRole("button", { name: /โหลด|ดูตัวอย่าง|ถัดไป/ })
+    .first()
+    .click();
+  await expect(dialog.getByText("Spotify รองรับเร็ว ๆ นี้ ตอนนี้ใช้ได้เฉพาะ Playlist ของ YouTube")).toBeVisible();
+});

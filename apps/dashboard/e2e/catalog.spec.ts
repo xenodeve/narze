@@ -95,3 +95,24 @@ test("the guild page's Search tab adds straight into that server, no server pick
     }),
   );
 });
+
+test("without Spotify the search says it is coming soon and opens on YouTube Music; a SoundCloud link says the same (#157)", async ({
+  page,
+}) => {
+  // What the Backend answers with no Spotify credentials (its own test covers how it decides).
+  await page.route("**/api/sources", (route) => route.fulfill({ json: { spotify: false, soundcloud: false } }));
+  await setFakeDiscordUser(hana, [{ id: G_PLAY, name: "Play Club", icon: null, owner: false }]);
+  await signInThroughPopup(page, "Hana");
+  await page.goto("/search");
+  const spotify = page.getByRole("tab", { name: /^Spotify/ });
+  await expect(spotify.first()).toBeDisabled();
+  await expect(spotify.first()).toContainText("เร็ว ๆ นี้");
+  await expect(page.getByRole("tab", { name: "YouTube Music" })).toHaveAttribute("aria-selected", "true");
+  // A search goes to YouTube Music, and finds something.
+  await page.getByRole("searchbox", { name: "ค้นหาเพลง ศิลปิน หรืออัลบั้ม" }).fill("lemon");
+  await expect(page.getByTestId("song-row").first()).toContainText("YT Music");
+  // A SoundCloud link is not offered as playable.
+  await page.getByRole("searchbox", { name: "ค้นหาเพลง ศิลปิน หรืออัลบั้ม" }).fill("https://soundcloud.com/yoasobi/idol");
+  await expect(page.getByText("SoundCloud รองรับเร็ว ๆ นี้")).toBeVisible();
+  await expect(page.getByRole("button", { name: "เล่นลิงก์นี้" })).toHaveCount(0);
+});

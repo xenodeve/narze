@@ -223,3 +223,9 @@
     display: none;
   }
 }
+
+/* #157: a source that is not ready yet. */
+.soon {
+  color: var(--ink-2);
+  font-size: 0.85em;
+}

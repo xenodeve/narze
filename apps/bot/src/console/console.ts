@@ -97,7 +97,13 @@ export function createConsole({ guilds, music, bot, ready, print, clear }: Conso
               `เพิ่ม playlist ${result.playlist.name} ${result.playlist.count} เพลง (${formatDuration(result.playlist.durationMs)})`,
             );
           case "error":
-            return print(result.reason === "not-found" ? "ไม่พบเพลงที่ค้นหา" : `เล่นไม่ได้ (${result.reason})`);
+            return print(
+              result.reason === "not-found"
+                ? "ไม่พบเพลงที่ค้นหา"
+                : result.reason === "coming-soon"
+                  ? "ยังไม่รองรับแหล่งเพลงนี้ จะรองรับเร็ว ๆ นี้"
+                  : `เล่นไม่ได้ (${result.reason})`,
+            );
         }
         return;
       }

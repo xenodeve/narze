@@ -7,6 +7,7 @@ import type { Command, CommandContext, Reply } from "./types";
 const REASON = {
   empty: "กรุณาระบุเพลง",
   unsupported: "ไม่รองรับ Platform นี้",
+  "coming-soon": "ยังไม่รองรับแหล่งเพลงนี้ จะรองรับเร็ว ๆ นี้",
   "not-found": "ไม่สามารถหาเพลงได้",
   failed: "ไม่สามารถเล่นเพลงได้",
 } as const;
