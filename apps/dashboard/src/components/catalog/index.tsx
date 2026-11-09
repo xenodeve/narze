@@ -10,11 +10,12 @@ import pill from "@/styles/pill-tabs.module.css";
 import styles from "./catalog.module.css";
 import { Thinking } from "./thinking";
 
-export const SOURCES: Array<{ value: SearchSource; label: string }> = [
-  { value: "spotify-api", label: "Spotify" },
-  { value: "spotify", label: "Spotify (Lavalink)" },
-  { value: "youtube", label: "YouTube" },
-  { value: "youtubemusic", label: "YouTube Music" },
+/** Each source says in plain words what it searches (#176): no internal names like "Lavalink". */
+export const SOURCES: Array<{ value: SearchSource; label: string; hint: string }> = [
+  { value: "spotify-api", label: "Spotify", hint: "ค้นจาก Spotify โดยตรง ได้ทั้งเพลง ศิลปิน และอัลบั้ม" },
+  { value: "spotify", label: "Spotify ผ่านบอท", hint: "ค้นเพลงจาก Spotify ผ่านบอท แล้วเล่นจากแหล่งที่บอทหาเจอ" },
+  { value: "youtube", label: "YouTube", hint: "ค้นทุกคลิปบน YouTube" },
+  { value: "youtubemusic", label: "YouTube Music", hint: "ค้นเพลงบน YouTube Music" },
 ];
 
 /** Spec #85: a YouTube/Spotify playlist link plays as one item ("Play Playlist"). */
@@ -150,6 +151,7 @@ export function CatalogSearch({ onPlay }: { onPlay: (item: { title: string; quer
             className={pill.tab}
             disabled={soon(s.value)}
             onClick={() => setPicked(s.value)}
+            title={s.hint}
           >
             {s.label}
             {soon(s.value) ? <span className={styles.soon}> · เร็ว ๆ นี้</span> : null}

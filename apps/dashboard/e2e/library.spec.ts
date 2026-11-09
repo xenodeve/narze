@@ -42,7 +42,10 @@ test("import a playlist, rename it (another tab follows), play it all, then dele
   await page.getByRole("button", { name: "นำเข้า Playlist" }).click();
   const dialog = page.getByRole("dialog", { name: "นำเข้า Playlist" });
   await dialog.getByLabel("ลิงก์ Playlist ของ Spotify หรือ YouTube").fill(PLAYLIST_URL);
-  await dialog.getByRole("button", { name: "ดูตัวอย่าง" }).click();
+  // Save says why it waits until there is a preview (#176).
+  await expect(dialog.getByText("ดูตัวอย่างก่อน แล้วจึงบันทึกได้")).toBeVisible();
+  // Enter in the link previews it: the link is a form (#176).
+  await dialog.getByLabel("ลิงก์ Playlist ของ Spotify หรือ YouTube").press("Enter");
   await expect(dialog.getByText("E2E Mix")).toBeVisible();
   await expect(dialog.getByText("2 เพลง")).toBeVisible();
   await dialog.getByLabel("ชื่อ").fill("My Import");
@@ -131,7 +134,7 @@ test("another user signing in on the same tab never sees the last user's likes (
   await page.getByRole("button", { name: "ออกจากระบบ" }).click();
   await setFakeDiscordUser(wen, []);
   const popup = page.waitForEvent("popup");
-  await page.getByRole("button", { name: "เข้าสู่ระบบด้วย Discord" }).click();
+  await page.getByRole("banner").getByRole("button", { name: "เข้าสู่ระบบด้วย Discord" }).click();
   await (await popup).waitForEvent("close");
   await expect(page.getByTestId("account-name")).toHaveText("Wen");
   await expect(await search()).toHaveAttribute("aria-pressed", "false");

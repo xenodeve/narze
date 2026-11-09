@@ -25,6 +25,8 @@ interface Store {
   view: GuildsView;
   listeners: Set<() => void>;
   stop: (() => void) | null;
+  /** Fetches again while subscribed (a retry after a failure, #176). */
+  reload: (() => void) | null;
 }
 
 const stores = new Map<string, Store>();
@@ -32,7 +34,7 @@ const stores = new Map<string, Store>();
 function storeOf(userId: string): Store {
   let store = stores.get(userId);
   if (!store) {
-    store = { view: LOADING, listeners: new Set(), stop: null };
+    store = { view: LOADING, listeners: new Set(), stop: null, reload: null };
     stores.set(userId, store);
   }
   return store;
@@ -57,6 +59,10 @@ function start(store: Store): () => void {
     }
   };
   void load();
+  store.reload = () => {
+    if (store.view.status === "failed") set(store, LOADING);
+    void load();
+  };
   const off = onSocketEvents({
     // A Player change arrives as one GuildSummary and replaces its row.
     [SocketEvents.guildSummary]: (summary: unknown) => {
@@ -68,8 +74,14 @@ function start(store: Store): () => void {
   });
   return () => {
     live = false;
+    store.reload = null;
     off();
   };
+}
+
+/** Tries the server list again (the retry button of a failed load, #176). */
+export function retryGuilds(userId: string): void {
+  stores.get(userId)?.reload?.();
 }
 
 /**

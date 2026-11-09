@@ -6,6 +6,30 @@
 
 ---
 
+## #176 Usability: idle stage, reasons, sign-in and retry, last server, labels (2026-11-09, branch `feat/176-usability`)
+
+**Goal:** the usability half of the Dashboard UX scrutinize.
+
+**Shipped:**
+- When nothing is playing the stage shows no transport, only adding a song.
+- Restart draws ↺, and shuffle says why it is off.
+- `SignInPrompt` / `SignInButton`: every "sign in first" page has the button, and so does the signed-out home.
+- `LoadError` puts a "ลองอีกครั้ง" button on page-level failures. The server list retries through the guild store (`retryGuilds`). Playlists and the library list retry their own load; the rest reload the page.
+- The last server is remembered in localStorage (`lib/last-guild.ts`), and home offers "กลับไปที่ …".
+- "ไม่ทราบชื่อศิลปิน" for a missing artist.
+- The import link is a form, so Enter previews. Save says why it waits.
+- Source tabs read "Spotify" / "Spotify ผ่านบอท", each with a hint.
+- The picker links to the server it played in.
+
+**Validated:**
+- `usability.spec` went red first on all three tests, then green.
+- Full e2e: 63 passed. The 2 failures were fixed or are timing-only:
+  - `nav.spec` now matches the server link exactly; the new "กลับไปที่" link shares its name.
+  - The `motion.spec` toast timing passes alone, under a loaded machine.
+- e2e sign-in clicks are scoped to the top bar, because home now has two sign-in buttons.
+
+---
+
 ## #174 Exits and moves animate (2026-11-09, branch `feat/174-motion`)
 
 **Goal:** from the Dashboard UX scrutinize. Only enter motion existed. Dialogs, queue removals and reorders, tab switches, the toast, the idle ↔ playing stage and the voice sheet all snapped, and queue row actions were invisible until hover.

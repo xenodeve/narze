@@ -8,6 +8,7 @@ import { ChartPanel } from "@/components/charts";
 import { Controls } from "@/components/controls";
 import { GuildAvatar } from "@/components/guild-avatar";
 import { LikeButton, libraryTrack } from "@/components/like-button";
+import { LoadError } from "@/components/load-error";
 import { MoodAurora } from "@/components/mood-aurora";
 import { QueuePanel } from "@/components/queue-panel";
 import { Skeleton, SkeletonRows } from "@/components/skeleton";
@@ -125,7 +126,7 @@ function Stage({
               <h1 id="now-title" key={`title:${track.uri}`} className={styles.title} data-testid="now-title">
                 {track.title}
               </h1>
-              <p className={styles.author}>{track.author || "Unknown Artist"}</p>
+              <p className={styles.author}>{track.author || "ไม่ทราบชื่อศิลปิน"}</p>
               <LikeButton track={libraryTrack(track)} />
               <p className={styles.requester}>
                 {track.requester.avatarUrl ? (
@@ -233,12 +234,7 @@ export function NowPlaying({ guildId, userId }: { guildId: string; userId: strin
       </p>
     );
   }
-  if (view.status === "failed")
-    return (
-      <p role="alert" className={styles.notice}>
-        โหลดสถานะเพลงไม่ได้ ลองรีเฟรชหน้านี้
-      </p>
-    );
+  if (view.status === "failed") return <LoadError>โหลดสถานะเพลงไม่ได้</LoadError>;
   const state = view.state ?? null;
   return (
     <div className={styles.page}>

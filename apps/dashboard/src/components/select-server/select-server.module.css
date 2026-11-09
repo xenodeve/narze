@@ -137,3 +137,12 @@
   font: inherit;
   cursor: pointer;
 }
+
+/* The way to where it played: a full-height target, though it reads as a link (#176). */
+.go {
+  display: inline-block;
+  padding-block: 12px;
+  color: var(--ink);
+  font-weight: 500;
+  text-underline-offset: 3px;
+}

@@ -1,0 +1,35 @@
+.error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding-block: 12px;
+}
+
+.error > p {
+  margin: 0;
+  color: var(--ink-2);
+}
+
+/* A ghost button (DESIGN.md §Button), on the 44px hit target of the craft checklist. */
+.retry {
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+  transition: border-color var(--t1) var(--ease);
+}
+
+.retry:active {
+  transform: translateY(1px);
+}
+
+@media (hover: hover) {
+  .retry:hover {
+    border-color: var(--ink-3);
+  }
+}

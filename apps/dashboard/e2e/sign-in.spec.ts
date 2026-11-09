@@ -77,7 +77,7 @@ test("Discord sign-in in a popup lists only Mutual Guilds, updates live, and Sig
     (await request.get(`${BACKEND}/api/me/guilds`, { headers: { authorization: `Bearer ${token}` } })).status(),
   ).toBe(200);
   await page.getByRole("button", { name: "ออกจากระบบ" }).click();
-  await expect(page.getByRole("button", { name: "เข้าสู่ระบบด้วย Discord" })).toBeVisible();
+  await expect(page.getByRole("banner").getByRole("button", { name: "เข้าสู่ระบบด้วย Discord" })).toBeVisible();
   await expect(rows).toHaveCount(0);
   expect(
     (await request.get(`${BACKEND}/api/me/guilds`, { headers: { authorization: `Bearer ${token}` } })).status(),
@@ -89,7 +89,7 @@ test("with popups blocked, sign-in falls back to a full-page redirect and lands 
     window.open = () => null;
   });
   await page.goto("/");
-  await page.getByRole("button", { name: "เข้าสู่ระบบด้วย Discord" }).click();
+  await page.getByRole("banner").getByRole("button", { name: "เข้าสู่ระบบด้วย Discord" }).click();
   await page.waitForURL("http://localhost:3100/");
   await expect(page.getByTestId("account-name")).toHaveText("Carol");
   await page.getByRole("button", { name: "ออกจากระบบ" }).click();

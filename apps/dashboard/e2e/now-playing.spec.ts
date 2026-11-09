@@ -74,7 +74,7 @@ test("a track started elsewhere shows on every open tab within 1 s, and the serv
   await signInThroughPopup(page, "Frank");
   await page.getByRole("link", { name: "Now Playing Club" }).click();
   await expect(page).toHaveURL(`/guilds/${GUILD}`);
-  expect(await page.evaluate(() => sessionStorage.getItem("selectedGuildId"))).toBe(GUILD);
+  expect(await page.evaluate(() => localStorage.getItem("narze.lastGuild"))).toBe(GUILD);
   await expect(page.getByRole("heading", { name: "ยังไม่มีเพลงเล่นอยู่" })).toBeVisible();
 
   const second = await context.newPage();

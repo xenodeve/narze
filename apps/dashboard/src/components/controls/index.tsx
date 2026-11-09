@@ -88,87 +88,99 @@ export function Controls({ guildId, state, permission }: ControlsProps) {
           {REASON_TH[permission.reason] ?? permission.reason}
         </p>
       ) : null}
-      <fieldset className={styles.row}>
-        <legend className="sr-only">ควบคุมการเล่น</legend>
-        <button
-          type="button"
-          className={styles.icon}
-          onClick={() => void run({ action: "previous" })}
-          disabled={disabled || !playing}
-          aria-label="เริ่มเพลงนี้ใหม่"
-          title="เริ่มเพลงนี้ใหม่"
-        >
-          <svg aria-hidden="true" viewBox="0 0 16 16" width="16" height="16">
-            <path d="M4 3v10M13 3.5 6 8l7 4.5z" fill="currentColor" />
-          </svg>
-        </button>
-        <button
-          type="button"
-          className={styles.primary}
-          onClick={togglePause}
-          disabled={disabled || !playing}
-          aria-label={paused ? "เล่นต่อ" : "พัก"}
-          aria-pressed={!paused}
-          data-testid="toggle-pause"
-        >
-          {paused ? (
-            <svg aria-hidden="true" viewBox="0 0 16 16" width="18" height="18">
-              <path d="M5 3l8 5-8 5z" fill="currentColor" />
+      {/* Nothing playing: no dead transport (#176), only adding a song (and picking the channel). */}
+      {playing ? (
+        <fieldset className={styles.row}>
+          <legend className="sr-only">ควบคุมการเล่น</legend>
+          <button
+            type="button"
+            className={styles.icon}
+            onClick={() => void run({ action: "previous" })}
+            disabled={disabled}
+            aria-label="เริ่มเพลงนี้ใหม่"
+            title="เริ่มเพลงนี้ใหม่"
+          >
+            {/* ↺, not |◀: it restarts this track; there is no previous one (spec #107). */}
+            <svg aria-hidden="true" viewBox="0 0 16 16" width="16" height="16">
+              <path
+                d="M3.5 8a4.5 4.5 0 1 0 1.4-3.3M3.5 2.5v2.8h2.8"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
             </svg>
-          ) : (
-            <svg aria-hidden="true" viewBox="0 0 16 16" width="18" height="18">
-              <path d="M4.5 3h2.5v10H4.5zM9 3h2.5v10H9z" fill="currentColor" />
+          </button>
+          <button
+            type="button"
+            className={styles.primary}
+            onClick={togglePause}
+            disabled={disabled}
+            aria-label={paused ? "เล่นต่อ" : "พัก"}
+            aria-pressed={!paused}
+            data-testid="toggle-pause"
+          >
+            {paused ? (
+              <svg aria-hidden="true" viewBox="0 0 16 16" width="18" height="18">
+                <path d="M5 3l8 5-8 5z" fill="currentColor" />
+              </svg>
+            ) : (
+              <svg aria-hidden="true" viewBox="0 0 16 16" width="18" height="18">
+                <path d="M4.5 3h2.5v10H4.5zM9 3h2.5v10H9z" fill="currentColor" />
+              </svg>
+            )}
+          </button>
+          <button
+            type="button"
+            className={styles.icon}
+            onClick={() => void run({ action: "skip" })}
+            disabled={disabled}
+            aria-label="ข้าม"
+            title="ข้าม"
+          >
+            <svg aria-hidden="true" viewBox="0 0 16 16" width="16" height="16">
+              <path d="M12 3v10M3 3.5 10 8l-7 4.5z" fill="currentColor" />
             </svg>
-          )}
-        </button>
-        <button
-          type="button"
-          className={styles.icon}
-          onClick={() => void run({ action: "skip" })}
-          disabled={disabled || !playing}
-          aria-label="ข้าม"
-          title="ข้าม"
-        >
-          <svg aria-hidden="true" viewBox="0 0 16 16" width="16" height="16">
-            <path d="M12 3v10M3 3.5 10 8l-7 4.5z" fill="currentColor" />
-          </svg>
-        </button>
-        <button
-          type="button"
-          className={styles.pill}
-          onClick={() => void run({ action: "loop", mode: null })}
-          disabled={disabled || !playing}
-          aria-pressed={(state?.loop ?? "off") !== "off"}
-        >
-          {LOOP_LABEL[state?.loop ?? "off"]}
-        </button>
-        <button
-          type="button"
-          className={styles.pill}
-          onClick={() => void run({ action: "shuffle" })}
-          disabled={disabled || (state?.queue.length ?? 0) < 2}
-        >
-          สลับคิว
-        </button>
-        <label className={styles.volume}>
-          <span className="sr-only">ความดัง</span>
-          <input
-            type="range"
-            min={0}
-            max={100}
-            value={volume}
-            disabled={disabled || !playing}
-            onPointerDown={() => {
-              dragStart.current = volume;
-            }}
-            onPointerUp={endDrag}
-            onPointerCancel={endDrag}
-            onChange={(e) => onVolume(Number(e.currentTarget.value))}
-            data-testid="volume"
-          />
-          <span className={`num ${styles.volumeValue}`}>{volume}</span>
-        </label>
-      </fieldset>
+          </button>
+          <button
+            type="button"
+            className={styles.pill}
+            onClick={() => void run({ action: "loop", mode: null })}
+            disabled={disabled}
+            aria-pressed={(state?.loop ?? "off") !== "off"}
+          >
+            {LOOP_LABEL[state?.loop ?? "off"]}
+          </button>
+          <button
+            type="button"
+            className={styles.pill}
+            onClick={() => void run({ action: "shuffle" })}
+            disabled={disabled || (state?.queue.length ?? 0) < 2}
+            title={(state?.queue.length ?? 0) < 2 ? "สลับได้เมื่อคิวมีอย่างน้อย 2 เพลง" : "สลับลำดับคิว"}
+          >
+            สลับคิว
+          </button>
+          <label className={styles.volume}>
+            <span className="sr-only">ความดัง</span>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={volume}
+              disabled={disabled}
+              onPointerDown={() => {
+                dragStart.current = volume;
+              }}
+              onPointerUp={endDrag}
+              onPointerCancel={endDrag}
+              onChange={(e) => onVolume(Number(e.currentTarget.value))}
+              data-testid="volume"
+            />
+            <span className={`num ${styles.volumeValue}`}>{volume}</span>
+          </label>
+        </fieldset>
+      ) : null}
       <AddTrack
         guildId={guildId}
         disabled={disabled}

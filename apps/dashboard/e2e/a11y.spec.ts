@@ -301,7 +301,7 @@ for (const scheme of ["light", "dark"] as const) {
 test("axe finds no violations on the signed-out landing page (#114 AC2)", async ({ page }) => {
   for (const scheme of ["light", "dark"] as const) {
     await page.emulateMedia({ colorScheme: scheme });
-    await open(page, "/", (p) => p.getByRole("button", { name: "เข้าสู่ระบบด้วย Discord" }));
+    await open(page, "/", (p) => p.getByRole("banner").getByRole("button", { name: "เข้าสู่ระบบด้วย Discord" }));
     expect(await axeOn(page, `/ signed out (${scheme})`)).toEqual([]);
   }
 });

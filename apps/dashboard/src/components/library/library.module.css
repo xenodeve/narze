@@ -264,3 +264,15 @@
     display: none;
   }
 }
+
+/* The import's link and its preview button, one form (#176). */
+.previewForm {
+  display: contents;
+}
+
+/* Why the import's Save waits (#176): said in words, not only by a greyed-out button. */
+.hint {
+  margin: 0 0 12px;
+  color: var(--ink-2);
+  font-size: 0.8125rem;
+}

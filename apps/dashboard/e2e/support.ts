@@ -7,7 +7,7 @@ import { expect, type Page } from "@playwright/test";
 export async function signInThroughPopup(page: Page, name: string): Promise<void> {
   await page.goto("/");
   const popup = page.waitForEvent("popup");
-  await page.getByRole("button", { name: "เข้าสู่ระบบด้วย Discord" }).click();
+  await page.getByRole("banner").getByRole("button", { name: "เข้าสู่ระบบด้วย Discord" }).click();
   await (await popup).waitForEvent("close");
   await expect(page.getByTestId("account-name")).toHaveText(name);
 }
