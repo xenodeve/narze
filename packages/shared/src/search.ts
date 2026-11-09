@@ -119,7 +119,8 @@ type Candidate = { name: string } & (
 /**
  * Spec #58 / v5 §7.2: an exact (case- and space-insensitive) match scores 1.1 and the type priority
  * track > artist > album picks among exact matches. Otherwise the best Dice candidates within 0.1
- * are ranked by type; below its minimum (artist 0.6, others 0.2) the first track wins with score 0.
+ * are ranked by type; below its minimum (artist 0.6, others 0.2) the first track wins with its own
+ * rating. Every score is measured, never a fixed number (#164).
  */
 export function topResult(
   query: string,
@@ -145,5 +146,7 @@ export function topResult(
   const winner = rated.filter((r) => r.rating >= best - 0.1).sort((a, b) => byPriority(a.c, b.c))[0];
   if (winner && winner.rating >= MINIMUM[winner.c.type]) return result(winner.c, winner.rating);
   const first = found.tracks[0];
-  return first ? { type: "track", data: first, score: 0 } : null;
+  if (!first) return null;
+  const own = Math.max(0, ...rated.filter((r) => r.c.data === first).map((r) => r.rating));
+  return { type: "track", data: first, score: own };
 }

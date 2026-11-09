@@ -130,20 +130,6 @@ const fromChannel = (c: YouTubeChannel): SearchArtist => ({
   youtubeUrl: `https://www.youtube.com/channel/${c.id}`,
 });
 
-/** v5 §7.1: spotify-api's own top result — exact artist, exact track, first track 0.9, first artist 0.8. */
-function spotifyApiTop(
-  query: string,
-  found: { tracks: SearchTrack[]; artists: SearchArtist[] },
-): SearchResponse["topResult"] {
-  const wanted = query.trim().toLowerCase();
-  const artist = found.artists.find((a) => a.name.trim().toLowerCase() === wanted);
-  if (artist) return { type: "artist", data: artist, score: 1.1 };
-  const track = found.tracks.find((t) => t.title.trim().toLowerCase() === wanted);
-  if (track) return { type: "track", data: track, score: 1.1 };
-  if (found.tracks[0]) return { type: "track", data: found.tracks[0], score: 0.9 };
-  return found.artists[0] ? { type: "artist", data: found.artists[0], score: 0.8 } : null;
-}
-
 /**
  * The Catalog (#105, spec #49, #57–#61): search in four modes and the artist, album and channel
  * pages. Lavalink is asked over its REST API (ADR-0009); Spotify and YouTube through their Web APIs.
@@ -218,15 +204,8 @@ export class SearchService {
         this.channelSearch(query, source),
       ]);
       found = { tracks, artists: channels.map(fromChannel), albums: [] };
-      // v5 §7.1: a channel whose name contains the query is the top result.
-      const channel = found.artists[0];
-      top =
-        channel && channel.name.toLowerCase().includes(query.toLowerCase())
-          ? { type: "artist", data: channel, score: 1 }
-          : tracks[0]
-            ? { type: "track", data: tracks[0], score: 0.9 }
-            : null;
-      return { query, source, topResult: top, ...found, fromCache: false };
+      // Measured like every mode, not v5 §7.1's fixed scores (#164).
+      return { query, source, topResult: topResult(query, found), ...found, fromCache: false };
     }
     if (source === "spotify-api") {
       const [trackBody, rest] = await Promise.all([
@@ -236,7 +215,7 @@ export class SearchService {
         this.spotifyArtistsAndAlbums(query),
       ]);
       found = { tracks: (trackBody?.tracks?.items ?? []).map(fromSpotifyTrack), ...rest };
-      top = spotifyApiTop(query, found);
+      top = topResult(query, found);
     } else {
       const [tracks, rest] = await Promise.all([
         this.searchLavalink(query, "spotify"),
