@@ -9,6 +9,7 @@ import {
   GuildSettingsSchema,
   LOG_RING,
   type LogLine,
+  lavalinkNode,
   parseJson,
   RedisKeys,
   STATS_POINTS,
@@ -68,9 +69,7 @@ console.log(`[bot] ${mode} mode`);
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates] });
 
 const lavalink = createLavalink({
-  host: env.LAVALINK_HOST ?? "127.0.0.1",
-  port: Number(env.LAVALINK_PORT ?? 2333),
-  password: env.LAVALINK_PASSWORD ?? "youshallnotpass",
+  ...lavalinkNode(env),
   sendToShard: (guildId, payload) => client.guilds.cache.get(guildId)?.shard?.send(payload),
   client: { id: env.DISCORD_CLIENT_ID ?? "0", username: "Narze" },
 });

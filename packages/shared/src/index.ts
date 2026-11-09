@@ -6,6 +6,7 @@ export * from "./commands";
 export * from "./guilds";
 export * from "./history";
 export * from "./json";
+export * from "./lavalink-node";
 export * from "./library";
 export * from "./player";
 export * from "./progress";
