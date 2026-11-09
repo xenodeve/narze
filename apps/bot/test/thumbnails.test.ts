@@ -64,6 +64,11 @@ describe("thumbnail upgrade (#104, spec #63)", () => {
     expect(await upgrade(sd, heads({}))).toBe(sd);
   });
 
+  test("any other YouTube variant is kept as it is, whatever its name (#178)", async () => {
+    const odd = "https://i.ytimg.com/vi/abc/constructor.jpg";
+    expect(await upgrade(odd, heads({}))).toBe(odd);
+  });
+
   test("a non-YouTube image is kept only if it checks out", async () => {
     const art = "https://i.scdn.co/image/abc";
     expect(await upgrade(art, heads({ [art]: image }))).toBe(art);

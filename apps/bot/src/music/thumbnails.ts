@@ -60,15 +60,20 @@ async function isImage(url: string, head: Head): Promise<boolean> {
 const YOUTUBE_THUMB = /^https:\/\/(?:i\.ytimg\.com|img\.youtube\.com)\/vi\/([\w-]+)\/([a-z]+)\.jpg(?:\?.*)?$/;
 
 /** The larger pictures to try for a variant, largest first; every one keeps the variant's shape. */
-const LARGER: Record<string, readonly string[]> = {
+const LARGER = new Map<string, readonly string[]>([
   // 16:9 video thumbnail.
-  mqdefault: ["maxresdefault", "hqdefault"],
+  ["mqdefault", ["maxresdefault", "hqdefault"]],
   // 4:3 music thumbnail (spec #62): sddefault is missing on old uploads, which still have hqdefault (#178).
-  sddefault: ["sddefault", "hqdefault"],
-};
+  ["sddefault", ["sddefault", "hqdefault"]],
+]);
 
 /** The first of `variants` that is a real image — all asked at once; null when none is. */
-async function bestOf(url: string, id: string, head: Head, variants = LARGER.mqdefault ?? []): Promise<string | null> {
+async function bestOf(
+  url: string,
+  id: string,
+  head: Head,
+  variants = LARGER.get("mqdefault") ?? [],
+): Promise<string | null> {
   const base = url.replace(/\/vi\/[\w-]+\/.*$/, `/vi/${id}`);
   const candidates = variants.map((v) => `${base}/${v}.jpg`);
   const checks = await Promise.all(candidates.map((c) => isImage(c, head)));
@@ -85,7 +90,7 @@ export async function upgrade(url: string | null, head: Head): Promise<string | 
   const youtube = YOUTUBE_THUMB.exec(url);
   if (!youtube) return (await isImage(url, head)) ? url : null;
   const [, id, variant] = youtube;
-  const variants = LARGER[variant ?? ""];
+  const variants = LARGER.get(variant ?? "");
   if (!variants) return url;
   return (await bestOf(url, id ?? "", head, variants)) ?? url;
 }
