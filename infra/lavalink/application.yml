@@ -9,8 +9,12 @@ server:
 
 lavalink:
   plugins:
-    - dependency: "dev.lavalink.youtube:youtube-plugin:1.18.1"
-      snapshot: false
+    # A snapshot pinned to a commit, not a release: 1.18.2 (the latest release) cannot play on this
+    # network (every client refused, measured 2026-11-09). Commit b33460b (TV client User-Agent) fixes
+    # "The page needs to be reloaded" (youtube-source #226) and is not released yet. Move back to a
+    # release once one includes it.
+    - dependency: "dev.lavalink.youtube:youtube-plugin:2be8e542d3f6f178e048dca565892684c2e40177"
+      snapshot: true
     - dependency: "com.github.topi314.lavasrc:lavasrc-plugin:4.8.3"
       snapshot: false
   server:
@@ -39,7 +43,10 @@ plugins:
     allowSearch: true
     allowDirectVideoIds: true
     allowDirectPlaylistIds: true
-    clients: ["MUSIC", "WEB", "ANDROID_VR"]
+    # MUSIC and WEB search; TV plays, with its signatures solved by yt-cipher (remoteCipher, set in
+    # docker-compose.yml). Measured 2026-11-09: without the cipher TV fails "Must find sig function";
+    # no sign-in (OAuth) is needed; the others are refused (login required, SABR-only, "not a bot").
+    clients: ["MUSIC", "TV", "WEB", "ANDROID_VR"]
   lavasrc:
     providers:
       - 'ytsearch:"%ISRC%"'

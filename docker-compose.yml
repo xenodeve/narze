@@ -21,9 +21,23 @@ services:
     environment:
       SERVER_PORT: 2333
       LAVALINK_SERVER_PASSWORD: ${LAVALINK_PASSWORD:-youshallnotpass}
+      # YouTube's TV client needs its player-script signatures solved: yt-cipher below (measured 2026-11-09).
+      PLUGINS_YOUTUBE_REMOTECIPHER_URL: http://yt-cipher:8001
+      PLUGINS_YOUTUBE_REMOTECIPHER_PASSWORD: ${YT_CIPHER_TOKEN:-narze-local-cipher}
       # Spotify search (LavaSrc) only when credentials are set in your shell (spec #55).
       PLUGINS_LAVASRC_SOURCES_SPOTIFY: ${LAVASRC_SPOTIFY_ENABLED:-false}
       PLUGINS_LAVASRC_SPOTIFY_CLIENTID: ${LAVASRC_SPOTIFY_CLIENT_ID:-}
       PLUGINS_LAVASRC_SPOTIFY_CLIENTSECRET: ${LAVASRC_SPOTIFY_CLIENT_SECRET:-}
     volumes:
       - ./infra/lavalink/application.yml:/opt/Lavalink/application.yml:ro
+    depends_on: [yt-cipher]
+
+  # Solves YouTube's player-script signatures for Lavalink's youtube-plugin (remoteCipher). Third-party
+  # (github.com/kikkia/yt-cipher), so pinned by digest; reachable only on the compose network, and it
+  # takes the same token Lavalink sends.
+  yt-cipher:
+    image: ghcr.io/kikkia/yt-cipher@sha256:4c5ec381ff57336cfc24822d2b526a5ad7cd0171f61065a1bbc87bb736842449
+    profiles: ["audio"]
+    # No host port: only Lavalink calls it, over the compose network.
+    environment:
+      API_TOKEN: ${YT_CIPHER_TOKEN:-narze-local-cipher}
