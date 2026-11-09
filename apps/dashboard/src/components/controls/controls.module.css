@@ -168,11 +168,6 @@
   box-shadow: var(--shadow-window);
 }
 
-.dialog::backdrop {
-  background: rgb(0 0 0 / 0.35);
-  backdrop-filter: blur(4px);
-}
-
 .dialogTitle {
   margin: 0 0 4px;
   font-size: 1.125rem;

@@ -297,9 +297,17 @@
   box-shadow: var(--shadow-window);
 }
 
-.lightbox::backdrop {
+.lightbox[open]::backdrop {
   background: rgb(0 0 0 / 0.6);
   backdrop-filter: blur(4px);
+}
+
+/* Its darker backdrop fades in like the shared one (#174). */
+@starting-style {
+  .lightbox[open]::backdrop {
+    background: rgb(0 0 0 / 0);
+    backdrop-filter: blur(0);
+  }
 }
 
 .full {

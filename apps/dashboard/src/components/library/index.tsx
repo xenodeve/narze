@@ -16,6 +16,7 @@ import { SignedIn } from "@/components/catalog/browse";
 import { Thinking } from "@/components/catalog/thinking";
 import { LikeButton } from "@/components/like-button";
 import { formatTime } from "@/components/now-playing/progress";
+import { Toast, type ToastMessage, toastOf } from "@/components/toast";
 import { isSpotifyLink, useSources } from "@/lib/catalog";
 import {
   changePlaylist,
@@ -332,7 +333,8 @@ function PlaylistBody({ id, play }: { id: string; play: Play }) {
   const [renaming, setRenaming] = useState(false);
   const [name, setName] = useState("");
   const [confirming, setConfirming] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<ToastMessage | null>(null);
+  const clearToast = useCallback(() => setToast(null), []);
   const load = useCallback(() => {
     void getPlaylist(id).then((found) => setPlaylist(found ?? "failed"));
   }, [id]);
@@ -354,8 +356,8 @@ function PlaylistBody({ id, play }: { id: string; play: Play }) {
     const updated = await changePlaylist(id, change);
     if (updated) {
       setPlaylist(updated);
-      setToast(done);
-    } else setToast("บันทึกไม่สำเร็จ ลองอีกครั้ง");
+      setToast(toastOf(done));
+    } else setToast(toastOf("บันทึกไม่สำเร็จ ลองอีกครั้ง"));
   };
   // Spec #89: play-all plays the source playlist, so it is only for an imported one.
   const playAll = () => {
@@ -410,11 +412,7 @@ function PlaylistBody({ id, play }: { id: string; play: Play }) {
           </button>
         </div>
       </header>
-      {toast ? (
-        <p role="status" aria-live="polite" className={styles.toast}>
-          {toast}
-        </p>
-      ) : null}
+      <Toast message={toast} onDone={clearToast} />
       <TrackRows
         tracks={playlist.tracks}
         onPlay={(t) => play({ title: t.title, query: t.uri })}
@@ -433,7 +431,7 @@ function PlaylistBody({ id, play }: { id: string; play: Play }) {
         onConfirm={async () => {
           setConfirming(false);
           if (await deletePlaylist(id)) router.push("/library");
-          else setToast("ลบไม่สำเร็จ ลองอีกครั้ง");
+          else setToast(toastOf("ลบไม่สำเร็จ ลองอีกครั้ง"));
         }}
       />
     </div>

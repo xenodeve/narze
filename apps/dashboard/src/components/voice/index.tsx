@@ -1,6 +1,7 @@
 "use client";
 
 import { type PlayerAction, parseIntent } from "@narze/shared";
+import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ERROR_TH, explain, sendCommand } from "@/lib/control";
@@ -151,46 +152,57 @@ export function VoiceControl({ guildId }: { guildId: string }) {
         }}
         onStop={({ reason }) => (KEEP.has(reason) ? speech.stop() : speech.abort())}
       />
-      {open ? (
-        <section
-          ref={sheet}
-          tabIndex={-1}
-          className={styles.sheet}
-          role="dialog"
-          aria-label="สั่งด้วยเสียง"
-          aria-modal="false"
-        >
-          <div className={`deep ${styles.stage}`}>
-            {animate ? (
-              <Strands listening={speech.listening} intro={false} className={styles.strands} />
-            ) : (
-              // No WebGL, reduced motion or Save-Data: the flat wash (DESIGN.md §8).
-              <div className={styles.wash} />
-            )}
-            <p className={styles.heard} aria-live="polite" data-testid="voice-heard">
-              {speech.heard || (speech.listening ? "กำลังฟัง…" : " ")}
-            </p>
-          </div>
-          {speech.problem ? (
-            <p role="alert" className={styles.refused}>
-              {PROBLEM_TH[speech.problem]}
-            </p>
-          ) : null}
-          {outcome ? (
-            <p
-              role={outcome.tone === "ok" || outcome.tone === "sending" ? "status" : "alert"}
-              className={outcome.tone === "ok" || outcome.tone === "sending" ? styles.ok : styles.refused}
-              data-testid="voice-outcome"
+      {/* The sheet drops from the pill and folds back into it (#174), like the dialogs. */}
+      <MotionConfig reducedMotion="user">
+        <AnimatePresence>
+          {open ? (
+            <motion.section
+              key="voice-sheet"
+              ref={sheet}
+              tabIndex={-1}
+              className={styles.sheet}
+              role="dialog"
+              aria-label="สั่งด้วยเสียง"
+              aria-modal="false"
+              initial={{ opacity: 0, y: -8, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -6, scale: 0.98 }}
+              transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+              style={{ transformOrigin: "top right" }}
             >
-              {outcome.text}
-            </p>
+              <div className={`deep ${styles.stage}`}>
+                {animate ? (
+                  <Strands listening={speech.listening} intro={false} className={styles.strands} />
+                ) : (
+                  // No WebGL, reduced motion or Save-Data: the flat wash (DESIGN.md §8).
+                  <div className={styles.wash} />
+                )}
+                <p className={styles.heard} aria-live="polite" data-testid="voice-heard">
+                  {speech.heard || (speech.listening ? "กำลังฟัง…" : " ")}
+                </p>
+              </div>
+              {speech.problem ? (
+                <p role="alert" className={styles.refused}>
+                  {PROBLEM_TH[speech.problem]}
+                </p>
+              ) : null}
+              {outcome ? (
+                <p
+                  role={outcome.tone === "ok" || outcome.tone === "sending" ? "status" : "alert"}
+                  className={outcome.tone === "ok" || outcome.tone === "sending" ? styles.ok : styles.refused}
+                  data-testid="voice-outcome"
+                >
+                  {outcome.text}
+                </p>
+              ) : null}
+              <p className={styles.hint}>ลองพูดว่า "เล่นเพลง …", "ข้าม", "หยุด", "เล่นต่อ", "เสียง 40", "วน", "สุ่ม"</p>
+              <button type="button" className={styles.close} onClick={close}>
+                ปิด
+              </button>
+            </motion.section>
           ) : null}
-          <p className={styles.hint}>ลองพูดว่า "เล่นเพลง …", "ข้าม", "หยุด", "เล่นต่อ", "เสียง 40", "วน", "สุ่ม"</p>
-          <button type="button" className={styles.close} onClick={close}>
-            ปิด
-          </button>
-        </section>
-      ) : null}
+        </AnimatePresence>
+      </MotionConfig>
     </>
   );
 }

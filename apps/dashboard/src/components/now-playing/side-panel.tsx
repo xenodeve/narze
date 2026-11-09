@@ -12,6 +12,8 @@ import styles from "./side-panel.module.css";
  */
 export function SidePanel({ guildId, queue }: { guildId: string; queue: ReactNode }) {
   const [tab, setTab] = useState<"queue" | "search">("queue");
+  // Search mounts the first time it is opened, then stays: switching back keeps the query (#174).
+  const [searchOpened, setSearchOpened] = useState(false);
   const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
 
   const add = async (item: { title: string; query: string }) => {
@@ -39,17 +41,26 @@ export function SidePanel({ guildId, queue }: { guildId: string; queue: ReactNod
             aria-selected={tab === value}
             aria-controls={`pane-${value}`}
             className={pill.tab}
-            onClick={() => setTab(value)}
+            onClick={() => {
+              setTab(value);
+              if (value === "search") setSearchOpened(true);
+            }}
           >
             {label}
           </button>
         ))}
       </div>
-      <div id="pane-queue" role="tabpanel" aria-labelledby="tab-queue" hidden={tab !== "queue"}>
+      <div id="pane-queue" role="tabpanel" aria-labelledby="tab-queue" className={styles.pane} hidden={tab !== "queue"}>
         {queue}
       </div>
-      <div id="pane-search" role="tabpanel" aria-labelledby="tab-search" hidden={tab !== "search"}>
-        {tab === "search" ? (
+      <div
+        id="pane-search"
+        role="tabpanel"
+        aria-labelledby="tab-search"
+        className={styles.pane}
+        hidden={tab !== "search"}
+      >
+        {searchOpened ? (
           <>
             {status ? (
               <p role="status" className={status.ok ? styles.done : styles.error}>

@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { Thinking } from "@/components/catalog/thinking";
 import { getMessages, useLoad } from "@/lib/admin";
 import { initial, kb, thaiDateTime } from "@/lib/format";
+import { usePresence } from "@/lib/use-presence";
 import styles from "./channel.module.css";
 import { DiscordText } from "./discord-markdown";
 
@@ -51,6 +52,8 @@ export function ChannelViewer({
 
 function Message({ message: m, threadHref }: { message: DiscordMessage; threadHref: (id: string) => string }) {
   const [open, setOpen] = useState<Attachment | null>(null);
+  // Stays mounted while it fades out (#174).
+  const lightbox = usePresence(open).value;
   return (
     <li className={styles.message} data-testid="discord-message">
       {m.author.avatarUrl ? (
@@ -115,7 +118,7 @@ function Message({ message: m, threadHref }: { message: DiscordMessage; threadHr
           </Link>
         ) : null}
       </div>
-      {open ? <Lightbox attachment={open} onClose={() => setOpen(null)} /> : null}
+      {lightbox ? <Lightbox attachment={lightbox} onClose={() => setOpen(null)} /> : null}
     </li>
   );
 }

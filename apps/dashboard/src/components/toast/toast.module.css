@@ -1,0 +1,21 @@
+/* Toast (#174): floats at the bottom centre, above the page, never pushing content. */
+.region {
+  position: fixed;
+  inset: auto 0 max(24px, env(safe-area-inset-bottom));
+  z-index: 50;
+  display: grid;
+  justify-items: center;
+  padding-inline: 16px;
+  pointer-events: none;
+}
+
+.toast {
+  margin: 0;
+  padding: 10px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  box-shadow: var(--shadow-menu);
+  color: var(--ink);
+  pointer-events: auto;
+}

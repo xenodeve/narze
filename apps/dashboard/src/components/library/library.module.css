@@ -205,21 +205,6 @@
   box-shadow: var(--shadow-window);
 }
 
-.dialog[open] {
-  animation: enter 200ms var(--ease) both;
-}
-
-@keyframes enter {
-  from {
-    opacity: 0;
-    transform: translateY(8px) scale(0.98);
-  }
-}
-
-.dialog::backdrop {
-  background: rgb(0 0 0 / 0.45);
-}
-
 .dialogTitle {
   margin: 0 0 16px;
   font-size: 1.125rem;
@@ -260,24 +245,6 @@
 }
 
 /* Toast (DESIGN.md): surface, r2, menu shadow, 240 ms y 8. */
-.toast {
-  justify-self: start;
-  margin: 0;
-  padding: 10px 14px;
-  border-radius: var(--r2);
-  background: var(--surface);
-  box-shadow: var(--shadow-menu);
-  color: var(--ink);
-  animation: toast 240ms var(--ease) both;
-}
-
-@keyframes toast {
-  from {
-    opacity: 0;
-    transform: translateY(8px) scale(0.98);
-  }
-}
-
 .move {
   display: inline-flex;
 }
@@ -295,12 +262,5 @@
   .index,
   .track > .meta {
     display: none;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .dialog[open],
-  .toast {
-    animation: none;
   }
 }

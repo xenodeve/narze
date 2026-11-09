@@ -66,6 +66,55 @@ html[lang="th"] body {
   font-feature-settings: normal;
 }
 
+/*
+ * Dialogs (DESIGN.md, #174): every modal enters AND leaves, 200 ms, y 8px → 0, scale .98 → 1, its
+ * backdrop fading with it. `overlay` and `display` transition discretely so the closing state stays
+ * in the top layer until the fade ends; @starting-style gives the opening state to animate from.
+ */
+dialog {
+  opacity: 0;
+  transform: translateY(8px) scale(0.98);
+  transition:
+    opacity 200ms var(--ease),
+    transform 200ms var(--ease),
+    overlay 200ms var(--ease) allow-discrete,
+    display 200ms var(--ease) allow-discrete;
+}
+
+dialog[open] {
+  opacity: 1;
+  transform: none;
+}
+
+@starting-style {
+  dialog[open] {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+dialog::backdrop {
+  background: rgb(0 0 0 / 0);
+  backdrop-filter: blur(0);
+  transition:
+    background-color 200ms var(--ease),
+    backdrop-filter 200ms var(--ease),
+    overlay 200ms var(--ease) allow-discrete,
+    display 200ms var(--ease) allow-discrete;
+}
+
+dialog[open]::backdrop {
+  background: rgb(0 0 0 / 0.35);
+  backdrop-filter: blur(4px);
+}
+
+@starting-style {
+  dialog[open]::backdrop {
+    background: rgb(0 0 0 / 0);
+    backdrop-filter: blur(0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

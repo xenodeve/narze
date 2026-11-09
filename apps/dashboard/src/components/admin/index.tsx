@@ -12,6 +12,7 @@ import { kb } from "@/lib/format";
 import { duration } from "@/lib/history";
 import { useSession } from "@/lib/session";
 import { useTokenHex } from "@/lib/tokens";
+import { usePresence } from "@/lib/use-presence";
 import styles from "./admin.module.css";
 
 // The supplied SloshGauge (DESIGN.md): read-only CPU / memory meters here.
@@ -253,6 +254,8 @@ const POWER = {
 /** Spec #51: restart and shutdown, each behind a confirmation that says what will happen (#111 AC3). */
 export function BotPower() {
   const [asking, setAsking] = useState<keyof typeof POWER | null>(null);
+  // Stays mounted while it fades out (#174).
+  const shownAsk = usePresence(asking).value;
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -283,22 +286,22 @@ export function BotPower() {
           {message.text}
         </p>
       ) : null}
-      {asking ? (
+      {shownAsk ? (
         <dialog ref={dialog} className={styles.dialog} onClose={() => setAsking(null)} aria-labelledby="power-dialog">
           <h2 id="power-dialog" className={styles.subtitle}>
-            {POWER[asking].title}
+            {POWER[shownAsk].title}
           </h2>
-          <p className={styles.hint}>{POWER[asking].text}</p>
+          <p className={styles.hint}>{POWER[shownAsk].text}</p>
           <div className={styles.toolbar}>
             <button type="button" className={styles.ghost} onClick={() => dialog.current?.close()}>
               ยกเลิก
             </button>
             <button
               type="button"
-              className={asking === "shutdown" ? styles.danger : styles.primary}
+              className={shownAsk === "shutdown" ? styles.danger : styles.primary}
               onClick={() => void confirm()}
             >
-              {POWER[asking].label}
+              {POWER[shownAsk].label}
             </button>
           </div>
         </dialog>
