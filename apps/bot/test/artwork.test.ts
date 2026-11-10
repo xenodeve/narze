@@ -20,10 +20,13 @@ const track = (over: Partial<Track> = {}): Track => ({
 });
 
 describe("track artwork (#104, spec #62, #63)", () => {
-  test("a YouTube video gets its upgraded 16:9 thumbnail; a music upload its sddefault", async () => {
+  test("every YouTube track, music or video, gets a 16:9 picture: maxres, else mq (#181)", async () => {
     const artwork = createArtwork({
-      head: okFor(["https://img.youtube.com/vi/vid/maxresdefault.jpg"]),
-      youtube: { videoFacts: async (id) => (id === "song" ? { categoryId: "10", description: "", topics: [] } : null) },
+      head: okFor([
+        "https://img.youtube.com/vi/vid/maxresdefault.jpg",
+        "https://img.youtube.com/vi/song/mqdefault.jpg",
+        "https://img.youtube.com/vi/song/hqdefault.jpg",
+      ]),
     });
     const video = lavalinkTrack({
       sourceName: "youtube",
@@ -36,7 +39,7 @@ describe("track artwork (#104, spec #62, #63)", () => {
       uri: "https://www.youtube.com/watch?v=song",
     });
     expect(await artwork.trackArt(video)).toBe("https://img.youtube.com/vi/vid/maxresdefault.jpg");
-    expect(await artwork.trackArt(song)).toBe("https://i.ytimg.com/vi/song/sddefault.jpg");
+    expect(await artwork.trackArt(song)).toBe("https://img.youtube.com/vi/song/mqdefault.jpg");
   });
 
   test("any other source keeps Lavalink's picture only if it is a real image", async () => {
@@ -98,7 +101,10 @@ describe("playlist picture (#104, spec #64)", () => {
       youtube: { pageImage: async (u) => (u.includes("youtube") ? page : null) },
     });
     expect(await artwork.playlistArt("https://open.spotify.com/playlist/1", "first")).toBe(own);
-    expect(await artwork.playlistArt("https://www.youtube.com/playlist?list=1", "first")).toBe(page);
+    // The page image is 4:3 (hqdefault); with no larger size answering, its 16:9 mqdefault is used (#181).
+    expect(await artwork.playlistArt("https://www.youtube.com/playlist?list=1", "first")).toBe(
+      "https://i.ytimg.com/vi/x/mqdefault.jpg",
+    );
     expect(await artwork.playlistArt("https://soundcloud.com/x/sets/y", "first")).toBe("first");
   });
 });
