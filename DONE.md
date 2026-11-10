@@ -6,6 +6,16 @@
 
 ---
 
+## #178 Now Playing embed: the largest thumbnail that exists (2026-11-10, branch `fix/178-now-playing-thumbnail`)
+
+**Goal:** the Now Playing embed shows the full-size picture, as v5 did, and falls back when the largest size is missing.
+
+**Shipped:**
+- The notice at track start waits for the picture lookup `artLater` began (one lookup per track, shared through a `WeakMap`), alongside the author icon and within the same `ICON_WAIT_MS` (1.5 s); past that it goes out with Lavalink's `mqdefault`, as before (`apps/bot/src/music/music.ts`).
+- `upgrade` checks music thumbnails too: `sddefault`, else `hqdefault` (same 4:3 shape), else the original. Videos stay `maxresdefault` → `hqdefault` (`apps/bot/src/music/thumbnails.ts` `LARGER`).
+
+**Validated:** unit tests red first (sddefault fallback; notice waits for a late picture), plus a guard that a hung lookup still posts within the budget. Real YouTube through `createArtwork`: `SX_ViT4Ra7k` → maxresdefault, `jNQXAC9IVRw` (no maxres, no sd) → hqdefault for both video and music. Not yet seen in a real Discord embed.
+
 ## #176 Usability: idle stage, reasons, sign-in and retry, last server, labels (2026-11-09, branch `feat/176-usability`)
 
 **Goal:** the usability half of the Dashboard UX scrutinize.

@@ -160,12 +160,24 @@ export function createMusic({
     if (fallback && fallback !== music) await announce(fallback, notice);
   }
 
+  /** Lookups in flight: the notice at track start waits on the one artLater began (#178). */
+  const resolving = new WeakMap<LavalinkTrack, Promise<void>>();
+
   /** Resolves a track's picture once (spec #62/#63); toTrack reads it from userData. */
-  async function resolveArt(track: LavalinkTrack): Promise<void> {
+  function resolveArt(track: LavalinkTrack): Promise<void> {
     const data = (track.userData ?? {}) as Record<string, unknown>;
-    if (!artwork || ARTWORK in data) return;
-    const url = await artwork.trackArt(track).catch(() => track.info.artworkUrl ?? null);
-    track.userData = { ...(track.userData as Record<string, unknown>), [ARTWORK]: url };
+    if (!artwork || ARTWORK in data) return Promise.resolve();
+    const pending = resolving.get(track);
+    if (pending) return pending;
+    const lookup = artwork
+      .trackArt(track)
+      .catch(() => track.info.artworkUrl ?? null)
+      .then((url) => {
+        track.userData = { ...(track.userData as Record<string, unknown>), [ARTWORK]: url };
+      })
+      .finally(() => resolving.delete(track));
+    resolving.set(track, lookup);
+    return lookup;
   }
 
   /**
@@ -405,12 +417,16 @@ export function createMusic({
       {
         const from = (track.userData as { playlist?: { url?: string; thumbnail?: string | null } } | undefined)
           ?.playlist;
-        // The icon may wait a moment for Spotify, never longer than ICON_WAIT_MS (then the avatar).
-        const iconUrl = artwork
-          ? await within(ICON_WAIT_MS, artwork.icon(shown, from?.thumbnail ?? null)).catch(() => undefined)
-          : undefined;
+        // The icon may wait a moment for Spotify and the picture for its largest size (#178), both
+        // at once and never longer than ICON_WAIT_MS; past that the avatar and Lavalink's picture go.
+        const [iconUrl] = await Promise.all([
+          artwork
+            ? within(ICON_WAIT_MS, artwork.icon(shown, from?.thumbnail ?? null)).catch(() => undefined)
+            : undefined,
+          within(ICON_WAIT_MS, resolveArt(track)).catch(() => undefined),
+        ]);
         const authorUrl = usePlaylistUrl && from?.url ? from.url : undefined;
-        await notify(player.guildId, channel, nowPlayingNotice(shown, { iconUrl, authorUrl })).catch(
+        await notify(player.guildId, channel, nowPlayingNotice(toTrack(track) ?? shown, { iconUrl, authorUrl })).catch(
           warn("now-playing notice"),
         );
       }

@@ -55,9 +55,18 @@ describe("thumbnail upgrade (#104, spec #63)", () => {
     expect(await upgrade(mq, heads({ [maxres]: { ...image, contentLength: 800 } }))).toBe(mq);
   });
 
-  test("a music thumbnail (sddefault) keeps its shape", async () => {
+  test("a music thumbnail (sddefault) keeps its 4:3 shape when it exists, else hqdefault (#178)", async () => {
     const sd = "https://i.ytimg.com/vi/abc/sddefault.jpg";
+    const sdHq = "https://i.ytimg.com/vi/abc/hqdefault.jpg";
+    expect(await upgrade(sd, heads({ [sd]: image, [sdHq]: image }))).toBe(sd);
+    // Old uploads have no sddefault: YouTube answers 404 with a grey placeholder.
+    expect(await upgrade(sd, heads({ [sdHq]: image }))).toBe(sdHq);
     expect(await upgrade(sd, heads({}))).toBe(sd);
+  });
+
+  test("any other YouTube variant is kept as it is, whatever its name (#178)", async () => {
+    const odd = "https://i.ytimg.com/vi/abc/constructor.jpg";
+    expect(await upgrade(odd, heads({}))).toBe(odd);
   });
 
   test("a non-YouTube image is kept only if it checks out", async () => {

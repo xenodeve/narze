@@ -103,6 +103,9 @@ test("while the player loads, the skeleton already has the page's two columns (#
   await expect(skeleton).toBeVisible();
   await expect(skeleton.getByTestId("skeleton-stage")).toBeVisible();
   await expect(skeleton.getByTestId("skeleton-side")).toBeVisible();
+  // Measure at rest: the page enters scaled from 0.985 about its centre, so a skeleton that shows
+  // within those 260 ms sits up to ~7 px off its resting edge (#180).
+  await page.getByTestId("page").evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));
   const stage = await skeleton.getByTestId("skeleton-stage").boundingBox();
   release();
   await expect(skeleton).toHaveCount(0);
