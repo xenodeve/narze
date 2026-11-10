@@ -54,14 +54,16 @@ describe("thumbnail upgrade (#104, spec #63)", () => {
     expect(await upgrade(mq, heads({ [maxres]: { ...image, contentLength: 800 } }))).toBe(mq);
   });
 
-  test("a 4:3 letterboxed variant (sd, hq, default) becomes 16:9: maxres, else mq (#181)", async () => {
+  test("a 4:3 letterboxed variant (sd, hq, default) becomes 16:9: maxres, else mq — even if no check answers (#181)", async () => {
+    const big = "https://i.ytimg.com/vi/abc/maxresdefault.jpg";
+    const small = "https://i.ytimg.com/vi/abc/mqdefault.jpg";
     for (const v of ["sddefault", "hqdefault", "default"]) {
       const from = `https://i.ytimg.com/vi/abc/${v}.jpg`;
-      const big = "https://i.ytimg.com/vi/abc/maxresdefault.jpg";
-      const small = "https://i.ytimg.com/vi/abc/mqdefault.jpg";
-      expect(await upgrade(from, heads({ [from]: image, [big]: image, [small]: image }))).toBe(big);
+      expect(await upgrade(from, heads({ [big]: image, [small]: image }))).toBe(big);
       // Old uploads have no maxresdefault: YouTube answers 404 with a grey placeholder.
-      expect(await upgrade(from, heads({ [from]: image, [small]: image }))).toBe(small);
+      expect(await upgrade(from, heads({ [small]: image }))).toBe(small);
+      // A failed or timed-out check never hands back the 4:3 original.
+      expect(await upgrade(from, heads({}))).toBe(small);
     }
   });
 
@@ -93,6 +95,8 @@ describe("#104 review fixes", () => {
     const og = "https://i.ytimg.com/vi/abc/hqdefault.jpg?sqp=xyz";
     const maxres = "https://i.ytimg.com/vi/abc/maxresdefault.jpg";
     expect(await playlistThumbnail(async () => og, null, heads({ [maxres]: image }))).toBe(maxres);
+    // No size answers: the 16:9 mqdefault, never the 4:3 page image (#181).
+    expect(await playlistThumbnail(async () => og, null, heads({}))).toBe("https://i.ytimg.com/vi/abc/mqdefault.jpg");
   });
 
   test("an image on an internal address is never requested", async () => {

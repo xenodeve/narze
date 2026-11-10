@@ -12,7 +12,7 @@
 
 **Root cause:** `sddefault` (music, spec #62) and `hqdefault` (the #178 fallback) are 4:3 files with the 16:9 frame letterboxed between black bars, so Discord showed a near-square box with bars.
 
-**Change:** `apps/bot/src/music/thumbnails.ts` — `VIDEO_SIZES = ["maxresdefault","mqdefault"]`; every known YouTube variant (`default`/`mq`/`hq`/`sd`/`maxres`) is upgraded through it; `thumbnailFor(id)` is always `mqdefault`. `apps/bot/src/music/artwork.ts` `trackArt` no longer classifies music/video, so it no longer calls the YouTube Data API (`videoFacts`); classification stays for Play History (`history.ts`). Supersedes spec #62's "music → sddefault" for the picture.
+**Change:** `apps/bot/src/music/thumbnails.ts` — `VIDEO_SIZES = ["maxresdefault","mqdefault"]`; every known YouTube variant (`default`/`mq`/`hq`/`sd`/`maxres`) is upgraded through it, and when no check answers the result is `mqdefault`, never the 4:3 original (review fix: covers playlist page images too); `thumbnailFor(id)` is always `mqdefault`. `apps/bot/src/music/artwork.ts` `trackArt` no longer classifies music/video, so it no longer calls the YouTube Data API (`videoFacts`); classification stays for Play History (`history.ts`). Supersedes spec #62's "music → sddefault" for the picture.
 
 **Validated:** red first (3 tests), then `apps/bot` 234 pass, lint + typecheck clean. Real `createArtwork` against YouTube with a "- Topic" author: `SX_ViT4Ra7k` → `maxresdefault` (1280×720), `jNQXAC9IVRw` (no maxres) → `mqdefault` (320×180). Not yet seen in a real Discord embed.
 

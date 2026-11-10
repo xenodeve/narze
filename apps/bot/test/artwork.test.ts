@@ -101,7 +101,10 @@ describe("playlist picture (#104, spec #64)", () => {
       youtube: { pageImage: async (u) => (u.includes("youtube") ? page : null) },
     });
     expect(await artwork.playlistArt("https://open.spotify.com/playlist/1", "first")).toBe(own);
-    expect(await artwork.playlistArt("https://www.youtube.com/playlist?list=1", "first")).toBe(page);
+    // The page image is 4:3 (hqdefault); with no larger size answering, its 16:9 mqdefault is used (#181).
+    expect(await artwork.playlistArt("https://www.youtube.com/playlist?list=1", "first")).toBe(
+      "https://i.ytimg.com/vi/x/mqdefault.jpg",
+    );
     expect(await artwork.playlistArt("https://soundcloud.com/x/sets/y", "first")).toBe("first");
   });
 });

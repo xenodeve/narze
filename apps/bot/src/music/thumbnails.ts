@@ -62,23 +62,26 @@ const YOUTUBE_THUMB = /^https:\/\/(?:i\.ytimg\.com|img\.youtube\.com)\/vi\/([\w-
  * The 16:9 sizes, largest first (#181). maxresdefault is missing on old uploads; mqdefault exists
  * for every video. default, hqdefault and sddefault are 4:3 with the frame letterboxed, so none is used.
  */
-const VIDEO_SIZES = ["maxresdefault", "mqdefault"] as const;
+const WIDE_SIZES = ["maxresdefault", "mqdefault"] as const;
 
 /** YouTube's own thumbnail names; any other name in the path is kept as it is (#178). */
 const KNOWN_VARIANTS = new Set(["default", "mqdefault", "hqdefault", "sddefault", "maxresdefault"]);
 
-/** The first of `variants` that is a real image — all asked at once; null when none is. */
-async function bestOf(url: string, id: string, head: Head, variants: readonly string[]): Promise<string | null> {
+/**
+ * The largest 16:9 size that is a real image — all asked at once. When no check answers (a
+ * timeout, a network error), mqdefault, which exists for every video, never the 4:3 original (#181).
+ */
+async function widest(url: string, id: string, head: Head): Promise<string> {
   const base = url.replace(/\/vi\/[\w-]+\/.*$/, `/vi/${id}`);
-  const candidates = variants.map((v) => `${base}/${v}.jpg`);
+  const candidates = WIDE_SIZES.map((v) => `${base}/${v}.jpg`);
   const checks = await Promise.all(candidates.map((c) => isImage(c, head)));
-  return candidates[checks.indexOf(true)] ?? null;
+  return candidates[checks.indexOf(true)] ?? `${base}/mqdefault.jpg`;
 }
 
 /**
  * Spec #63: a YouTube thumbnail of any known size becomes maxresdefault when that is a real image,
- * else mqdefault, else stays — always the video's 16:9 shape (#181). Any other picture is kept
- * only if it checks out.
+ * else mqdefault — the video's 16:9 shape (#181). An unknown YouTube name is kept as it is; any
+ * other picture is kept only if it checks out.
  */
 export async function upgrade(url: string | null, head: Head): Promise<string | null> {
   if (!url) return null;
@@ -86,7 +89,7 @@ export async function upgrade(url: string | null, head: Head): Promise<string | 
   if (!youtube) return (await isImage(url, head)) ? url : null;
   const [, id, variant] = youtube;
   if (!KNOWN_VARIANTS.has(variant ?? "")) return url;
-  return (await bestOf(url, id ?? "", head, VIDEO_SIZES)) ?? url;
+  return widest(url, id ?? "", head);
 }
 
 /** Spec #64: the playlist's own picture (Spotify image, YouTube page image), then the first track's. */
@@ -96,9 +99,9 @@ export async function playlistThumbnail(
   head: Head,
 ): Promise<string | null> {
   const found = await own().catch(() => null);
-  // A YouTube page image (any variant, often with a query string) is upgraded to maxres (spec #64).
+  // A YouTube page image (any variant, often with a query string) becomes 16:9 (spec #64, #181).
   const youtube = found ? YOUTUBE_THUMB.exec(found) : null;
-  if (found && youtube) return (await bestOf(found, youtube[1] ?? "", head, VIDEO_SIZES)) ?? found;
+  if (found && youtube) return widest(found, youtube[1] ?? "", head);
   const checked = await upgrade(found, head);
   return checked ?? firstTrack;
 }

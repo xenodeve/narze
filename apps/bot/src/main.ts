@@ -117,8 +117,8 @@ const music = createMusic({
   announce: announcer(client),
   // Queue Snapshots are local files, so Queue Recovery works in both Runtime Modes (CONTEXT.md).
   snapshots: createSnapshotStore(env.QUEUE_SNAPSHOT_DIR ?? ".data/queue-snapshots"),
-  // Track Resolution pictures (#104). Credentials only from the environment; without them the
-  // Bot classifies from Lavalink's data and falls back to avatars (spec #62–#67).
+  // Track Resolution pictures (#104). Credentials only from the environment; without them a
+  // playlist has no page or Spotify image and icons fall back to avatars (spec #63–#67, #181).
   artwork: createArtwork({
     youtube,
     spotify,
