@@ -20,10 +20,13 @@ const track = (over: Partial<Track> = {}): Track => ({
 });
 
 describe("track artwork (#104, spec #62, #63)", () => {
-  test("a YouTube video gets its upgraded 16:9 thumbnail; a music upload its sddefault", async () => {
+  test("every YouTube track, music or video, gets a 16:9 picture: maxres, else mq (#181)", async () => {
     const artwork = createArtwork({
-      head: okFor(["https://img.youtube.com/vi/vid/maxresdefault.jpg"]),
-      youtube: { videoFacts: async (id) => (id === "song" ? { categoryId: "10", description: "", topics: [] } : null) },
+      head: okFor([
+        "https://img.youtube.com/vi/vid/maxresdefault.jpg",
+        "https://img.youtube.com/vi/song/mqdefault.jpg",
+        "https://img.youtube.com/vi/song/hqdefault.jpg",
+      ]),
     });
     const video = lavalinkTrack({
       sourceName: "youtube",
@@ -36,7 +39,7 @@ describe("track artwork (#104, spec #62, #63)", () => {
       uri: "https://www.youtube.com/watch?v=song",
     });
     expect(await artwork.trackArt(video)).toBe("https://img.youtube.com/vi/vid/maxresdefault.jpg");
-    expect(await artwork.trackArt(song)).toBe("https://i.ytimg.com/vi/song/sddefault.jpg");
+    expect(await artwork.trackArt(song)).toBe("https://img.youtube.com/vi/song/mqdefault.jpg");
   });
 
   test("any other source keeps Lavalink's picture only if it is a real image", async () => {

@@ -27,9 +27,8 @@ describe("music vs video (#104, spec #62)", () => {
     );
   });
 
-  test("music gets the square-ish sddefault, video the 16:9 mqdefault", () => {
-    expect(thumbnailFor("abc", true)).toBe("https://i.ytimg.com/vi/abc/sddefault.jpg");
-    expect(thumbnailFor("abc", false)).toBe("https://img.youtube.com/vi/abc/mqdefault.jpg");
+  test("every YouTube track starts from the 16:9 mqdefault, music or video (#181)", () => {
+    expect(thumbnailFor("abc")).toBe("https://img.youtube.com/vi/abc/mqdefault.jpg");
   });
 });
 
@@ -49,19 +48,21 @@ describe("thumbnail upgrade (#104, spec #63)", () => {
     expect(await upgrade(mq, heads({ [maxres]: image }))).toBe(maxres);
   });
 
-  test("maxres missing, not an image, or a tiny placeholder falls back to hq, then the original", async () => {
-    expect(await upgrade(mq, heads({ [hq]: image }))).toBe(hq);
-    expect(await upgrade(mq, heads({ [maxres]: { ...image, contentType: "text/html" }, [hq]: image }))).toBe(hq);
+  test("maxres missing, not an image, or a tiny placeholder falls back to mq, never the 4:3 hq (#181)", async () => {
+    expect(await upgrade(mq, heads({ [hq]: image, [mq]: image }))).toBe(mq);
+    expect(await upgrade(mq, heads({ [maxres]: { ...image, contentType: "text/html" }, [mq]: image }))).toBe(mq);
     expect(await upgrade(mq, heads({ [maxres]: { ...image, contentLength: 800 } }))).toBe(mq);
   });
 
-  test("a music thumbnail (sddefault) keeps its 4:3 shape when it exists, else hqdefault (#178)", async () => {
-    const sd = "https://i.ytimg.com/vi/abc/sddefault.jpg";
-    const sdHq = "https://i.ytimg.com/vi/abc/hqdefault.jpg";
-    expect(await upgrade(sd, heads({ [sd]: image, [sdHq]: image }))).toBe(sd);
-    // Old uploads have no sddefault: YouTube answers 404 with a grey placeholder.
-    expect(await upgrade(sd, heads({ [sdHq]: image }))).toBe(sdHq);
-    expect(await upgrade(sd, heads({}))).toBe(sd);
+  test("a 4:3 letterboxed variant (sd, hq, default) becomes 16:9: maxres, else mq (#181)", async () => {
+    for (const v of ["sddefault", "hqdefault", "default"]) {
+      const from = `https://i.ytimg.com/vi/abc/${v}.jpg`;
+      const big = "https://i.ytimg.com/vi/abc/maxresdefault.jpg";
+      const small = "https://i.ytimg.com/vi/abc/mqdefault.jpg";
+      expect(await upgrade(from, heads({ [from]: image, [big]: image, [small]: image }))).toBe(big);
+      // Old uploads have no maxresdefault: YouTube answers 404 with a grey placeholder.
+      expect(await upgrade(from, heads({ [from]: image, [small]: image }))).toBe(small);
+    }
   });
 
   test("any other YouTube variant is kept as it is, whatever its name (#178)", async () => {

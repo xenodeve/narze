@@ -36,9 +36,8 @@ export function classify(input: ClassifyInput): Classification {
   return music ? MUSIC : VIDEO;
 }
 
-/** Spec #62: music gets the square-ish sddefault, video the 16:9 mqdefault. */
-export const thumbnailFor = (videoId: string, music: boolean): string =>
-  music ? `https://i.ytimg.com/vi/${videoId}/sddefault.jpg` : `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
+/** A YouTube track's picture keeps the video's 16:9 shape, music or video (#181; was spec #62's sddefault). */
+export const thumbnailFor = (videoId: string): string => `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
 
 /** A HEAD request's answer; injected so tests and the Bot decide how to fetch. */
 export type Head = (url: string) => Promise<{ ok: boolean; contentType: string; contentLength: number }>;
@@ -59,15 +58,14 @@ async function isImage(url: string, head: Head): Promise<boolean> {
 
 const YOUTUBE_THUMB = /^https:\/\/(?:i\.ytimg\.com|img\.youtube\.com)\/vi\/([\w-]+)\/([a-z]+)\.jpg(?:\?.*)?$/;
 
-/** A 16:9 video picture's sizes, largest first. */
-const VIDEO_SIZES = ["maxresdefault", "hqdefault"] as const;
+/**
+ * The 16:9 sizes, largest first (#181). maxresdefault is missing on old uploads; mqdefault exists
+ * for every video. default, hqdefault and sddefault are 4:3 with the frame letterboxed, so none is used.
+ */
+const VIDEO_SIZES = ["maxresdefault", "mqdefault"] as const;
 
-/** For a variant, the sizes to try in order, largest first; every one keeps the variant's shape. */
-const TRY_ORDER = new Map<string, readonly string[]>([
-  ["mqdefault", VIDEO_SIZES],
-  // 4:3 music thumbnail (spec #62): sddefault is missing on old uploads, which still have hqdefault (#178).
-  ["sddefault", ["sddefault", "hqdefault"]],
-]);
+/** YouTube's own thumbnail names; any other name in the path is kept as it is (#178). */
+const KNOWN_VARIANTS = new Set(["default", "mqdefault", "hqdefault", "sddefault", "maxresdefault"]);
 
 /** The first of `variants` that is a real image — all asked at once; null when none is. */
 async function bestOf(url: string, id: string, head: Head, variants: readonly string[]): Promise<string | null> {
@@ -78,18 +76,17 @@ async function bestOf(url: string, id: string, head: Head, variants: readonly st
 }
 
 /**
- * Spec #63: a YouTube video thumbnail (mqdefault) becomes maxresdefault when that is a real
- * image, else hqdefault, else stays. A music thumbnail (sddefault) is checked and falls back to
- * hqdefault, the same 4:3 shape (#178). Any other picture is kept only if it checks out.
+ * Spec #63: a YouTube thumbnail of any known size becomes maxresdefault when that is a real image,
+ * else mqdefault, else stays — always the video's 16:9 shape (#181). Any other picture is kept
+ * only if it checks out.
  */
 export async function upgrade(url: string | null, head: Head): Promise<string | null> {
   if (!url) return null;
   const youtube = YOUTUBE_THUMB.exec(url);
   if (!youtube) return (await isImage(url, head)) ? url : null;
   const [, id, variant] = youtube;
-  const variants = TRY_ORDER.get(variant ?? "");
-  if (!variants) return url;
-  return (await bestOf(url, id ?? "", head, variants)) ?? url;
+  if (!KNOWN_VARIANTS.has(variant ?? "")) return url;
+  return (await bestOf(url, id ?? "", head, VIDEO_SIZES)) ?? url;
 }
 
 /** Spec #64: the playlist's own picture (Spotify image, YouTube page image), then the first track's. */

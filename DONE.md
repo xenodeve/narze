@@ -6,6 +6,16 @@
 
 ---
 
+## #181 YouTube artwork keeps the video's 16:9 shape (2026-11-10, branch `fix/181-youtube-16x9`)
+
+**Goal:** a YouTube track's picture is a landscape rectangle, the video's own shape (developer request).
+
+**Root cause:** `sddefault` (music, spec #62) and `hqdefault` (the #178 fallback) are 4:3 files with the 16:9 frame letterboxed between black bars, so Discord showed a near-square box with bars.
+
+**Change:** `apps/bot/src/music/thumbnails.ts` — `VIDEO_SIZES = ["maxresdefault","mqdefault"]`; every known YouTube variant (`default`/`mq`/`hq`/`sd`/`maxres`) is upgraded through it; `thumbnailFor(id)` is always `mqdefault`. `apps/bot/src/music/artwork.ts` `trackArt` no longer classifies music/video, so it no longer calls the YouTube Data API (`videoFacts`); classification stays for Play History (`history.ts`). Supersedes spec #62's "music → sddefault" for the picture.
+
+**Validated:** red first (3 tests), then `apps/bot` 234 pass, lint + typecheck clean. Real `createArtwork` against YouTube with a "- Topic" author: `SX_ViT4Ra7k` → `maxresdefault` (1280×720), `jNQXAC9IVRw` (no maxres) → `mqdefault` (320×180). Not yet seen in a real Discord embed.
+
 ## #178 Now Playing embed: the largest thumbnail that exists (2026-11-10, branch `fix/178-now-playing-thumbnail`)
 
 **Goal:** the Now Playing embed shows the full-size picture, as v5 did, and falls back when the largest size is missing.

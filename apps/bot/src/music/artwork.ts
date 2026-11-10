@@ -2,7 +2,7 @@ import type { Track } from "@narze/shared";
 import type { Track as LavalinkTrack } from "lavalink-client";
 import { DEFAULT_ICON } from "./format";
 import type { Spotify } from "./spotify";
-import { classify, type Head, playlistThumbnail, thumbnailFor, upgrade } from "./thumbnails";
+import { type Head, playlistThumbnail, thumbnailFor, upgrade } from "./thumbnails";
 import type { YouTube } from "./youtube";
 
 /** Spec #67: what the embed author icon shows. */
@@ -49,7 +49,7 @@ export function createArtwork({
   botIcon = DEFAULT_ICON,
 }: {
   head?: Head;
-  youtube?: Partial<Pick<YouTube, "videoFacts" | "pageImage">>;
+  youtube?: Partial<Pick<YouTube, "pageImage">>;
   spotify?: Partial<Pick<Spotify, "artistImage" | "playlistImage">>;
   modes?: IconModes;
   /** The Bot's avatar; a getter, since it is known only once the Bot has logged in. */
@@ -57,22 +57,10 @@ export function createArtwork({
 } = {}) {
   const bot = () => (typeof botIcon === "function" ? botIcon() : botIcon) ?? DEFAULT_ICON;
   return {
-    /** Spec #62/#63: a YouTube track's thumbnail by music vs video; any other kept if it checks out. */
+    /** Spec #63: a YouTube track's 16:9 thumbnail, music or video (#181); any other kept if it checks out. */
     async trackArt(track: LavalinkTrack): Promise<string | null> {
       const info = track.info;
-      const uri = info.uri ?? "";
-      if (info.sourceName === "youtube" && info.identifier) {
-        const facts = await youtube?.videoFacts?.(info.identifier).catch(() => null);
-        const { isMusicContent } = classify({
-          sourceName: "youtube",
-          uri,
-          author: info.author ?? "",
-          categoryId: facts?.categoryId,
-          topics: facts?.topics,
-          description: facts?.description,
-        });
-        return upgrade(thumbnailFor(info.identifier, isMusicContent), head);
-      }
+      if (info.sourceName === "youtube" && info.identifier) return upgrade(thumbnailFor(info.identifier), head);
       return upgrade(info.artworkUrl ?? null, head);
     },
 
